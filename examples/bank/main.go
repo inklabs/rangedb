@@ -1,0 +1,3 @@
+package bank
+
+func main() {}
