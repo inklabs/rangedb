@@ -7,3 +7,5 @@ Examples are provided [here](examples).
 
 ## CI Status
 [![Build Status](https://travis-ci.org/inklabs/rangedb.svg?branch=master)](https://travis-ci.org/inklabs/rangedb)
+[![Test Coverage](https://api.codeclimate.com/v1/badges/c19eabe7c73ccc64738e/test_coverage)](https://codeclimate.com/github/inklabs/rangedb/test_coverage)
+[![Maintainability](https://api.codeclimate.com/v1/badges/c19eabe7c73ccc64738e/maintainability)](https://codeclimate.com/github/inklabs/rangedb/maintainability)
