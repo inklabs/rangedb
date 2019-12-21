@@ -446,8 +446,8 @@ func testSubscribeSendsNewEventsToSubscribersOnSave(t *testing.T, newStore NewSt
 		event1 := &ThingWasDone{Id: aggregateId, Number: 1}
 		require.NoError(t, store.Save(event1, nil))
 		event2 := &ThingWasDone{Id: aggregateId, Number: 1}
-		countSubscriber1 := newCountSubscriber()
-		countSubscriber2 := newCountSubscriber()
+		countSubscriber1 := NewCountSubscriber()
+		countSubscriber2 := NewCountSubscriber()
 		store.Subscribe(countSubscriber1, countSubscriber2)
 
 		// When
@@ -479,8 +479,8 @@ func testSubscribeAndReplaySendsPreviousAndNewEventsToSubscribersOnSave(t *testi
 		event1 := &ThingWasDone{Id: aggregateId, Number: 1}
 		require.NoError(t, store.Save(event1, nil))
 		event2 := &ThingWasDone{Id: aggregateId, Number: 1}
-		countSubscriber1 := newCountSubscriber()
-		countSubscriber2 := newCountSubscriber()
+		countSubscriber1 := NewCountSubscriber()
+		countSubscriber2 := NewCountSubscriber()
 		store.SubscribeAndReplay(countSubscriber1, countSubscriber2)
 
 		// When
@@ -514,7 +514,7 @@ type countSubscriber struct {
 	TotalEvents int
 }
 
-func newCountSubscriber() *countSubscriber {
+func NewCountSubscriber() *countSubscriber {
 	return &countSubscriber{}
 }
 

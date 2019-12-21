@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
@@ -45,4 +46,18 @@ func Test_GetEventsByAggregateTypes(t *testing.T) {
 
 	// Then
 	assert.Equal(t, 2, len(channels))
+}
+
+func Test_ReplayEvents(t *testing.T) {
+	// Given
+	inMemoryStore := inmemorystore.New()
+	event := rangedbtest.ThingWasDone{Id: "A", Number: 2}
+	require.NoError(t, inMemoryStore.Save(event, nil))
+	subscriber := rangedbtest.NewCountSubscriber()
+
+	// When
+	rangedb.ReplayEvents(inMemoryStore, subscriber)
+
+	// Then
+	assert.Equal(t, 1, subscriber.TotalEvents)
 }

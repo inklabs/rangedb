@@ -58,3 +58,11 @@ func GetEventsByAggregateTypes(store Store, aggregateTypes ...string) []<-chan *
 	}
 	return channels
 }
+
+func ReplayEvents(store Store, subscribers ...RecordSubscriber) {
+	for record := range store.AllEvents() {
+		for _, subscriber := range subscribers {
+			subscriber.Accept(record)
+		}
+	}
+}

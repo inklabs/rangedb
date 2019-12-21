@@ -156,11 +156,7 @@ func (s *levelDbStore) SaveEvent(aggregateType, aggregateId, eventType, eventId 
 }
 
 func (s *levelDbStore) SubscribeAndReplay(subscribers ...rangedb.RecordSubscriber) {
-	for record := range s.AllEvents() {
-		for _, subscriber := range subscribers {
-			subscriber.Accept(record)
-		}
-	}
+	rangedb.ReplayEvents(s, subscribers...)
 
 	s.mux.Lock()
 	s.Subscribe(subscribers...)
