@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/inklabs/rangedb"
+	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/rangedbtest"
 )
 
@@ -32,4 +33,16 @@ func Test_GetEventStream_ReturnsStreamFromMessage(t *testing.T) {
 
 	// Then
 	assert.Equal(t, "thing!e2c2b4fa64344d17984fc53631f3c462", stream)
+}
+
+func Test_GetEventsByAggregateTypes(t *testing.T) {
+	// Given
+	aggregateTypes := []string{"one", "two"}
+	inMemoryStore := inmemorystore.New()
+
+	// When
+	channels := rangedb.GetEventsByAggregateTypes(inMemoryStore, aggregateTypes...)
+
+	// Then
+	assert.Equal(t, 2, len(channels))
 }
