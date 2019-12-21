@@ -66,24 +66,7 @@ func (s *inMemoryStore) EventsByStream(stream string) <-chan *rangedb.Record {
 }
 
 func (s *inMemoryStore) EventsByStreamStartingWith(stream string, eventNumber uint64) <-chan *rangedb.Record {
-	s.mux.RLock()
-
-	records := make(chan *rangedb.Record)
-
-	go func() {
-		defer s.mux.RUnlock()
-
-		count := uint64(0)
-		for _, record := range s.recordsByStream[stream] {
-			if count >= eventNumber {
-				records <- record
-			}
-			count++
-		}
-		close(records)
-	}()
-
-	return records
+	return s.recordsFromMapStartingWith(s.recordsByStream, stream, eventNumber)
 }
 
 func (s *inMemoryStore) EventsByAggregateType(aggregateType string) <-chan *rangedb.Record {
@@ -100,6 +83,10 @@ func (s *inMemoryStore) EventsByAggregateTypes(aggregateTypes ...string) <-chan 
 }
 
 func (s *inMemoryStore) EventsByAggregateTypeStartingWith(aggregateType string, eventNumber uint64) <-chan *rangedb.Record {
+	return s.recordsFromMapStartingWith(s.recordsByAggregateType, aggregateType, eventNumber)
+}
+
+func (s *inMemoryStore) recordsFromMapStartingWith(m map[string][]*rangedb.Record, key string, eventNumber uint64) <-chan *rangedb.Record {
 	s.mux.RLock()
 
 	records := make(chan *rangedb.Record)
@@ -108,7 +95,7 @@ func (s *inMemoryStore) EventsByAggregateTypeStartingWith(aggregateType string, 
 		defer s.mux.RUnlock()
 
 		count := uint64(0)
-		for _, record := range s.recordsByAggregateType[aggregateType] {
+		for _, record := range m[key] {
 			if count >= eventNumber {
 				records <- record
 			}
