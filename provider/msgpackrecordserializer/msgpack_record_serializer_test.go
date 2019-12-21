@@ -1,9 +1,12 @@
 package msgpackrecordserializer_test
 
 import (
+	"bytes"
 	"fmt"
+	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vmihailenco/msgpack"
 
@@ -30,7 +33,7 @@ func Test_Failures(t *testing.T) {
 		_, err := serializer.Serialize(invalidRecord)
 
 		// Then
-		require.EqualError(t, err, "failed encoding record: msgpack: Encode(unsupported chan struct {})")
+		assert.EqualError(t, err, "failed encoding record: msgpack: Encode(unsupported chan struct {})")
 	})
 
 	t.Run("serialize fails with invalid record with bounded event", func(t *testing.T) {
@@ -46,7 +49,7 @@ func Test_Failures(t *testing.T) {
 		_, err := serializer.Serialize(invalidRecord)
 
 		// Then
-		require.EqualError(t, err, "failed encoding record: msgpack: Encode(unsupported chan struct {})")
+		assert.EqualError(t, err, "failed encoding record: msgpack: Encode(unsupported chan struct {})")
 	})
 
 	t.Run("serialize fails with invalid data in record", func(t *testing.T) {
@@ -62,7 +65,7 @@ func Test_Failures(t *testing.T) {
 		_, err := serializer.Serialize(invalidRecord)
 
 		// Then
-		require.EqualError(t, err, "failed encoding record data: msgpack: Encode(unsupported chan struct {})")
+		assert.EqualError(t, err, "failed encoding record data: msgpack: Encode(unsupported chan struct {})")
 	})
 
 	t.Run("deserialize fails with invalid input", func(t *testing.T) {
@@ -74,7 +77,7 @@ func Test_Failures(t *testing.T) {
 		_, err := serializer.Deserialize(invalidSerializedData)
 
 		// Then
-		require.EqualError(t, err, "failed decoding record: msgpack: invalid code=66 decoding map length")
+		assert.EqualError(t, err, "failed decoding record: msgpack: invalid code=66 decoding map length")
 	})
 
 	t.Run("deserialize with bound event fails with invalid event data", func(t *testing.T) {
@@ -88,7 +91,7 @@ func Test_Failures(t *testing.T) {
 		_, err = serializer.Deserialize(invalidSerializedData)
 
 		// Then
-		require.EqualError(t, err, "failed decoding event after record: EOF")
+		assert.EqualError(t, err, "failed decoding event after record: EOF")
 	})
 
 	t.Run("deserialize with unbound event fails with invalid event data", func(t *testing.T) {
@@ -101,7 +104,23 @@ func Test_Failures(t *testing.T) {
 		_, err = serializer.Deserialize(invalidSerializedData)
 
 		// Then
-		require.EqualError(t, err, "failed decoding event after record: EOF")
+		assert.EqualError(t, err, "failed decoding event after record: EOF")
+	})
+}
+
+func Test_UnmarshalRecord(t *testing.T) {
+	t.Run("returns EOF", func(t *testing.T) {
+		// Given
+		decoder := msgpack.NewDecoder(bytes.NewReader([]byte{}))
+
+		// When
+		record, err := msgpackrecordserializer.UnmarshalRecord(decoder, func(eventTypeName string) (r reflect.Type, b bool) {
+			return nil, false
+		})
+
+		// Then
+		assert.Equal(t, msgpackrecordserializer.EOF, err)
+		assert.Nil(t, record)
 	})
 }
 
