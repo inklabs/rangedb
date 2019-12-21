@@ -25,6 +25,7 @@ type Store interface {
 	EventsByAggregateTypeStartingWith(aggregateType string, eventNumber uint64) <-chan *Record
 	Save(event Event, metadata interface{}) error
 	SaveEvent(aggregateType, aggregateId, eventType, eventId string, event, metadata interface{}) error
+	Subscribe(subscribers ...RecordSubscriber)
 }
 
 type Event interface {
@@ -35,6 +36,10 @@ type Event interface {
 type AggregateMessage interface {
 	AggregateId() string
 	AggregateType() string
+}
+
+type RecordSubscriber interface {
+	Accept(record *Record)
 }
 
 func GetEventStream(message AggregateMessage) string {

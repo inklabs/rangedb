@@ -14,7 +14,9 @@ import (
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 )
 
-func VerifyStore(t *testing.T, newStore func(clock.Clock) (store rangedb.Store, tearDown func(), bindEvents func(events ...rangedb.Event))) {
+type NewStoreFunc func(clock.Clock) (store rangedb.Store, tearDown func(), bindEvents func(events ...rangedb.Event))
+
+func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 	t.Helper()
 
 	testEventsByStream(t, newStore)
@@ -25,9 +27,10 @@ func VerifyStore(t *testing.T, newStore func(clock.Clock) (store rangedb.Store, 
 	testEventsByAggregateType(t, newStore)
 	testEventsByAggregateTypeStartingWithSecondEntry(t, newStore)
 	testSaveEventGeneratesEventIdIfEmpty(t, newStore)
+	testSubscribeSendsEventsToSubscribersOnSave(t, newStore)
 }
 
-func testEventsByStream(t *testing.T, newStore func(clock.Clock) (store rangedb.Store, tearDown func(), bindEvents func(events ...rangedb.Event))) {
+func testEventsByStream(t *testing.T, newStore NewStoreFunc) {
 	t.Run("get events by stream", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
@@ -77,7 +80,7 @@ func testEventsByStream(t *testing.T, newStore func(clock.Clock) (store rangedb.
 	})
 }
 
-func testEventsByStreamOrderedBySequenceNumberLexicographically(t *testing.T, newStore func(clock.Clock) (store rangedb.Store, tearDown func(), bindEvents func(events ...rangedb.Event))) {
+func testEventsByStreamOrderedBySequenceNumberLexicographically(t *testing.T, newStore NewStoreFunc) {
 	t.Run("get events by stream are ordered by sequence number lexicographically", func(t *testing.T) {
 		// Given
 		const totalEventsToRequireBigEndian = 257
@@ -105,7 +108,7 @@ func testEventsByStreamOrderedBySequenceNumberLexicographically(t *testing.T, ne
 	})
 }
 
-func testEventsByAggregateTypesOrderedByGlobalSequenceNumber(t *testing.T, newStore func(clock.Clock) (store rangedb.Store, tearDown func(), bindEvents func(events ...rangedb.Event))) {
+func testEventsByAggregateTypesOrderedByGlobalSequenceNumber(t *testing.T, newStore NewStoreFunc) {
 	t.Run("get events by two aggregate types ordered by global sequence number", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
@@ -176,7 +179,7 @@ func testEventsByAggregateTypesOrderedByGlobalSequenceNumber(t *testing.T, newSt
 	})
 }
 
-func testAllEventsOrderedByGlobalSequenceNumber(t *testing.T, newStore func(clock.Clock) (store rangedb.Store, tearDown func(), bindEvents func(events ...rangedb.Event))) {
+func testAllEventsOrderedByGlobalSequenceNumber(t *testing.T, newStore NewStoreFunc) {
 	t.Run("get all events ordered by global sequence number", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
@@ -247,7 +250,7 @@ func testAllEventsOrderedByGlobalSequenceNumber(t *testing.T, newStore func(cloc
 	})
 }
 
-func testEventsByStreamStartingWithSecondEntry(t *testing.T, newStore func(clock.Clock) (store rangedb.Store, tearDown func(), bindEvents func(events ...rangedb.Event))) {
+func testEventsByStreamStartingWithSecondEntry(t *testing.T, newStore NewStoreFunc) {
 	t.Run("get events by stream starting with second entry", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
@@ -283,7 +286,7 @@ func testEventsByStreamStartingWithSecondEntry(t *testing.T, newStore func(clock
 	})
 }
 
-func testEventsByAggregateType(t *testing.T, newStore func(clock.Clock) (store rangedb.Store, tearDown func(), bindEvents func(events ...rangedb.Event))) {
+func testEventsByAggregateType(t *testing.T, newStore NewStoreFunc) {
 	t.Run("get events by aggregate type", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
@@ -341,7 +344,7 @@ func testEventsByAggregateType(t *testing.T, newStore func(clock.Clock) (store r
 	})
 }
 
-func testEventsByAggregateTypeStartingWithSecondEntry(t *testing.T, newStore func(clock.Clock) (store rangedb.Store, tearDown func(), bindEvents func(events ...rangedb.Event))) {
+func testEventsByAggregateTypeStartingWithSecondEntry(t *testing.T, newStore NewStoreFunc) {
 	t.Run("get events by aggregate type starting with second entry", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
@@ -387,7 +390,7 @@ func testEventsByAggregateTypeStartingWithSecondEntry(t *testing.T, newStore fun
 	})
 }
 
-func testSaveEventGeneratesEventIdIfEmpty(t *testing.T, newStore func(clock.Clock) (store rangedb.Store, tearDown func(), bindEvents func(events ...rangedb.Event))) {
+func testSaveEventGeneratesEventIdIfEmpty(t *testing.T, newStore NewStoreFunc) {
 	t.Run("SaveEvent generates eventId if empty", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
@@ -430,6 +433,37 @@ func testSaveEventGeneratesEventIdIfEmpty(t *testing.T, newStore func(clock.Cloc
 	})
 }
 
+func testSubscribeSendsEventsToSubscribersOnSave(t *testing.T, newStore NewStoreFunc) {
+	t.Run("Subscribe sends events to subscribers on save", func(t *testing.T) {
+		// Given
+		shortuuid.SetRand(100)
+		const aggregateType = "thing"
+		const aggregateId = "95eb3409cf6e4d909d41cca0c70ec812"
+		store, tearDown, bindEvents := newStore(sequentialclock.New())
+		defer tearDown()
+		bindEvents(ThingWasDone{})
+		event := &ThingWasDone{Id: aggregateId, Number: 1}
+		countSubscriber1 := newCountSubscriber()
+		countSubscriber2 := newCountSubscriber()
+		store.Subscribe(countSubscriber1, countSubscriber2)
+
+		// When
+		err := store.SaveEvent(
+			aggregateType,
+			aggregateId,
+			"ThingWasDone",
+			"",
+			event,
+			nil,
+		)
+
+		// Then
+		require.NoError(t, err)
+		assert.Equal(t, 1, countSubscriber1.TotalEvents)
+		assert.Equal(t, 1, countSubscriber2.TotalEvents)
+	})
+}
+
 func recordChannelToRecordsSlice(records <-chan *rangedb.Record) []rangedb.Record {
 	var events []rangedb.Record
 
@@ -438,4 +472,16 @@ func recordChannelToRecordsSlice(records <-chan *rangedb.Record) []rangedb.Recor
 	}
 
 	return events
+}
+
+type countSubscriber struct {
+	TotalEvents int
+}
+
+func newCountSubscriber() *countSubscriber {
+	return &countSubscriber{}
+}
+
+func (c *countSubscriber) Accept(_ *rangedb.Record) {
+	c.TotalEvents++
 }

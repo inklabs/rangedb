@@ -23,10 +23,11 @@ const (
 )
 
 type levelDbStore struct {
-	clock      clock.Clock
-	serializer rangedb.RecordSerializer
-	logger     *log.Logger
-	db         *leveldb.DB
+	clock       clock.Clock
+	serializer  rangedb.RecordSerializer
+	logger      *log.Logger
+	db          *leveldb.DB
+	subscribers []rangedb.RecordSubscriber
 }
 
 type Option func(*levelDbStore)
@@ -139,7 +140,16 @@ func (s *levelDbStore) SaveEvent(aggregateType, aggregateId, eventType, eventId 
 	allEventsKey := getKeyWithNumber(allEventsPrefix, record.GlobalSequenceNumber)
 	batch.Put(allEventsKey, streamKey)
 
-	return s.db.Write(batch, nil)
+	err = s.db.Write(batch, nil)
+	if err == nil {
+		s.notifySubscribers(record)
+	}
+
+	return err
+}
+
+func (s *levelDbStore) Subscribe(subscribers ...rangedb.RecordSubscriber) {
+	s.subscribers = append(s.subscribers, subscribers...)
 }
 
 func (s *levelDbStore) getEventsByPrefixStartingWith(prefix string, eventNumber uint64) <-chan *rangedb.Record {
@@ -196,6 +206,12 @@ func (s *levelDbStore) getEventsByLookup(key string) <-chan *rangedb.Record {
 	}()
 
 	return records
+}
+
+func (s *levelDbStore) notifySubscribers(record *rangedb.Record) {
+	for _, subscriber := range s.subscribers {
+		subscriber.Accept(record)
+	}
 }
 
 func getAggregateTypeKeyPrefix(aggregateType string) string {

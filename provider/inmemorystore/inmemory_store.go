@@ -10,14 +10,13 @@ import (
 )
 
 type inMemoryStore struct {
-	clock clock.Clock
+	clock       clock.Clock
+	subscribers []rangedb.RecordSubscriber
 
 	mux                    *sync.RWMutex
 	allRecords             []*rangedb.Record
 	recordsByStream        map[string][]*rangedb.Record
 	recordsByAggregateType map[string][]*rangedb.Record
-	nextIndexByStream      map[string]uint64
-	globalSequenceNumber   uint64
 }
 
 type Option func(*inMemoryStore)
@@ -34,7 +33,6 @@ func New(options ...Option) *inMemoryStore {
 		mux:                    &sync.RWMutex{},
 		recordsByStream:        make(map[string][]*rangedb.Record),
 		recordsByAggregateType: make(map[string][]*rangedb.Record),
-		nextIndexByStream:      make(map[string]uint64),
 	}
 
 	for _, option := range options {
@@ -126,8 +124,8 @@ func (s *inMemoryStore) SaveEvent(aggregateType, aggregateId, eventType, eventId
 	record := &rangedb.Record{
 		AggregateType:        aggregateType,
 		AggregateId:          aggregateId,
-		GlobalSequenceNumber: s.globalSequenceNumber,
-		StreamSequenceNumber: s.nextIndexByStream[stream],
+		GlobalSequenceNumber: uint64(len(s.allRecords)),
+		StreamSequenceNumber: uint64(len(s.recordsByStream[stream])),
 		EventType:            eventType,
 		EventId:              eventId,
 		InsertTimestamp:      uint64(s.clock.Now().Unix()),
@@ -138,8 +136,18 @@ func (s *inMemoryStore) SaveEvent(aggregateType, aggregateId, eventType, eventId
 	s.allRecords = append(s.allRecords, record)
 	s.recordsByStream[stream] = append(s.recordsByStream[stream], record)
 	s.recordsByAggregateType[aggregateType] = append(s.recordsByAggregateType[aggregateType], record)
-	s.nextIndexByStream[stream]++
-	s.globalSequenceNumber++
+
+	s.notifySubscribers(record)
 
 	return nil
+}
+
+func (s *inMemoryStore) Subscribe(subscribers ...rangedb.RecordSubscriber) {
+	s.subscribers = append(s.subscribers, subscribers...)
+}
+
+func (s *inMemoryStore) notifySubscribers(record *rangedb.Record) {
+	for _, subscriber := range s.subscribers {
+		subscriber.Accept(record)
+	}
 }
