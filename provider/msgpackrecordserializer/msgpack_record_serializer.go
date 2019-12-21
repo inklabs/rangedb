@@ -68,19 +68,22 @@ func MarshalRecord(record *rangedb.Record) ([]byte, error) {
 func UnmarshalRecord(decoder *msgpack.Decoder, getEventType func(eventTypeName string) (reflect.Type, bool)) (*rangedb.Record, error) {
 	record := rangedb.Record{}
 
-	err := decoder.Decode(&record)
-	if err != nil {
-		if err.Error() == "EOF" {
-			return nil, EOF
+	decodeErr := decoder.Decode(&record)
+	if decodeErr != nil {
+		var err error
+		if decodeErr.Error() == "EOF" {
+			err = EOF
+		} else {
+			err = fmt.Errorf("failed decoding record: %v", decodeErr)
 		}
 
-		return nil, fmt.Errorf("failed decoding record: %v", err)
+		return nil, err
 	}
 
 	eventType, ok := getEventType(record.EventType)
 	if ok {
 		data := reflect.New(eventType).Interface()
-		err = decoder.Decode(data)
+		err := decoder.Decode(data)
 		if err != nil {
 			return nil, fmt.Errorf("failed decoding event after record: %v", err)
 		}
