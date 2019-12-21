@@ -44,7 +44,7 @@ func Test_WithSeed_RepeatsPattern(t *testing.T) {
 	assert.Equal(t, 1579507200, int(clock.Now().Unix()))
 }
 
-func Example_WithSeed() {
+func ExampleNew_withSeed() {
 	// Given
 	clock := seededclock.New(
 		time.Unix(1576828800, 0),

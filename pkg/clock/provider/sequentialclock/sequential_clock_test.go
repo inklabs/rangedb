@@ -20,7 +20,7 @@ func Test_SequentialClock(t *testing.T) {
 	assert.Equal(t, 0, int(actualTime.Unix()))
 }
 
-func ExampleOutput() {
+func ExampleNew() {
 	// Given
 	clock := sequentialclock.New()
 
