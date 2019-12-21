@@ -44,3 +44,11 @@ func GetEventStream(message AggregateMessage) string {
 func GetStream(aggregateType, aggregateId string) string {
 	return fmt.Sprintf("%s!%s", aggregateType, aggregateId)
 }
+
+func GetEventsByAggregateTypes(store Store, aggregateTypes ...string) []<-chan *Record {
+	var channels []<-chan *Record
+	for _, aggregateType := range aggregateTypes {
+		channels = append(channels, store.EventsByAggregateType(aggregateType))
+	}
+	return channels
+}

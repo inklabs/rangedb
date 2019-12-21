@@ -74,11 +74,7 @@ func (s *inMemoryStore) EventsByAggregateType(aggregateType string) <-chan *rang
 }
 
 func (s *inMemoryStore) EventsByAggregateTypes(aggregateTypes ...string) <-chan *rangedb.Record {
-	var channels []<-chan *rangedb.Record
-	for _, aggregateType := range aggregateTypes {
-		channels = append(channels, s.EventsByAggregateType(aggregateType))
-	}
-
+	channels := rangedb.GetEventsByAggregateTypes(s, aggregateTypes...)
 	return rangedb.MergeRecordChannelsInOrder(channels)
 }
 

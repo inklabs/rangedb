@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
-	"sync"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -14,26 +13,20 @@ import (
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
 	"github.com/inklabs/rangedb/pkg/clock/provider/systemclock"
-	"github.com/inklabs/rangedb/pkg/keymutex"
-	"github.com/inklabs/rangedb/pkg/keymutex/provider/inmemorykeymutex"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
 
 const (
-	separator                   = "!"
-	allEventsPrefix             = "$all$" + separator
-	maxSequenceNumberSemaphores = 100
+	separator       = "!"
+	allEventsPrefix = "$all$" + separator
 )
 
 type levelDbStore struct {
 	clock      clock.Clock
 	serializer rangedb.RecordSerializer
 	logger     *log.Logger
-
-	globalSequenceMutex *sync.Mutex
-	keyMutex            keymutex.KeyMutex
-	db                  *leveldb.DB
+	db         *leveldb.DB
 }
 
 type Option func(*levelDbStore)
@@ -63,12 +56,10 @@ func New(dbFilePath string, options ...Option) (*levelDbStore, error) {
 	}
 
 	s := &levelDbStore{
-		clock:               systemclock.New(),
-		serializer:          jsonrecordserializer.New(),
-		logger:              log.New(ioutil.Discard, "", 0),
-		globalSequenceMutex: &sync.Mutex{},
-		keyMutex:            inmemorykeymutex.New(maxSequenceNumberSemaphores),
-		db:                  db,
+		clock:      systemclock.New(),
+		serializer: jsonrecordserializer.New(),
+		logger:     log.New(ioutil.Discard, "", 0),
+		db:         db,
 	}
 
 	for _, option := range options {
@@ -95,11 +86,7 @@ func (s *levelDbStore) EventsByAggregateType(aggregateType string) <-chan *range
 }
 
 func (s *levelDbStore) EventsByAggregateTypes(aggregateTypes ...string) <-chan *rangedb.Record {
-	var channels []<-chan *rangedb.Record
-	for _, aggregateType := range aggregateTypes {
-		channels = append(channels, s.EventsByAggregateType(aggregateType))
-	}
-
+	channels := rangedb.GetEventsByAggregateTypes(s, aggregateTypes...)
 	return rangedb.MergeRecordChannelsInOrder(channels)
 }
 
