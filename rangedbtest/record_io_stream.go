@@ -15,7 +15,14 @@ import (
 func VerifyRecordIoStream(t *testing.T, newIoStream func() rangedb.RecordIoStream) {
 	t.Helper()
 
-	t.Run("write and read with bound event", func(t *testing.T) {
+	testWriteAndReadWithBoundEvent(t, newIoStream)
+	testWriteAndReadWithUnBoundEvent(t, newIoStream)
+	testWriteWithboundEventAndReadWithUnBoundEvent(t, newIoStream)
+	testWriteWithUnboundEventAndReadWithBoundEvent(t, newIoStream)
+}
+
+func testWriteAndReadWithBoundEvent(t *testing.T, newIoStream func() rangedb.RecordIoStream) bool {
+	return t.Run("write and read with bound event", func(t *testing.T) {
 		// Given
 		ioStream := newIoStream()
 		ioStream.Bind(&ThingWasDone{})
@@ -58,8 +65,10 @@ func VerifyRecordIoStream(t *testing.T, newIoStream func() rangedb.RecordIoStrea
 		assert.Nil(t, <-actualRecords)
 		require.Nil(t, <-readErrors)
 	})
+}
 
-	t.Run("write and read with unbound event", func(t *testing.T) {
+func testWriteAndReadWithUnBoundEvent(t *testing.T, newIoStream func() rangedb.RecordIoStream) bool {
+	return t.Run("write and read with unbound event", func(t *testing.T) {
 		// Given
 		ioStream := newIoStream()
 		event1 := &ThingWasDone{Id: "A", Number: 1}
@@ -111,8 +120,10 @@ func VerifyRecordIoStream(t *testing.T, newIoStream func() rangedb.RecordIoStrea
 		assert.Nil(t, <-actualRecords)
 		require.Nil(t, <-readErrors)
 	})
+}
 
-	t.Run("write with bound event and read with unbound event", func(t *testing.T) {
+func testWriteWithboundEventAndReadWithUnBoundEvent(t *testing.T, newIoStream func() rangedb.RecordIoStream) bool {
+	return t.Run("write with bound event and read with unbound event", func(t *testing.T) {
 		// Given
 		boundIoStream := newIoStream()
 		boundIoStream.Bind(&ThingWasDone{})
@@ -166,8 +177,10 @@ func VerifyRecordIoStream(t *testing.T, newIoStream func() rangedb.RecordIoStrea
 		assert.Nil(t, <-actualRecords)
 		require.Nil(t, <-readErrors)
 	})
+}
 
-	t.Run("write with unbound event and read with bound event", func(t *testing.T) {
+func testWriteWithUnboundEventAndReadWithBoundEvent(t *testing.T, newIoStream func() rangedb.RecordIoStream) bool {
+	return t.Run("write with unbound event and read with bound event", func(t *testing.T) {
 		// Given
 		unBoundIoStream := newIoStream()
 		event1 := &ThingWasDone{Id: "A", Number: 1}
