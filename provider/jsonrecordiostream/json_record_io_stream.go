@@ -53,8 +53,8 @@ func (s *jsonRecordIoStream) Read(reader io.Reader) (<-chan *rangedb.Record, <-c
 	errors := make(chan error)
 
 	go func() {
-		defer close(errors)
 		defer close(ch)
+		defer close(errors)
 
 		decoder := json.NewDecoder(reader)
 		decoder.UseNumber()

@@ -2,6 +2,7 @@ package msgpackrecordserializer
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -20,7 +21,29 @@ func New() *msgpackSerializer {
 	}
 }
 
+func (s *msgpackSerializer) Bind(events ...rangedb.Event) {
+	for _, e := range events {
+		s.eventTypes[e.EventType()] = getType(e)
+	}
+}
+
 func (s *msgpackSerializer) Serialize(record *rangedb.Record) ([]byte, error) {
+	return MarshalRecord(record)
+}
+
+func (s *msgpackSerializer) Deserialize(serializedData []byte) (*rangedb.Record, error) {
+	decoder := msgpack.NewDecoder(bytes.NewBuffer(serializedData))
+	decoder.UseJSONTag(true)
+
+	return UnmarshalRecord(decoder, s.eventTypeLookup)
+}
+
+func (s *msgpackSerializer) eventTypeLookup(eventTypeName string) (r reflect.Type, b bool) {
+	eventType, ok := s.eventTypes[eventTypeName]
+	return eventType, ok
+}
+
+func MarshalRecord(record *rangedb.Record) ([]byte, error) {
 	var buf bytes.Buffer
 
 	newRecord := *record
@@ -42,18 +65,19 @@ func (s *msgpackSerializer) Serialize(record *rangedb.Record) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (s *msgpackSerializer) Deserialize(serializedData []byte) (*rangedb.Record, error) {
+func UnmarshalRecord(decoder *msgpack.Decoder, getEventType func(eventTypeName string) (reflect.Type, bool)) (*rangedb.Record, error) {
 	record := rangedb.Record{}
-
-	decoder := msgpack.NewDecoder(bytes.NewBuffer(serializedData))
-	decoder.UseJSONTag(true)
 
 	err := decoder.Decode(&record)
 	if err != nil {
-		return nil, fmt.Errorf("failed decoding record [%s]: %v", serializedData, err)
+		if err.Error() == "EOF" {
+			return nil, EOF
+		}
+
+		return nil, fmt.Errorf("failed decoding record: %v", err)
 	}
 
-	eventType, ok := s.eventTypes[record.EventType]
+	eventType, ok := getEventType(record.EventType)
 	if ok {
 		data := reflect.New(eventType).Interface()
 		err = decoder.Decode(data)
@@ -75,11 +99,7 @@ func (s *msgpackSerializer) Deserialize(serializedData []byte) (*rangedb.Record,
 	return &record, nil
 }
 
-func (s *msgpackSerializer) Bind(events ...rangedb.Event) {
-	for _, e := range events {
-		s.eventTypes[e.EventType()] = getType(e)
-	}
-}
+var EOF = errors.New("EOF")
 
 func getType(object interface{}) reflect.Type {
 	t := reflect.TypeOf(object)

@@ -74,7 +74,7 @@ func Test_Failures(t *testing.T) {
 		_, err := serializer.Deserialize(invalidSerializedData)
 
 		// Then
-		require.EqualError(t, err, "failed decoding record [fwj@!#R@#]: msgpack: invalid code=66 decoding map length")
+		require.EqualError(t, err, "failed decoding record: msgpack: invalid code=66 decoding map length")
 	})
 
 	t.Run("deserialize with bound event fails with invalid event data", func(t *testing.T) {
