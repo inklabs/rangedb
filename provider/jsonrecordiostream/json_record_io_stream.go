@@ -54,8 +54,8 @@ func (s *jsonRecordIoStream) Read(reader io.Reader) (<-chan *rangedb.Record, <-c
 	errors := make(chan error)
 
 	go func() {
-		defer close(ch)
 		defer close(errors)
+		defer close(ch)
 
 		decoder := json.NewDecoder(reader)
 		decoder.UseNumber()
@@ -69,6 +69,7 @@ func (s *jsonRecordIoStream) Read(reader io.Reader) (<-chan *rangedb.Record, <-c
 			record, err := jsonrecordserializer.UnmarshalRecord(decoder, s.eventTypeLookup)
 			if err != nil {
 				errors <- err
+				return
 			}
 
 			ch <- record
