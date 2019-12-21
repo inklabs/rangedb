@@ -16,3 +16,19 @@ func (t ThingWasDone) AggregateType() string {
 func (t ThingWasDone) EventType() string {
 	return "ThingWasDone"
 }
+
+type AnotherWasComplete struct {
+	Id string `json:"id"`
+}
+
+func (t AnotherWasComplete) AggregateId() string {
+	return t.Id
+}
+
+func (t AnotherWasComplete) AggregateType() string {
+	return "another"
+}
+
+func (t AnotherWasComplete) EventType() string {
+	return "AnotherWasComplete"
+}
