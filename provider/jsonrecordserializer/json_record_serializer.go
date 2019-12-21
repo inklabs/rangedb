@@ -1,6 +1,7 @@
 package jsonrecordserializer
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -34,19 +35,34 @@ func (s *jsonSerializer) Serialize(record *rangedb.Record) ([]byte, error) {
 }
 
 func (s *jsonSerializer) Deserialize(serializedData []byte) (*rangedb.Record, error) {
+	decoder := json.NewDecoder(bytes.NewReader(serializedData))
+	decoder.UseNumber()
+
+	return UnmarshalRecord(decoder, s.eventTypeLookup)
+}
+
+func (s *jsonSerializer) eventTypeLookup(eventTypeName string) (r reflect.Type, b bool) {
+	eventType, ok := s.eventTypes[eventTypeName]
+	return eventType, ok
+}
+
+func UnmarshalRecord(decoder *json.Decoder, getEventType func(eventTypeName string) (reflect.Type, bool)) (*rangedb.Record, error) {
 	var rawEvent json.RawMessage
 	record := rangedb.Record{
 		Data: &rawEvent,
 	}
-	err := json.Unmarshal(serializedData, &record)
+	err := decoder.Decode(&record)
 	if err != nil {
-		return nil, fmt.Errorf("failed unmarshalling record [%s]: %v", serializedData, err)
+		return nil, fmt.Errorf("failed unmarshalling record: %v", err)
 	}
 
-	eventType, ok := s.eventTypes[record.EventType]
+	eventType, ok := getEventType(record.EventType)
 	if ok {
+		decoder := json.NewDecoder(bytes.NewReader(rawEvent))
+		decoder.UseNumber()
+
 		data := reflect.New(eventType).Interface()
-		err = json.Unmarshal(rawEvent, data)
+		err = decoder.Decode(&data)
 		if err != nil {
 			return nil, fmt.Errorf("failed unmarshalling event within record: %v", err)
 		}

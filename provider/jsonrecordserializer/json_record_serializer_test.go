@@ -42,7 +42,7 @@ func Test_Failures(t *testing.T) {
 		_, err := serializer.Deserialize(invalidSerializedData)
 
 		// Then
-		require.EqualError(t, err, "failed unmarshalling record [fwj@!#R@#]: invalid character 'w' in literal false (expecting 'a')")
+		require.EqualError(t, err, "failed unmarshalling record: invalid character 'w' in literal false (expecting 'a')")
 	})
 
 	t.Run("deserialize with bound event fails with invalid event data", func(t *testing.T) {
@@ -55,7 +55,7 @@ func Test_Failures(t *testing.T) {
 		_, err := serializer.Deserialize([]byte(invalidJson))
 
 		// Then
-		require.EqualError(t, err, "failed unmarshalling event within record: unexpected end of JSON input")
+		require.EqualError(t, err, "failed unmarshalling event within record: EOF")
 	})
 
 	t.Run("deserialize with unbound event fails with invalid event data", func(t *testing.T) {
