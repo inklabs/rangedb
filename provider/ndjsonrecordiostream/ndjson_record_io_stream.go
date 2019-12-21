@@ -1,4 +1,4 @@
-package jsonrecordiostream
+package ndjsonrecordiostream
 
 import (
 	"encoding/json"
@@ -10,59 +10,51 @@ import (
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
 
-type jsonRecordIoStream struct {
+type ndJsonIoStream struct {
 	eventTypes map[string]reflect.Type
 }
 
-func New() *jsonRecordIoStream {
-	return &jsonRecordIoStream{
+func New() *ndJsonIoStream {
+	return &ndJsonIoStream{
 		eventTypes: map[string]reflect.Type{},
 	}
 }
 
-func (s *jsonRecordIoStream) Write(writer io.Writer, records <-chan *rangedb.Record) <-chan error {
+func (s *ndJsonIoStream) Write(writer io.Writer, records <-chan *rangedb.Record) <-chan error {
 	errors := make(chan error)
 	go func() {
 		defer close(errors)
 
-		_, _ = fmt.Fprint(writer, "[")
-
 		totalSaved := 0
 		for record := range records {
+			if totalSaved > 0 {
+				_, _ = fmt.Fprint(writer, "\n")
+			}
+
 			data, err := json.Marshal(record)
 			if err != nil {
 				errors <- fmt.Errorf("failed marshalling event: %v", err)
-			}
-
-			if totalSaved > 0 {
-				_, _ = fmt.Fprint(writer, ",")
 			}
 
 			_, _ = fmt.Fprintf(writer, "%s", data)
 
 			totalSaved++
 		}
-		_, _ = fmt.Fprint(writer, "]")
 	}()
 
 	return errors
 }
 
-func (s *jsonRecordIoStream) Read(reader io.Reader) (<-chan *rangedb.Record, <-chan error) {
+func (s *ndJsonIoStream) Read(reader io.Reader) (<-chan *rangedb.Record, <-chan error) {
 	ch := make(chan *rangedb.Record)
 	errors := make(chan error)
 
 	go func() {
-		defer close(errors)
 		defer close(ch)
+		defer close(errors)
 
 		decoder := json.NewDecoder(reader)
 		decoder.UseNumber()
-
-		_, err := decoder.Token()
-		if err != nil {
-			return
-		}
 
 		for decoder.More() {
 			record, err := jsonrecordserializer.UnmarshalRecord(decoder, s.eventTypeLookup)
@@ -78,13 +70,13 @@ func (s *jsonRecordIoStream) Read(reader io.Reader) (<-chan *rangedb.Record, <-c
 	return ch, errors
 }
 
-func (s *jsonRecordIoStream) Bind(events ...rangedb.Event) {
+func (s *ndJsonIoStream) Bind(events ...rangedb.Event) {
 	for _, e := range events {
 		s.eventTypes[e.EventType()] = getType(e)
 	}
 }
 
-func (s *jsonRecordIoStream) eventTypeLookup(eventTypeName string) (r reflect.Type, b bool) {
+func (s *ndJsonIoStream) eventTypeLookup(eventTypeName string) (r reflect.Type, b bool) {
 	eventType, ok := s.eventTypes[eventTypeName]
 	return eventType, ok
 }
