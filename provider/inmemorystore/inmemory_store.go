@@ -10,10 +10,12 @@ import (
 )
 
 type inMemoryStore struct {
-	clock       clock.Clock
-	subscribers []rangedb.RecordSubscriber
+	clock clock.Clock
 
-	mux                    *sync.RWMutex
+	subscriberMux sync.RWMutex
+	subscribers   []rangedb.RecordSubscriber
+
+	mux                    sync.RWMutex
 	allRecords             []*rangedb.Record
 	recordsByStream        map[string][]*rangedb.Record
 	recordsByAggregateType map[string][]*rangedb.Record
@@ -30,7 +32,6 @@ func WithClock(clock clock.Clock) Option {
 func New(options ...Option) *inMemoryStore {
 	s := &inMemoryStore{
 		clock:                  systemclock.New(),
-		mux:                    &sync.RWMutex{},
 		recordsByStream:        make(map[string][]*rangedb.Record),
 		recordsByAggregateType: make(map[string][]*rangedb.Record),
 	}
@@ -142,11 +143,29 @@ func (s *inMemoryStore) SaveEvent(aggregateType, aggregateId, eventType, eventId
 	return nil
 }
 
+func (s *inMemoryStore) SubscribeAndReplay(subscribers ...rangedb.RecordSubscriber) {
+	for record := range s.AllEvents() {
+		for _, subscriber := range subscribers {
+			subscriber.Accept(record)
+		}
+	}
+
+	s.mux.Lock()
+	s.Subscribe(subscribers...)
+	defer s.mux.Unlock()
+}
+
 func (s *inMemoryStore) Subscribe(subscribers ...rangedb.RecordSubscriber) {
+	s.subscriberMux.Lock()
+	defer s.subscriberMux.Unlock()
+
 	s.subscribers = append(s.subscribers, subscribers...)
 }
 
 func (s *inMemoryStore) notifySubscribers(record *rangedb.Record) {
+	s.subscriberMux.RLock()
+	defer s.subscriberMux.RUnlock()
+
 	for _, subscriber := range s.subscribers {
 		subscriber.Accept(record)
 	}

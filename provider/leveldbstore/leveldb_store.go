@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"sync"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/util"
@@ -23,11 +24,15 @@ const (
 )
 
 type levelDbStore struct {
-	clock       clock.Clock
-	serializer  rangedb.RecordSerializer
-	logger      *log.Logger
-	db          *leveldb.DB
-	subscribers []rangedb.RecordSubscriber
+	clock      clock.Clock
+	serializer rangedb.RecordSerializer
+	logger     *log.Logger
+
+	subscriberMux sync.RWMutex
+	subscribers   []rangedb.RecordSubscriber
+
+	mux sync.Mutex
+	db  *leveldb.DB
 }
 
 type Option func(*levelDbStore)
@@ -107,12 +112,14 @@ func (s *levelDbStore) Save(event rangedb.Event, metadata interface{}) error {
 }
 
 func (s *levelDbStore) SaveEvent(aggregateType, aggregateId, eventType, eventId string, event, metadata interface{}) error {
-	stream := rangedb.GetStream(aggregateType, aggregateId)
+	s.mux.Lock()
+	defer s.mux.Unlock()
 
 	if eventId == "" {
 		eventId = shortuuid.New().String()
 	}
 
+	stream := rangedb.GetStream(aggregateType, aggregateId)
 	record := &rangedb.Record{
 		AggregateType:        aggregateType,
 		AggregateId:          aggregateId,
@@ -148,8 +155,32 @@ func (s *levelDbStore) SaveEvent(aggregateType, aggregateId, eventType, eventId 
 	return err
 }
 
+func (s *levelDbStore) SubscribeAndReplay(subscribers ...rangedb.RecordSubscriber) {
+	for record := range s.AllEvents() {
+		for _, subscriber := range subscribers {
+			subscriber.Accept(record)
+		}
+	}
+
+	s.mux.Lock()
+	s.Subscribe(subscribers...)
+	defer s.mux.Unlock()
+}
+
 func (s *levelDbStore) Subscribe(subscribers ...rangedb.RecordSubscriber) {
+	s.subscriberMux.Lock()
+	defer s.subscriberMux.Unlock()
+
 	s.subscribers = append(s.subscribers, subscribers...)
+}
+
+func (s *levelDbStore) notifySubscribers(record *rangedb.Record) {
+	s.subscriberMux.RLock()
+	defer s.subscriberMux.RUnlock()
+
+	for _, subscriber := range s.subscribers {
+		subscriber.Accept(record)
+	}
 }
 
 func (s *levelDbStore) getEventsByPrefixStartingWith(prefix string, eventNumber uint64) <-chan *rangedb.Record {
@@ -206,12 +237,6 @@ func (s *levelDbStore) getEventsByLookup(key string) <-chan *rangedb.Record {
 	}()
 
 	return records
-}
-
-func (s *levelDbStore) notifySubscribers(record *rangedb.Record) {
-	for _, subscriber := range s.subscribers {
-		subscriber.Accept(record)
-	}
 }
 
 func getAggregateTypeKeyPrefix(aggregateType string) string {

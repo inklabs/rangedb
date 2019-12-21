@@ -26,6 +26,7 @@ type Store interface {
 	Save(event Event, metadata interface{}) error
 	SaveEvent(aggregateType, aggregateId, eventType, eventId string, event, metadata interface{}) error
 	Subscribe(subscribers ...RecordSubscriber)
+	SubscribeAndReplay(subscribers ...RecordSubscriber)
 }
 
 type Event interface {

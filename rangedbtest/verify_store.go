@@ -27,7 +27,8 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 	testEventsByAggregateType(t, newStore)
 	testEventsByAggregateTypeStartingWithSecondEntry(t, newStore)
 	testSaveEventGeneratesEventIdIfEmpty(t, newStore)
-	testSubscribeSendsEventsToSubscribersOnSave(t, newStore)
+	testSubscribeSendsNewEventsToSubscribersOnSave(t, newStore)
+	testSubscribeAndReplaySendsPreviousAndNewEventsToSubscribersOnSave(t, newStore)
 }
 
 func testEventsByStream(t *testing.T, newStore NewStoreFunc) {
@@ -433,8 +434,8 @@ func testSaveEventGeneratesEventIdIfEmpty(t *testing.T, newStore NewStoreFunc) {
 	})
 }
 
-func testSubscribeSendsEventsToSubscribersOnSave(t *testing.T, newStore NewStoreFunc) {
-	t.Run("Subscribe sends events to subscribers on save", func(t *testing.T) {
+func testSubscribeSendsNewEventsToSubscribersOnSave(t *testing.T, newStore NewStoreFunc) {
+	t.Run("Subscribe sends new events to subscribers on save", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
 		const aggregateType = "thing"
@@ -442,7 +443,9 @@ func testSubscribeSendsEventsToSubscribersOnSave(t *testing.T, newStore NewStore
 		store, tearDown, bindEvents := newStore(sequentialclock.New())
 		defer tearDown()
 		bindEvents(ThingWasDone{})
-		event := &ThingWasDone{Id: aggregateId, Number: 1}
+		event1 := &ThingWasDone{Id: aggregateId, Number: 1}
+		require.NoError(t, store.Save(event1, nil))
+		event2 := &ThingWasDone{Id: aggregateId, Number: 1}
 		countSubscriber1 := newCountSubscriber()
 		countSubscriber2 := newCountSubscriber()
 		store.Subscribe(countSubscriber1, countSubscriber2)
@@ -453,7 +456,7 @@ func testSubscribeSendsEventsToSubscribersOnSave(t *testing.T, newStore NewStore
 			aggregateId,
 			"ThingWasDone",
 			"",
-			event,
+			event2,
 			nil,
 		)
 
@@ -461,6 +464,39 @@ func testSubscribeSendsEventsToSubscribersOnSave(t *testing.T, newStore NewStore
 		require.NoError(t, err)
 		assert.Equal(t, 1, countSubscriber1.TotalEvents)
 		assert.Equal(t, 1, countSubscriber2.TotalEvents)
+	})
+}
+
+func testSubscribeAndReplaySendsPreviousAndNewEventsToSubscribersOnSave(t *testing.T, newStore NewStoreFunc) {
+	t.Run("Subscribe sends previous and new events to subscribers on save", func(t *testing.T) {
+		// Given
+		shortuuid.SetRand(100)
+		const aggregateType = "thing"
+		const aggregateId = "95eb3409cf6e4d909d41cca0c70ec812"
+		store, tearDown, bindEvents := newStore(sequentialclock.New())
+		defer tearDown()
+		bindEvents(ThingWasDone{})
+		event1 := &ThingWasDone{Id: aggregateId, Number: 1}
+		require.NoError(t, store.Save(event1, nil))
+		event2 := &ThingWasDone{Id: aggregateId, Number: 1}
+		countSubscriber1 := newCountSubscriber()
+		countSubscriber2 := newCountSubscriber()
+		store.SubscribeAndReplay(countSubscriber1, countSubscriber2)
+
+		// When
+		err := store.SaveEvent(
+			aggregateType,
+			aggregateId,
+			"ThingWasDone",
+			"",
+			event2,
+			nil,
+		)
+
+		// Then
+		require.NoError(t, err)
+		assert.Equal(t, 2, countSubscriber1.TotalEvents)
+		assert.Equal(t, 2, countSubscriber2.TotalEvents)
 	})
 }
 
