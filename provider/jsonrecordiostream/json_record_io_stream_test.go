@@ -61,7 +61,7 @@ func TestLoad_NoJson(t *testing.T) {
 	events, errors := stream.Read(reader)
 
 	// Then
-	require.Nil(t, <-errors)
+	require.EqualError(t, <-errors, "EOF")
 	assert.Equal(t, (*rangedb.Record)(nil), <-events)
 }
 

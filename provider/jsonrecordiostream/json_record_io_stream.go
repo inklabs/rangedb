@@ -61,6 +61,7 @@ func (s *jsonRecordIoStream) Read(reader io.Reader) (<-chan *rangedb.Record, <-c
 
 		_, err := decoder.Token()
 		if err != nil {
+			errors <- err
 			return
 		}
 
