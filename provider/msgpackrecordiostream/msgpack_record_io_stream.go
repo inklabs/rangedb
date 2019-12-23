@@ -4,7 +4,7 @@ import (
 	"io"
 	"reflect"
 
-	"github.com/vmihailenco/msgpack"
+	"github.com/vmihailenco/msgpack/v4"
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/provider/msgpackrecordserializer"

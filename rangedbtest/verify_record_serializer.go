@@ -14,13 +14,13 @@ import (
 func VerifyRecordSerializer(t *testing.T, newSerializer func() rangedb.RecordSerializer) {
 	t.Helper()
 
-	testSerializeAndDeserializeWithboundEvent(t, newSerializer)
+	testSerializeAndDeserializeWithBoundEvent(t, newSerializer)
 	testSerializeAndDeserializeWithUnBoundEvent(t, newSerializer)
 	testSerializeWithBoundEventAndDeserializeWithUnboundEvent(t, newSerializer)
 	testSerializeWithUnboundEventAndDeserializeWithboundEvent(t, newSerializer)
 }
 
-func testSerializeAndDeserializeWithboundEvent(t *testing.T, newSerializer func() rangedb.RecordSerializer) bool {
+func testSerializeAndDeserializeWithBoundEvent(t *testing.T, newSerializer func() rangedb.RecordSerializer) bool {
 	return t.Run("serialize and deserialize with bound event", func(t *testing.T) {
 		// Given
 		serializer := newSerializer()

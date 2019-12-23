@@ -67,7 +67,7 @@ func Test_Failures(t *testing.T) {
 		_, err := serializer.Deserialize([]byte(invalidJson))
 
 		// Then
-		require.EqualError(t, err, "failed unmarshalling event within record: unexpected end of JSON input")
+		require.EqualError(t, err, "failed unmarshalling event within record: EOF")
 	})
 }
 
@@ -121,5 +121,5 @@ func ExampleNew_deserializeWithUnboundEvent() {
 	fmt.Printf("%#v\n", record.Data)
 
 	// Output:
-	// map[string]interface {}{"id":"A", "number":1}
+	// map[string]interface {}{"id":"A", "number":"1"}
 }

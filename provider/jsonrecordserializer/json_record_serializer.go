@@ -56,13 +56,14 @@ func UnmarshalRecord(decoder *json.Decoder, getEventType func(eventTypeName stri
 		return nil, fmt.Errorf("failed unmarshalling record: %v", err)
 	}
 
+	dataDecoder := json.NewDecoder(bytes.NewReader(rawEvent))
+	dataDecoder.UseNumber()
+
 	eventType, ok := getEventType(record.EventType)
 	if ok {
-		decoder := json.NewDecoder(bytes.NewReader(rawEvent))
-		decoder.UseNumber()
 
 		data := reflect.New(eventType).Interface()
-		err = decoder.Decode(&data)
+		err = dataDecoder.Decode(&data)
 		if err != nil {
 			return nil, fmt.Errorf("failed unmarshalling event within record: %v", err)
 		}
@@ -70,7 +71,7 @@ func UnmarshalRecord(decoder *json.Decoder, getEventType func(eventTypeName stri
 		record.Data = data
 	} else {
 		var data interface{}
-		err = json.Unmarshal(rawEvent, &data)
+		err = dataDecoder.Decode(&data)
 		if err != nil {
 			return nil, fmt.Errorf("failed unmarshalling event within record: %v", err)
 		}
