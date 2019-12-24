@@ -40,3 +40,23 @@ func (t AnotherWasComplete) AggregateType() string {
 func (t AnotherWasComplete) EventType() string {
 	return "AnotherWasComplete"
 }
+
+// ThatWasDone is an event used for testing.
+type ThatWasDone struct {
+	ID string
+}
+
+// AggregateID returns the aggregate id.
+func (t ThatWasDone) AggregateID() string {
+	return t.ID
+}
+
+// AggregateType returns the aggregate type.
+func (t ThatWasDone) AggregateType() string {
+	return "that"
+}
+
+// EventType returns the event type. This will always be the struct name.
+func (t ThatWasDone) EventType() string {
+	return "ThatWasDone"
+}

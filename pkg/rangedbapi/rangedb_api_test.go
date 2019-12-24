@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -19,6 +18,7 @@ import (
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock/provider/sequentialclock"
+	"github.com/inklabs/rangedb/pkg/jsontools"
 	"github.com/inklabs/rangedb/pkg/rangedbapi"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/provider/msgpackrecordiostream"
@@ -61,7 +61,7 @@ func TestApi_HealthCheck(t *testing.T) {
 
 func TestApi_SaveEvents(t *testing.T) {
 	// Given
-	singleJsonEvent := compactJson(`[
+	singleJsonEvent := `[
 		{
 			"eventID": "b93bd54592394c999fad7095e2b4840e",
 			"eventType": "ThingWasDone",
@@ -71,7 +71,7 @@ func TestApi_SaveEvents(t *testing.T) {
 			},
 			"metadata":null
 		}
-	]`)
+	]`
 
 	t.Run("saves from json", func(t *testing.T) {
 		// Given
@@ -114,7 +114,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		const aggregateID = "cbba5f386b2d4924ac34d1b9e9217d67"
 		const aggregateType = "thing"
 		api := rangedbapi.New(rangedbapi.WithStore(NewFailingEventStore()))
-		expectedJson := compactJson(`[
+		expectedJson := `[
 		{
 			"eventID": "b93bd54592394c999fad7095e2b4840e",
 			"eventType": "ThingWasDone",
@@ -124,7 +124,7 @@ func TestApi_SaveEvents(t *testing.T) {
 			},
 			"metadata":null
 		}
-	]`)
+	]`
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
 		request := httptest.NewRequest("POST", saveUri, strings.NewReader(expectedJson))
 		request.Header.Set("Content-Type", "application/json")
@@ -220,7 +220,7 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 		// Then
 		assert.Equal(t, http.StatusOK, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		expectedJson := compactJson(`[
+		expectedJson := `[
 			{
 				"aggregateType": "thing",
 				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -276,7 +276,7 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 				},
 				"metadata":null
 			}
-		]`)
+		]`
 		assertJsonEqual(t, expectedJson, response.Body.String())
 	})
 
@@ -291,7 +291,7 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 		// Then
 		assert.Equal(t, http.StatusOK, response.Code)
 		assert.Equal(t, "application/json; boundary=LF", response.Header().Get("Content-Type"))
-		expectedJson := compactJson(`{
+		expectedJson := `{
 			"aggregateType": "thing",
 			"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
 			"globalSequenceNumber":0,
@@ -304,7 +304,7 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 				"number": 100
 			},
 			"metadata":null
-		}`) + "\n" + compactJson(`{
+		}` + "\n" + `{
 			"aggregateType": "thing",
 			"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
 			"globalSequenceNumber": 1,
@@ -317,7 +317,7 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 				"number": 200
 			},
 			"metadata":null
-		}`)
+		}`
 		assertJsonEqual(t, expectedJson, response.Body.String())
 	})
 
@@ -379,7 +379,7 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 		// Then
 		assert.Equal(t, http.StatusOK, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		expectedJson := compactJson(`[
+		expectedJson := `[
 			{
 				"aggregateType": "thing",
 				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -422,7 +422,7 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 				},
 				"metadata":null
 			}
-		]`)
+		]`
 		assertJsonEqual(t, expectedJson, response.Body.String())
 	})
 
@@ -437,7 +437,7 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 		// Then
 		assert.Equal(t, http.StatusOK, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		expectedJson := compactJson(`[
+		expectedJson := `[
 			{
 				"aggregateType": "thing",
 				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -493,7 +493,7 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 				},
 				"metadata":null
 			}
-		]`)
+		]`
 		assertJsonEqual(t, expectedJson, response.Body.String())
 	})
 }
@@ -517,7 +517,7 @@ func TestApi_ListAggregates(t *testing.T) {
 	// Then
 	assert.Equal(t, http.StatusOK, response.Code)
 	assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-	expectedJson := compactJson(`{
+	expectedJson := `{
 		"data":[
 			{
 				"links": {
@@ -535,9 +535,10 @@ func TestApi_ListAggregates(t *testing.T) {
 			}
 		],
 		"links": {
+			"allEvents": "http://127.0.0.1:8080/events.json",
 			"self": "http://127.0.0.1:8080/list-aggregate-types"
 		}
-	}`)
+	}`
 	assertJsonEqual(t, expectedJson, response.Body.String())
 }
 
@@ -554,13 +555,7 @@ func Test_InvalidInput(t *testing.T) {
 
 func assertJsonEqual(t *testing.T, expectedJson, actualJson string) {
 	t.Helper()
-	assert.Equal(t, prettyJson(expectedJson), prettyJson(actualJson))
-}
-
-func prettyJson(input string) string {
-	var prettyJSON bytes.Buffer
-	_ = json.Indent(&prettyJSON, []byte(input), "", "  ")
-	return strings.TrimSpace(prettyJSON.String())
+	assert.Equal(t, jsontools.PrettyJSONString(expectedJson), jsontools.PrettyJSONString(actualJson))
 }
 
 func saveEvents(t *testing.T, api http.Handler, aggregateType, aggregateID string, requests ...SaveEventsRequest) {
@@ -574,15 +569,6 @@ func saveEvents(t *testing.T, api http.Handler, aggregateType, aggregateID strin
 
 	api.ServeHTTP(saveResponse, saveRequest)
 	require.Equal(t, http.StatusCreated, saveResponse.Code)
-}
-
-func compactJson(v string) string {
-	var buf bytes.Buffer
-	err := json.Compact(&buf, []byte(v))
-	if err != nil {
-		log.Fatalf("unable to compact json: %v", err)
-	}
-	return buf.String()
 }
 
 func readGzippedBody(t *testing.T, body io.Reader) string {

@@ -1,4 +1,4 @@
-package rangedbapi_test
+package rangedbws_test
 
 import (
 	"io"

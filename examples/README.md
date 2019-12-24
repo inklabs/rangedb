@@ -8,3 +8,8 @@
 * [Get Events by Stream](../pkg/rangedbapi/get_events_by_stream_test.go)
 * [Get Events by Stream as Newline Delimited JSON](../pkg/rangedbapi/get_events_by_stream_ndjson_test.go)
 * [Save Events](../pkg/rangedbapi/save_events_test.go)
+
+## Websocket API Examples
+
+* [Stream All Events](../pkg/rangedbws/stream_all_events_test.go)
+* [Stream Events by Aggregate Type](../pkg/rangedbws/stream_events_by_aggregate_type_test.go)

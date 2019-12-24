@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 
 	"github.com/inklabs/rangedb/pkg/clock/provider/sequentialclock"
+	"github.com/inklabs/rangedb/pkg/jsontools"
 	"github.com/inklabs/rangedb/pkg/rangedbapi"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
@@ -38,7 +39,7 @@ func Example_getEventsByAggregateTypes() {
 	body, err := ioutil.ReadAll(response.Body)
 	PrintError(err)
 
-	fmt.Println(PrettyJson(body))
+	fmt.Println(jsontools.PrettyJSON(body))
 
 	// Output:
 	// [

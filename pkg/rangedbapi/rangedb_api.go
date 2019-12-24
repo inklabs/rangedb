@@ -68,6 +68,13 @@ func (a *api) initRoutes() {
 	a.handler = handlers.CompressHandler(router)
 }
 
+func (a *api) initProjections() {
+	a.projections = &projections{
+		aggregateTypeInfo: newAggregateTypeInfo(),
+	}
+	a.store.SubscribeAndReplay(a.projections.aggregateTypeInfo)
+}
+
 func (a *api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a.handler.ServeHTTP(w, r)
 }
@@ -187,7 +194,8 @@ func (a *api) ListAggregateTypes(w http.ResponseWriter, _ *http.Request) {
 	}{
 		Data: data,
 		Links: map[string]string{
-			"self": "http://127.0.0.1:8080/list-aggregate-types",
+			"allEvents": "http://127.0.0.1:8080/events.json",
+			"self":      "http://127.0.0.1:8080/list-aggregate-types",
 		},
 	}
 
@@ -216,13 +224,6 @@ func (a *api) writeEvents(w http.ResponseWriter, events <-chan *rangedb.Record, 
 		_ = base64Writer.Close()
 
 	}
-}
-
-func (a *api) initProjections() {
-	a.projections = &projections{
-		aggregateTypeInfo: newAggregateTypeInfo(),
-	}
-	a.store.SubscribeAndReplay(a.projections.aggregateTypeInfo)
 }
 
 // InvalidInput defines an error wrapper for invalid client input.
