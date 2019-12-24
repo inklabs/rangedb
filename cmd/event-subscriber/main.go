@@ -27,7 +27,7 @@ func main() {
 		log.Fatalf("unable to dial (%s): %v", url, err)
 	}
 
-	defer Close(socket)
+	defer closeOrLog(socket)
 
 	for {
 		_, message, _ := socket.ReadMessage()
@@ -35,7 +35,7 @@ func main() {
 	}
 }
 
-func Close(c io.Closer) {
+func closeOrLog(c io.Closer) {
 	err := c.Close()
 	if err != nil {
 		log.Printf("failed closing: %v", err)
