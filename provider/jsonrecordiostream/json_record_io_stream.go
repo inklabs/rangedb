@@ -14,6 +14,7 @@ type jsonRecordIoStream struct {
 	eventTypes map[string]reflect.Type
 }
 
+// New constructs a jsonRecordIoStream.
 func New() *jsonRecordIoStream {
 	return &jsonRecordIoStream{
 		eventTypes: map[string]reflect.Type{},

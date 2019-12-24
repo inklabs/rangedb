@@ -21,14 +21,17 @@ type inMemoryStore struct {
 	recordsByAggregateType map[string][]*rangedb.Record
 }
 
+// Option defines functional option parameters for inMemoryStore.
 type Option func(*inMemoryStore)
 
+// WithClock is a functional option to inject a clock.Clock.
 func WithClock(clock clock.Clock) Option {
 	return func(store *inMemoryStore) {
 		store.clock = clock
 	}
 }
 
+// New constructs an inMemoryStore.
 func New(options ...Option) *inMemoryStore {
 	s := &inMemoryStore{
 		clock:                  systemclock.New(),
@@ -105,7 +108,7 @@ func (s *inMemoryStore) recordsFromMapStartingWith(m map[string][]*rangedb.Recor
 func (s *inMemoryStore) Save(event rangedb.Event, metadata interface{}) error {
 	return s.SaveEvent(
 		event.AggregateType(),
-		event.AggregateId(),
+		event.AggregateID(),
 		event.EventType(),
 		shortuuid.New().String(),
 		event,
@@ -113,22 +116,22 @@ func (s *inMemoryStore) Save(event rangedb.Event, metadata interface{}) error {
 	)
 }
 
-func (s *inMemoryStore) SaveEvent(aggregateType, aggregateId, eventType, eventId string, event, metadata interface{}) error {
+func (s *inMemoryStore) SaveEvent(aggregateType, aggregateID, eventType, eventID string, event, metadata interface{}) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	if eventId == "" {
-		eventId = shortuuid.New().String()
+	if eventID == "" {
+		eventID = shortuuid.New().String()
 	}
 
-	stream := rangedb.GetStream(aggregateType, aggregateId)
+	stream := rangedb.GetStream(aggregateType, aggregateID)
 	record := &rangedb.Record{
 		AggregateType:        aggregateType,
-		AggregateId:          aggregateId,
+		AggregateID:          aggregateID,
 		GlobalSequenceNumber: uint64(len(s.allRecords)),
 		StreamSequenceNumber: uint64(len(s.recordsByStream[stream])),
 		EventType:            eventType,
-		EventId:              eventId,
+		EventID:              eventID,
 		InsertTimestamp:      uint64(s.clock.Now().Unix()),
 		Data:                 event,
 		Metadata:             metadata,

@@ -14,10 +14,10 @@ import (
 func Test_GetStream_CombinesAggregateTypeAndId(t *testing.T) {
 	// Given
 	aggregateType := "resource-owner"
-	aggregateId := "8e91008eb3a84a3da6f53481ffa9ea88"
+	aggregateID := "8e91008eb3a84a3da6f53481ffa9ea88"
 
 	// When
-	stream := rangedb.GetStream(aggregateType, aggregateId)
+	stream := rangedb.GetStream(aggregateType, aggregateID)
 
 	// Then
 	assert.Equal(t, "resource-owner!8e91008eb3a84a3da6f53481ffa9ea88", stream)
@@ -26,7 +26,7 @@ func Test_GetStream_CombinesAggregateTypeAndId(t *testing.T) {
 func Test_GetEventStream_ReturnsStreamFromMessage(t *testing.T) {
 	// Given
 	event := rangedbtest.ThingWasDone{
-		Id: "e2c2b4fa64344d17984fc53631f3c462",
+		ID: "e2c2b4fa64344d17984fc53631f3c462",
 	}
 
 	// When
@@ -51,7 +51,7 @@ func Test_GetEventsByAggregateTypes(t *testing.T) {
 func Test_ReplayEvents(t *testing.T) {
 	// Given
 	inMemoryStore := inmemorystore.New()
-	event := rangedbtest.ThingWasDone{Id: "A", Number: 2}
+	event := rangedbtest.ThingWasDone{ID: "A", Number: 2}
 	require.NoError(t, inMemoryStore.Save(event, nil))
 	subscriber := rangedbtest.NewCountSubscriber()
 

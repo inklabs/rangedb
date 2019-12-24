@@ -18,6 +18,7 @@ func (p *pipe) IsNextGlobalSequenceNumber(currentPosition uint64) bool {
 	return p.currentRecord.GlobalSequenceNumber == currentPosition+1
 }
 
+// MergeRecordChannelsInOrder combines record channels ordered by record.GlobalSequenceNumber.
 func MergeRecordChannelsInOrder(channels []<-chan *Record) <-chan *Record {
 	records := make(chan *Record)
 
@@ -32,7 +33,7 @@ func MergeRecordChannelsInOrder(channels []<-chan *Record) <-chan *Record {
 			}
 		}
 
-		currentPosition := uint64(0)
+		var currentPosition uint64
 
 		for len(pipes) > 0 {
 			i := getIndexWithSmallestGlobalSequenceNumber(pipes)

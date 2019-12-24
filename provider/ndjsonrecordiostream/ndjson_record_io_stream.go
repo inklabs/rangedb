@@ -10,17 +10,18 @@ import (
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
 
-type ndJsonIoStream struct {
+type ndJSONIoStream struct {
 	eventTypes map[string]reflect.Type
 }
 
-func New() *ndJsonIoStream {
-	return &ndJsonIoStream{
+// New constructs an ndJSONIoStream.
+func New() *ndJSONIoStream {
+	return &ndJSONIoStream{
 		eventTypes: map[string]reflect.Type{},
 	}
 }
 
-func (s *ndJsonIoStream) Write(writer io.Writer, records <-chan *rangedb.Record) <-chan error {
+func (s *ndJSONIoStream) Write(writer io.Writer, records <-chan *rangedb.Record) <-chan error {
 	errors := make(chan error)
 	go func() {
 		defer close(errors)
@@ -45,7 +46,7 @@ func (s *ndJsonIoStream) Write(writer io.Writer, records <-chan *rangedb.Record)
 	return errors
 }
 
-func (s *ndJsonIoStream) Read(reader io.Reader) (<-chan *rangedb.Record, <-chan error) {
+func (s *ndJSONIoStream) Read(reader io.Reader) (<-chan *rangedb.Record, <-chan error) {
 	ch := make(chan *rangedb.Record)
 	errors := make(chan error)
 
@@ -70,13 +71,13 @@ func (s *ndJsonIoStream) Read(reader io.Reader) (<-chan *rangedb.Record, <-chan 
 	return ch, errors
 }
 
-func (s *ndJsonIoStream) Bind(events ...rangedb.Event) {
+func (s *ndJSONIoStream) Bind(events ...rangedb.Event) {
 	for _, e := range events {
 		s.eventTypes[e.EventType()] = getType(e)
 	}
 }
 
-func (s *ndJsonIoStream) eventTypeLookup(eventTypeName string) (r reflect.Type, b bool) {
+func (s *ndJSONIoStream) eventTypeLookup(eventTypeName string) (r reflect.Type, b bool) {
 	eventType, ok := s.eventTypes[eventTypeName]
 	return eventType, ok
 }

@@ -24,7 +24,7 @@ func Example_saveEvent() {
 
 	const requestBody = `[
 		{
-			"eventId": "2b1bb91150db464a8723cae30def7996",
+			"eventID": "2b1bb91150db464a8723cae30def7996",
 			"eventType": "ThingWasDone",
 			"data":{
 				"id": "141b39d2b9854f8093ef79dc47dae6af",
@@ -33,7 +33,7 @@ func Example_saveEvent() {
 			"metadata":null
 		},
 		{
-			"eventId": "c8df652d85f2419e83ad6ef3afa49b08",
+			"eventID": "c8df652d85f2419e83ad6ef3afa49b08",
 			"eventType": "ThingWasDone",
 			"data":{
 				"id": "141b39d2b9854f8093ef79dc47dae6af",

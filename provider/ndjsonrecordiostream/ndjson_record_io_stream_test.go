@@ -25,7 +25,7 @@ func Test_LoadAndSave_ValidJson(t *testing.T) {
 		// Given
 		var writer bytes.Buffer
 		stream := ndjsonrecordiostream.New()
-		expectedNdJson := `{"aggregateType":"scalar","aggregateId":"1","globalSequenceNumber":10,"sequenceNumber":2,"insertTimestamp":123,"eventId":"1ccd9eeb3a8e42dfb12cee36b908c212","eventType":"Thing","data":{"Id":"xyz"},"metadata":null}`
+		expectedNdJson := `{"aggregateType":"scalar","aggregateID":"1","globalSequenceNumber":10,"sequenceNumber":2,"insertTimestamp":123,"eventID":"1ccd9eeb3a8e42dfb12cee36b908c212","eventType":"Thing","data":{"ID":"xyz"},"metadata":null}`
 		reader := strings.NewReader(expectedNdJson)
 		records, readErrors := stream.Read(reader)
 
@@ -42,8 +42,8 @@ func Test_LoadAndSave_ValidJson(t *testing.T) {
 		// Given
 		var writer bytes.Buffer
 		stream := ndjsonrecordiostream.New()
-		expectedNdJson := `{"aggregateType":"scalar","aggregateId":"1","globalSequenceNumber":10,"sequenceNumber":2,"insertTimestamp":123,"eventId":"1ccd9eeb3a8e42dfb12cee36b908c212","eventType":"Thing","data":{"Id":"abc"},"metadata":null}
-{"aggregateType":"scalar","aggregateId":"1","globalSequenceNumber":11,"sequenceNumber":3,"insertTimestamp":124,"eventId":"9a4f747335594a68a316b8c7fc2a75bf","eventType":"Thing","data":{"Id":"xyz"},"metadata":null}`
+		expectedNdJson := `{"aggregateType":"scalar","aggregateID":"1","globalSequenceNumber":10,"sequenceNumber":2,"insertTimestamp":123,"eventID":"1ccd9eeb3a8e42dfb12cee36b908c212","eventType":"Thing","data":{"ID":"abc"},"metadata":null}
+{"aggregateType":"scalar","aggregateID":"1","globalSequenceNumber":11,"sequenceNumber":3,"insertTimestamp":124,"eventID":"9a4f747335594a68a316b8c7fc2a75bf","eventType":"Thing","data":{"ID":"xyz"},"metadata":null}`
 		reader := strings.NewReader(expectedNdJson)
 		records, readErrors := stream.Read(reader)
 
@@ -60,7 +60,7 @@ func Test_LoadAndSave_ValidJson(t *testing.T) {
 		// Given
 		var writer bytes.Buffer
 		stream := ndjsonrecordiostream.New()
-		inputNdJson := `{"aggregateType":"scalar","aggregateId":"1","globalSequenceNumber":10,"sequenceNumber":2,"insertTimestamp":123,"eventId":"1ccd9eeb3a8e42dfb12cee36b908c212","eventType":"Thing","data":{"Id":"abc"},"metadata":null}
+		inputNdJson := `{"aggregateType":"scalar","aggregateID":"1","globalSequenceNumber":10,"sequenceNumber":2,"insertTimestamp":123,"eventID":"1ccd9eeb3a8e42dfb12cee36b908c212","eventType":"Thing","data":{"ID":"abc"},"metadata":null}
 `
 		reader := strings.NewReader(inputNdJson)
 		records, readErrors := stream.Read(reader)
@@ -126,7 +126,7 @@ func TestSave_MalformedEventValue(t *testing.T) {
 
 	// Then
 	events <- &rangedb.Record{
-		EventId:   "e95739e9fa10475c9fb0c288dc6ec973",
+		EventID:   "e95739e9fa10475c9fb0c288dc6ec973",
 		EventType: "InfinityError",
 		Data:      math.Inf(1),
 		Metadata:  nil,

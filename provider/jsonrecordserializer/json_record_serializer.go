@@ -13,6 +13,7 @@ type jsonSerializer struct {
 	eventTypes map[string]reflect.Type
 }
 
+// New constructs a jsonSerializer.
 func New() *jsonSerializer {
 	return &jsonSerializer{
 		eventTypes: map[string]reflect.Type{},
@@ -46,6 +47,9 @@ func (s *jsonSerializer) eventTypeLookup(eventTypeName string) (r reflect.Type, 
 	return eventType, ok
 }
 
+// UnmarshalRecord decodes a Record using the supplied JSON decoder.
+//
+// Event data will be parsed into a struct if supplied by getEventType.
 func UnmarshalRecord(decoder *json.Decoder, getEventType func(eventTypeName string) (reflect.Type, bool)) (*rangedb.Record, error) {
 	var rawEvent json.RawMessage
 	record := rangedb.Record{

@@ -1,5 +1,7 @@
 # RangeDB
 
+[![GoDoc](https://godoc.org/github.com/inklabs/rangedb?status.svg)](https://godoc.org/github.com/inklabs/rangedb)
+
 An event store database in Go. This package includes a stand-alone database
 and web server along with a library for embedding event sourced applications.
 

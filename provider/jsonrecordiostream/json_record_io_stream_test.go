@@ -37,7 +37,7 @@ func Test_LoadAndSave_ValidJson(t *testing.T) {
 			// Given
 			var writer bytes.Buffer
 			stream := jsonrecordiostream.New()
-			expectedJson := fmt.Sprintf(`[{"aggregateType":"scalar","aggregateId":"1","globalSequenceNumber":10,"sequenceNumber":2,"insertTimestamp":123,"eventId":"1ccd9eeb3a8e42dfb12cee36b908c212","eventType":"Thing","data":%s,"metadata":null}]`, tt.json)
+			expectedJson := fmt.Sprintf(`[{"aggregateType":"scalar","aggregateID":"1","globalSequenceNumber":10,"sequenceNumber":2,"insertTimestamp":123,"eventID":"1ccd9eeb3a8e42dfb12cee36b908c212","eventType":"Thing","data":%s,"metadata":null}]`, tt.json)
 			reader := strings.NewReader(expectedJson)
 			records, readErrors := stream.Read(reader)
 
@@ -102,7 +102,7 @@ func TestSave_MalformedEventValue(t *testing.T) {
 
 	// Then
 	events <- &rangedb.Record{
-		EventId:   "e95739e9fa10475c9fb0c288dc6ec973",
+		EventID:   "e95739e9fa10475c9fb0c288dc6ec973",
 		EventType: "InfinityError",
 		Data:      math.Inf(1),
 		Metadata:  nil,

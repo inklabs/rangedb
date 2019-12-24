@@ -12,6 +12,7 @@ import (
 	"github.com/inklabs/rangedb"
 )
 
+// VerifyRecordIoStream verifies the RecordIoStream interface.
 func VerifyRecordIoStream(t *testing.T, newIoStream func() rangedb.RecordIoStream) {
 	t.Helper()
 
@@ -26,10 +27,10 @@ func testWriteAndReadWithBoundEvent(t *testing.T, newIoStream func() rangedb.Rec
 		// Given
 		ioStream := newIoStream()
 		ioStream.Bind(&ThingWasDone{})
-		event1 := &ThingWasDone{Id: "A", Number: 1}
+		event1 := &ThingWasDone{ID: "A", Number: 1}
 		record1 := &rangedb.Record{
 			AggregateType:        "thing",
-			AggregateId:          "60f01cc527844cde9953c998a2c077a7",
+			AggregateID:          "60f01cc527844cde9953c998a2c077a7",
 			GlobalSequenceNumber: math.MaxUint64,
 			StreamSequenceNumber: math.MaxUint64,
 			EventType:            "ThingWasDone",
@@ -37,10 +38,10 @@ func testWriteAndReadWithBoundEvent(t *testing.T, newIoStream func() rangedb.Rec
 			Data:                 event1,
 			Metadata:             nil,
 		}
-		event2 := &ThingWasDone{Id: "B", Number: 2}
+		event2 := &ThingWasDone{ID: "B", Number: 2}
 		record2 := &rangedb.Record{
 			AggregateType:        "thing",
-			AggregateId:          "60f01cc527844cde9953c998a2c077a7",
+			AggregateID:          "60f01cc527844cde9953c998a2c077a7",
 			GlobalSequenceNumber: math.MaxUint64,
 			StreamSequenceNumber: math.MaxUint64,
 			EventType:            "ThingWasDone",
@@ -71,10 +72,10 @@ func testWriteAndReadWithUnBoundEvent(t *testing.T, newIoStream func() rangedb.R
 	return t.Run("write and read with unbound event", func(t *testing.T) {
 		// Given
 		ioStream := newIoStream()
-		event1 := &ThingWasDone{Id: "A", Number: 1}
+		event1 := &ThingWasDone{ID: "A", Number: 1}
 		record1 := &rangedb.Record{
 			AggregateType:        "thing",
-			AggregateId:          "60f01cc527844cde9953c998a2c077a7",
+			AggregateID:          "60f01cc527844cde9953c998a2c077a7",
 			GlobalSequenceNumber: math.MaxUint64,
 			StreamSequenceNumber: math.MaxUint64,
 			EventType:            "ThingWasDone",
@@ -82,10 +83,10 @@ func testWriteAndReadWithUnBoundEvent(t *testing.T, newIoStream func() rangedb.R
 			Data:                 event1,
 			Metadata:             nil,
 		}
-		event2 := &ThingWasDone{Id: "B", Number: 2}
+		event2 := &ThingWasDone{ID: "B", Number: 2}
 		record2 := &rangedb.Record{
 			AggregateType:        "thing",
-			AggregateId:          "60f01cc527844cde9953c998a2c077a7",
+			AggregateID:          "60f01cc527844cde9953c998a2c077a7",
 			GlobalSequenceNumber: math.MaxUint64,
 			StreamSequenceNumber: math.MaxUint64,
 			EventType:            "ThingWasDone",
@@ -127,10 +128,10 @@ func testWriteWithboundEventAndReadWithUnBoundEvent(t *testing.T, newIoStream fu
 		// Given
 		boundIoStream := newIoStream()
 		boundIoStream.Bind(&ThingWasDone{})
-		event1 := &ThingWasDone{Id: "A", Number: 1}
+		event1 := &ThingWasDone{ID: "A", Number: 1}
 		record1 := &rangedb.Record{
 			AggregateType:        "thing",
-			AggregateId:          "60f01cc527844cde9953c998a2c077a7",
+			AggregateID:          "60f01cc527844cde9953c998a2c077a7",
 			GlobalSequenceNumber: math.MaxUint64,
 			StreamSequenceNumber: math.MaxUint64,
 			EventType:            "ThingWasDone",
@@ -138,10 +139,10 @@ func testWriteWithboundEventAndReadWithUnBoundEvent(t *testing.T, newIoStream fu
 			Data:                 event1,
 			Metadata:             nil,
 		}
-		event2 := &ThingWasDone{Id: "B", Number: 2}
+		event2 := &ThingWasDone{ID: "B", Number: 2}
 		record2 := &rangedb.Record{
 			AggregateType:        "thing",
-			AggregateId:          "60f01cc527844cde9953c998a2c077a7",
+			AggregateID:          "60f01cc527844cde9953c998a2c077a7",
 			GlobalSequenceNumber: math.MaxUint64,
 			StreamSequenceNumber: math.MaxUint64,
 			EventType:            "ThingWasDone",
@@ -183,10 +184,10 @@ func testWriteWithUnboundEventAndReadWithBoundEvent(t *testing.T, newIoStream fu
 	return t.Run("write with unbound event and read with bound event", func(t *testing.T) {
 		// Given
 		unBoundIoStream := newIoStream()
-		event1 := &ThingWasDone{Id: "A", Number: 1}
+		event1 := &ThingWasDone{ID: "A", Number: 1}
 		record1 := &rangedb.Record{
 			AggregateType:        "thing",
-			AggregateId:          "60f01cc527844cde9953c998a2c077a7",
+			AggregateID:          "60f01cc527844cde9953c998a2c077a7",
 			GlobalSequenceNumber: math.MaxUint64,
 			StreamSequenceNumber: math.MaxUint64,
 			EventType:            "ThingWasDone",
@@ -194,10 +195,10 @@ func testWriteWithUnboundEventAndReadWithBoundEvent(t *testing.T, newIoStream fu
 			Data:                 event1,
 			Metadata:             nil,
 		}
-		event2 := &ThingWasDone{Id: "B", Number: 2}
+		event2 := &ThingWasDone{ID: "B", Number: 2}
 		record2 := &rangedb.Record{
 			AggregateType:        "thing",
-			AggregateId:          "60f01cc527844cde9953c998a2c077a7",
+			AggregateID:          "60f01cc527844cde9953c998a2c077a7",
 			GlobalSequenceNumber: math.MaxUint64,
 			StreamSequenceNumber: math.MaxUint64,
 			EventType:            "ThingWasDone",

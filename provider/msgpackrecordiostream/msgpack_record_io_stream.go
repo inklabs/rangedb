@@ -14,6 +14,7 @@ type msgpackRecordIoStream struct {
 	eventTypes map[string]reflect.Type
 }
 
+// New constructs a msgpackRecordIoStream.
 func New() *msgpackRecordIoStream {
 	return &msgpackRecordIoStream{
 		eventTypes: map[string]reflect.Type{},
@@ -56,10 +57,10 @@ func (s *msgpackRecordIoStream) Read(reader io.Reader) (<-chan *rangedb.Record, 
 		decoder := msgpack.NewDecoder(reader)
 		decoder.UseJSONTag(true)
 
-		for true {
+		for {
 			record, err := msgpackrecordserializer.UnmarshalRecord(decoder, s.eventTypeLookup)
 			if err != nil {
-				if err == msgpackrecordserializer.EOF {
+				if err == msgpackrecordserializer.ErrorEOF {
 					return
 				}
 

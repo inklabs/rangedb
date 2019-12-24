@@ -27,7 +27,7 @@ func Test_Private_AllEvents_FailsWhenLookupRecordIsMissing(t *testing.T) {
 	)
 	require.NoError(t, err)
 	defer cleanupDb(t, dbPath)
-	event := rangedbtest.ThingWasDone{Id: "A"}
+	event := rangedbtest.ThingWasDone{ID: "A"}
 	require.NoError(t, store.Save(event, nil))
 	err = store.db.Delete(getKeyWithNumber("thing!A!", 0), nil)
 	require.NoError(t, err)
@@ -52,10 +52,10 @@ func Test_Private_AllEvents_FailsWhenLookupRecordIsCorrupt(t *testing.T) {
 	)
 	require.NoError(t, err)
 	defer cleanupDb(t, dbPath)
-	event := rangedbtest.ThingWasDone{Id: "A"}
+	event := rangedbtest.ThingWasDone{ID: "A"}
 	require.NoError(t, store.Save(event, nil))
-	invalidJson := []byte(`xyz`)
-	err = store.db.Put(getKeyWithNumber("thing!A!", 0), invalidJson, nil)
+	invalidJSON := []byte(`xyz`)
+	err = store.db.Put(getKeyWithNumber("thing!A!", 0), invalidJSON, nil)
 	require.NoError(t, err)
 
 	// When

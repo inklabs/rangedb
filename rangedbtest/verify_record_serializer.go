@@ -11,6 +11,7 @@ import (
 	"github.com/inklabs/rangedb"
 )
 
+// VerifyRecordSerializer verifies the RecordSerializer interface.
 func VerifyRecordSerializer(t *testing.T, newSerializer func() rangedb.RecordSerializer) {
 	t.Helper()
 
@@ -25,10 +26,10 @@ func testSerializeAndDeserializeWithBoundEvent(t *testing.T, newSerializer func(
 		// Given
 		serializer := newSerializer()
 		serializer.Bind(&ThingWasDone{})
-		event := &ThingWasDone{Id: "A", Number: 1}
+		event := &ThingWasDone{ID: "A", Number: 1}
 		record := &rangedb.Record{
 			AggregateType:        "thing",
-			AggregateId:          "60f01cc527844cde9953c998a2c077a7",
+			AggregateID:          "60f01cc527844cde9953c998a2c077a7",
 			GlobalSequenceNumber: math.MaxUint64,
 			StreamSequenceNumber: math.MaxUint64,
 			EventType:            "ThingWasDone",
@@ -52,10 +53,10 @@ func testSerializeAndDeserializeWithUnBoundEvent(t *testing.T, newSerializer fun
 	return t.Run("serialize and deserialize with unbound event", func(t *testing.T) {
 		// Given
 		serializer := newSerializer()
-		event := &ThingWasDone{Id: "A", Number: 1}
+		event := &ThingWasDone{ID: "A", Number: 1}
 		record := &rangedb.Record{
 			AggregateType:        "thing",
-			AggregateId:          "7e488a8af27148cb98920f11902d930c",
+			AggregateID:          "7e488a8af27148cb98920f11902d930c",
 			GlobalSequenceNumber: math.MaxUint64,
 			StreamSequenceNumber: math.MaxUint64,
 			EventType:            "ThingWasDone",
@@ -85,10 +86,10 @@ func testSerializeWithBoundEventAndDeserializeWithUnboundEvent(t *testing.T, new
 		// Given
 		boundSerializer := newSerializer()
 		boundSerializer.Bind(&ThingWasDone{})
-		event := &ThingWasDone{Id: "A", Number: 1}
+		event := &ThingWasDone{ID: "A", Number: 1}
 		record := &rangedb.Record{
 			AggregateType:        "thing",
-			AggregateId:          "7e488a8af27148cb98920f11902d930c",
+			AggregateID:          "7e488a8af27148cb98920f11902d930c",
 			GlobalSequenceNumber: math.MaxUint64,
 			StreamSequenceNumber: math.MaxUint64,
 			EventType:            "ThingWasDone",
@@ -118,10 +119,10 @@ func testSerializeWithUnboundEventAndDeserializeWithboundEvent(t *testing.T, new
 	return t.Run("serialize with unbound event and deserialize with bound event", func(t *testing.T) {
 		// Given
 		unBoundSerializer := newSerializer()
-		event := &ThingWasDone{Id: "A", Number: 1}
+		event := &ThingWasDone{ID: "A", Number: 1}
 		record := &rangedb.Record{
 			AggregateType:        "thing",
-			AggregateId:          "7e488a8af27148cb98920f11902d930c",
+			AggregateID:          "7e488a8af27148cb98920f11902d930c",
 			GlobalSequenceNumber: math.MaxUint64,
 			StreamSequenceNumber: math.MaxUint64,
 			EventType:            "ThingWasDone",

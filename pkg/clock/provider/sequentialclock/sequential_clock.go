@@ -8,6 +8,7 @@ type sequentialClock struct {
 	seconds int64
 }
 
+// New constructs a sequential clock.
 func New() *sequentialClock {
 	return &sequentialClock{}
 }

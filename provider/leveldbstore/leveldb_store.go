@@ -35,26 +35,31 @@ type levelDbStore struct {
 	db  *leveldb.DB
 }
 
+// Option defines functional option parameters for levelDbStore.
 type Option func(*levelDbStore)
 
+// WithClock is a functional option to inject a Clock.
 func WithClock(clock clock.Clock) Option {
 	return func(store *levelDbStore) {
 		store.clock = clock
 	}
 }
 
+// WithSerializer is a functional option to inject a RecordSerializer.
 func WithSerializer(serializer rangedb.RecordSerializer) Option {
 	return func(store *levelDbStore) {
 		store.serializer = serializer
 	}
 }
 
+// WithLogger is a functional option to inject a Logger.
 func WithLogger(logger *log.Logger) Option {
 	return func(store *levelDbStore) {
 		store.logger = logger
 	}
 }
 
+// New constructs a levelDbStore.
 func New(dbFilePath string, options ...Option) (*levelDbStore, error) {
 	db, err := leveldb.OpenFile(dbFilePath, nil)
 	if err != nil {
@@ -103,7 +108,7 @@ func (s *levelDbStore) EventsByAggregateTypeStartingWith(aggregateType string, e
 func (s *levelDbStore) Save(event rangedb.Event, metadata interface{}) error {
 	return s.SaveEvent(
 		event.AggregateType(),
-		event.AggregateId(),
+		event.AggregateID(),
 		event.EventType(),
 		shortuuid.New().String(),
 		event,
@@ -111,22 +116,22 @@ func (s *levelDbStore) Save(event rangedb.Event, metadata interface{}) error {
 	)
 }
 
-func (s *levelDbStore) SaveEvent(aggregateType, aggregateId, eventType, eventId string, event, metadata interface{}) error {
+func (s *levelDbStore) SaveEvent(aggregateType, aggregateID, eventType, eventID string, event, metadata interface{}) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	if eventId == "" {
-		eventId = shortuuid.New().String()
+	if eventID == "" {
+		eventID = shortuuid.New().String()
 	}
 
-	stream := rangedb.GetStream(aggregateType, aggregateId)
+	stream := rangedb.GetStream(aggregateType, aggregateID)
 	record := &rangedb.Record{
 		AggregateType:        aggregateType,
-		AggregateId:          aggregateId,
+		AggregateID:          aggregateID,
 		GlobalSequenceNumber: s.getNextGlobalSequenceNumber(),
 		StreamSequenceNumber: s.getNextStreamSequenceNumber(stream),
 		EventType:            eventType,
-		EventId:              eventId,
+		EventID:              eventID,
 		InsertTimestamp:      uint64(s.clock.Now().Unix()),
 		Data:                 event,
 		Metadata:             metadata,

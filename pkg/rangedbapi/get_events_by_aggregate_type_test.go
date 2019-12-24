@@ -25,8 +25,8 @@ func Example_getEventsByAggregateType() {
 	defer server.Close()
 
 	PrintError(
-		inMemoryStore.Save(rangedbtest.ThingWasDone{Id: "605f20348fb940e386c171d51c877bf1", Number: 100}, nil),
-		inMemoryStore.Save(rangedbtest.AnotherWasComplete{Id: "a095086e52bc4617a1763a62398cd645"}, nil),
+		inMemoryStore.Save(rangedbtest.ThingWasDone{ID: "605f20348fb940e386c171d51c877bf1", Number: 100}, nil),
+		inMemoryStore.Save(rangedbtest.AnotherWasComplete{ID: "a095086e52bc4617a1763a62398cd645"}, nil),
 	)
 	url := fmt.Sprintf("%s/events/thing.json", server.URL)
 
@@ -44,11 +44,11 @@ func Example_getEventsByAggregateType() {
 	// [
 	//   {
 	//     "aggregateType": "thing",
-	//     "aggregateId": "605f20348fb940e386c171d51c877bf1",
+	//     "aggregateID": "605f20348fb940e386c171d51c877bf1",
 	//     "globalSequenceNumber": 0,
 	//     "sequenceNumber": 0,
 	//     "insertTimestamp": 0,
-	//     "eventId": "d2ba8e70072943388203c438d4e94bf3",
+	//     "eventID": "d2ba8e70072943388203c438d4e94bf3",
 	//     "eventType": "ThingWasDone",
 	//     "data": {
 	//       "id": "605f20348fb940e386c171d51c877bf1",

@@ -63,7 +63,7 @@ func TestApi_SaveEvents(t *testing.T) {
 	// Given
 	singleJsonEvent := compactJson(`[
 		{
-			"eventId": "b93bd54592394c999fad7095e2b4840e",
+			"eventID": "b93bd54592394c999fad7095e2b4840e",
 			"eventType": "ThingWasDone",
 			"data":{
 				"id": "0a403cfe0e8c4284b2107e12bbe19881",
@@ -75,10 +75,10 @@ func TestApi_SaveEvents(t *testing.T) {
 
 	t.Run("saves from json", func(t *testing.T) {
 		// Given
-		const aggregateId = "2c12be033de7402d9fb28d9b635b3330"
+		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
 		const aggregateType = "thing"
 		api := rangedbapi.New()
-		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateId)
+		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
 		request := httptest.NewRequest("POST", saveUri, strings.NewReader(singleJsonEvent))
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
@@ -94,10 +94,10 @@ func TestApi_SaveEvents(t *testing.T) {
 
 	t.Run("fails when content type not set", func(t *testing.T) {
 		// Given
-		const aggregateId = "2c12be033de7402d9fb28d9b635b3330"
+		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
 		const aggregateType = "thing"
 		api := rangedbapi.New()
-		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateId)
+		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
 		request := httptest.NewRequest("POST", saveUri, strings.NewReader(singleJsonEvent))
 		response := httptest.NewRecorder()
 
@@ -111,12 +111,12 @@ func TestApi_SaveEvents(t *testing.T) {
 
 	t.Run("fails when store save fails", func(t *testing.T) {
 		// Given
-		const aggregateId = "cbba5f386b2d4924ac34d1b9e9217d67"
+		const aggregateID = "cbba5f386b2d4924ac34d1b9e9217d67"
 		const aggregateType = "thing"
 		api := rangedbapi.New(rangedbapi.WithStore(NewFailingEventStore()))
 		expectedJson := compactJson(`[
 		{
-			"eventId": "b93bd54592394c999fad7095e2b4840e",
+			"eventID": "b93bd54592394c999fad7095e2b4840e",
 			"eventType": "ThingWasDone",
 			"data":{
 				"Name": "Thing Test",
@@ -125,7 +125,7 @@ func TestApi_SaveEvents(t *testing.T) {
 			"metadata":null
 		}
 	]`)
-		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateId)
+		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
 		request := httptest.NewRequest("POST", saveUri, strings.NewReader(expectedJson))
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
@@ -141,11 +141,11 @@ func TestApi_SaveEvents(t *testing.T) {
 
 	t.Run("fails when input json is invalid", func(t *testing.T) {
 		// Given
-		const aggregateId = "cbba5f386b2d4924ac34d1b9e9217d67"
+		const aggregateID = "cbba5f386b2d4924ac34d1b9e9217d67"
 		const aggregateType = "thing"
 		api := rangedbapi.New(rangedbapi.WithStore(NewFailingEventStore()))
 		invalidJson := `x`
-		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateId)
+		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
 		request := httptest.NewRequest("POST", saveUri, strings.NewReader(invalidJson))
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
@@ -164,16 +164,16 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 	// Given
 	store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 	api := rangedbapi.New(rangedbapi.WithStore(store))
-	const aggregateId1 = "f187760f4d8c4d1c9d9cf17b66766abd"
-	const aggregateId2 = "5b36ae984b724685917b69ae47968be1"
-	const aggregateId3 = "9bc181144cef4fd19da1f32a17363997"
+	const aggregateID1 = "f187760f4d8c4d1c9d9cf17b66766abd"
+	const aggregateID2 = "5b36ae984b724685917b69ae47968be1"
+	const aggregateID3 = "9bc181144cef4fd19da1f32a17363997"
 
-	saveEvents(t, api, "thing", aggregateId1,
+	saveEvents(t, api, "thing", aggregateID1,
 		SaveEventsRequest{
 			EventId:   "27e9965ce0ce4b65a38d1e0b7768ba27",
 			EventType: "ThingWasDone",
 			Data: rangedbtest.ThingWasDone{
-				Id:     aggregateId1,
+				ID:     aggregateID1,
 				Number: 100,
 			},
 			Metadata: nil,
@@ -181,29 +181,29 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 			EventId:   "27e9965ce0ce4b65a38d1e0b7768ba27",
 			EventType: "ThingWasDone",
 			Data: rangedbtest.ThingWasDone{
-				Id:     aggregateId1,
+				ID:     aggregateID1,
 				Number: 200,
 			},
 			Metadata: nil,
 		},
 	)
-	saveEvents(t, api, "thing", aggregateId2,
+	saveEvents(t, api, "thing", aggregateID2,
 		SaveEventsRequest{
 			EventId:   "ac376375a0834b0bae47b9246ed570c8",
 			EventType: "ThingWasDone",
 			Data: rangedbtest.ThingWasDone{
-				Id:     aggregateId2,
+				ID:     aggregateID2,
 				Number: 300,
 			},
 			Metadata: nil,
 		},
 	)
-	saveEvents(t, api, "another", aggregateId3,
+	saveEvents(t, api, "another", aggregateID3,
 		SaveEventsRequest{
 			EventId:   "d3d25ad1340e42ce89b809ef77ee67c7",
 			EventType: "AnotherWasComplete",
 			Data: rangedbtest.AnotherWasComplete{
-				Id: aggregateId3,
+				ID: aggregateID3,
 			},
 			Metadata: nil,
 		},
@@ -223,11 +223,11 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 		expectedJson := compactJson(`[
 			{
 				"aggregateType": "thing",
-				"aggregateId": "f187760f4d8c4d1c9d9cf17b66766abd",
+				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
 				"globalSequenceNumber": 0,
 				"sequenceNumber": 0,
 				"insertTimestamp": 0,
-				"eventId": "27e9965ce0ce4b65a38d1e0b7768ba27",
+				"eventID": "27e9965ce0ce4b65a38d1e0b7768ba27",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -237,11 +237,11 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 			},
 			{
 				"aggregateType": "thing",
-				"aggregateId": "f187760f4d8c4d1c9d9cf17b66766abd",
+				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
 				"globalSequenceNumber": 1,
 				"sequenceNumber": 1,
 				"insertTimestamp": 1,
-				"eventId": "27e9965ce0ce4b65a38d1e0b7768ba27",
+				"eventID": "27e9965ce0ce4b65a38d1e0b7768ba27",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -251,11 +251,11 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 			},
 			{
 				"aggregateType": "thing",
-				"aggregateId": "5b36ae984b724685917b69ae47968be1",
+				"aggregateID": "5b36ae984b724685917b69ae47968be1",
 				"globalSequenceNumber": 2,
 				"sequenceNumber": 0,
 				"insertTimestamp": 2,
-				"eventId": "ac376375a0834b0bae47b9246ed570c8",
+				"eventID": "ac376375a0834b0bae47b9246ed570c8",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "5b36ae984b724685917b69ae47968be1",
@@ -265,11 +265,11 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 			},
 			{
 				"aggregateType": "another",
-				"aggregateId": "9bc181144cef4fd19da1f32a17363997",
+				"aggregateID": "9bc181144cef4fd19da1f32a17363997",
 				"globalSequenceNumber": 3,
 				"sequenceNumber": 0,
 				"insertTimestamp": 3,
-				"eventId": "d3d25ad1340e42ce89b809ef77ee67c7",
+				"eventID": "d3d25ad1340e42ce89b809ef77ee67c7",
 				"eventType": "AnotherWasComplete",
 				"data":{
 					"id": "9bc181144cef4fd19da1f32a17363997"
@@ -293,11 +293,11 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 		assert.Equal(t, "application/json; boundary=LF", response.Header().Get("Content-Type"))
 		expectedJson := compactJson(`{
 			"aggregateType": "thing",
-			"aggregateId": "f187760f4d8c4d1c9d9cf17b66766abd",
+			"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
 			"globalSequenceNumber":0,
 			"sequenceNumber":0,
 			"insertTimestamp":0,
-			"eventId": "27e9965ce0ce4b65a38d1e0b7768ba27",
+			"eventID": "27e9965ce0ce4b65a38d1e0b7768ba27",
 			"eventType": "ThingWasDone",
 			"data":{
 				"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -306,11 +306,11 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 			"metadata":null
 		}`) + "\n" + compactJson(`{
 			"aggregateType": "thing",
-			"aggregateId": "f187760f4d8c4d1c9d9cf17b66766abd",
+			"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
 			"globalSequenceNumber": 1,
 			"sequenceNumber": 1,
 			"insertTimestamp": 1,
-			"eventId": "27e9965ce0ce4b65a38d1e0b7768ba27",
+			"eventID": "27e9965ce0ce4b65a38d1e0b7768ba27",
 			"eventType": "ThingWasDone",
 			"data":{
 				"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -334,28 +334,28 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 		assert.Equal(t, "application/msgpack", response.Header().Get("Content-Type"))
 		expectedRecord1 := &rangedb.Record{
 			AggregateType:        "thing",
-			AggregateId:          aggregateId1,
+			AggregateID:          aggregateID1,
 			GlobalSequenceNumber: 0,
 			StreamSequenceNumber: 0,
 			InsertTimestamp:      0,
-			EventId:              "27e9965ce0ce4b65a38d1e0b7768ba27",
+			EventID:              "27e9965ce0ce4b65a38d1e0b7768ba27",
 			EventType:            "ThingWasDone",
 			Data: map[string]interface{}{
-				"id":     aggregateId1,
+				"id":     aggregateID1,
 				"number": "100",
 			},
 			Metadata: nil,
 		}
 		expectedRecord2 := &rangedb.Record{
 			AggregateType:        "thing",
-			AggregateId:          aggregateId1,
+			AggregateID:          aggregateID1,
 			GlobalSequenceNumber: 1,
 			StreamSequenceNumber: 1,
 			InsertTimestamp:      1,
-			EventId:              "27e9965ce0ce4b65a38d1e0b7768ba27",
+			EventID:              "27e9965ce0ce4b65a38d1e0b7768ba27",
 			EventType:            "ThingWasDone",
 			Data: map[string]interface{}{
-				"id":     aggregateId1,
+				"id":     aggregateID1,
 				"number": "200",
 			},
 			Metadata: nil,
@@ -382,11 +382,11 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 		expectedJson := compactJson(`[
 			{
 				"aggregateType": "thing",
-				"aggregateId": "f187760f4d8c4d1c9d9cf17b66766abd",
+				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
 				"globalSequenceNumber":0,
 				"sequenceNumber":0,
 				"insertTimestamp":0,
-				"eventId": "27e9965ce0ce4b65a38d1e0b7768ba27",
+				"eventID": "27e9965ce0ce4b65a38d1e0b7768ba27",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -396,11 +396,11 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 			},
 			{
 				"aggregateType": "thing",
-				"aggregateId": "f187760f4d8c4d1c9d9cf17b66766abd",
+				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
 				"globalSequenceNumber":1,
 				"sequenceNumber":1,
 				"insertTimestamp":1,
-				"eventId": "27e9965ce0ce4b65a38d1e0b7768ba27",
+				"eventID": "27e9965ce0ce4b65a38d1e0b7768ba27",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -410,11 +410,11 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 			},
 			{
 				"aggregateType": "thing",
-				"aggregateId": "5b36ae984b724685917b69ae47968be1",
+				"aggregateID": "5b36ae984b724685917b69ae47968be1",
 				"globalSequenceNumber": 2,
 				"sequenceNumber": 0,
 				"insertTimestamp": 2,
-				"eventId": "ac376375a0834b0bae47b9246ed570c8",
+				"eventID": "ac376375a0834b0bae47b9246ed570c8",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "5b36ae984b724685917b69ae47968be1",
@@ -440,11 +440,11 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 		expectedJson := compactJson(`[
 			{
 				"aggregateType": "thing",
-				"aggregateId": "f187760f4d8c4d1c9d9cf17b66766abd",
+				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
 				"globalSequenceNumber":0,
 				"sequenceNumber":0,
 				"insertTimestamp":0,
-				"eventId": "27e9965ce0ce4b65a38d1e0b7768ba27",
+				"eventID": "27e9965ce0ce4b65a38d1e0b7768ba27",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -454,11 +454,11 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 			},
 			{
 				"aggregateType": "thing",
-				"aggregateId": "f187760f4d8c4d1c9d9cf17b66766abd",
+				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
 				"globalSequenceNumber":1,
 				"sequenceNumber":1,
 				"insertTimestamp":1,
-				"eventId": "27e9965ce0ce4b65a38d1e0b7768ba27",
+				"eventID": "27e9965ce0ce4b65a38d1e0b7768ba27",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -468,11 +468,11 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 			},
 			{
 				"aggregateType": "thing",
-				"aggregateId": "5b36ae984b724685917b69ae47968be1",
+				"aggregateID": "5b36ae984b724685917b69ae47968be1",
 				"globalSequenceNumber": 2,
 				"sequenceNumber": 0,
 				"insertTimestamp": 2,
-				"eventId": "ac376375a0834b0bae47b9246ed570c8",
+				"eventID": "ac376375a0834b0bae47b9246ed570c8",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "5b36ae984b724685917b69ae47968be1",
@@ -482,11 +482,11 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 			},
 			{
 				"aggregateType": "another",
-				"aggregateId": "9bc181144cef4fd19da1f32a17363997",
+				"aggregateID": "9bc181144cef4fd19da1f32a17363997",
 				"globalSequenceNumber": 3,
 				"sequenceNumber": 0,
 				"insertTimestamp": 3,
-				"eventId": "d3d25ad1340e42ce89b809ef77ee67c7",
+				"eventID": "d3d25ad1340e42ce89b809ef77ee67c7",
 				"eventType": "AnotherWasComplete",
 				"data":{
 					"id": "9bc181144cef4fd19da1f32a17363997"
@@ -501,9 +501,9 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 func TestApi_ListAggregates(t *testing.T) {
 	// Given
 	store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
-	event1 := rangedbtest.ThingWasDone{Id: "A", Number: 1}
-	event2 := rangedbtest.ThingWasDone{Id: "A", Number: 2}
-	event3 := rangedbtest.AnotherWasComplete{Id: "B"}
+	event1 := rangedbtest.ThingWasDone{ID: "A", Number: 1}
+	event2 := rangedbtest.ThingWasDone{ID: "A", Number: 2}
+	event3 := rangedbtest.AnotherWasComplete{ID: "B"}
 	require.NoError(t, store.Save(event1, nil))
 	require.NoError(t, store.Save(event2, nil))
 	require.NoError(t, store.Save(event3, nil))
@@ -563,11 +563,11 @@ func prettyJson(input string) string {
 	return strings.TrimSpace(prettyJSON.String())
 }
 
-func saveEvents(t *testing.T, api http.Handler, aggregateType, aggregateId string, requests ...SaveEventsRequest) {
+func saveEvents(t *testing.T, api http.Handler, aggregateType, aggregateID string, requests ...SaveEventsRequest) {
 	saveJson, err := json.Marshal(requests)
 	require.NoError(t, err)
 
-	saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateId)
+	saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
 	saveRequest := httptest.NewRequest("POST", saveUri, bytes.NewReader(saveJson))
 	saveRequest.Header.Set("Content-Type", "application/json")
 	saveResponse := httptest.NewRecorder()
@@ -595,7 +595,7 @@ func readGzippedBody(t *testing.T, body io.Reader) string {
 }
 
 type SaveEventsRequest struct {
-	EventId   string      `msgpack:"e" json:"eventId"`
+	EventId   string      `msgpack:"e" json:"eventID"`
 	EventType string      `msgpack:"t" json:"eventType"`
 	Data      interface{} `msgpack:"d" json:"data"`
 	Metadata  interface{} `msgpack:"m" json:"metadata"`

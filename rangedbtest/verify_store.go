@@ -14,8 +14,10 @@ import (
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 )
 
+// NewStoreFunc defines a helper function to verify the store interface.
 type NewStoreFunc func(clock.Clock) (store rangedb.Store, tearDown func(), bindEvents func(events ...rangedb.Event))
 
+// VerifyStore verifies the Store interface.
 func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 	t.Helper()
 
@@ -26,7 +28,7 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 	testEventsByStreamStartingWithSecondEntry(t, newStore)
 	testEventsByAggregateType(t, newStore)
 	testEventsByAggregateTypeStartingWithSecondEntry(t, newStore)
-	testSaveEventGeneratesEventIdIfEmpty(t, newStore)
+	testSaveEventGeneratesEventIDIfEmpty(t, newStore)
 	testSubscribeSendsNewEventsToSubscribersOnSave(t, newStore)
 	testSubscribeAndReplaySendsPreviousAndNewEventsToSubscribersOnSave(t, newStore)
 }
@@ -35,14 +37,14 @@ func testEventsByStream(t *testing.T, newStore NewStoreFunc) {
 	t.Run("get events by stream", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
-		const eventId1 = "d2ba8e70072943388203c438d4e94bf3"
-		const eventId2 = "99cbd88bbcaf482ba1cc96ed12541707"
+		const eventID1 = "d2ba8e70072943388203c438d4e94bf3"
+		const eventID2 = "99cbd88bbcaf482ba1cc96ed12541707"
 		store, tearDown, bindEvents := newStore(sequentialclock.New())
 		defer tearDown()
 		bindEvents(ThingWasDone{})
-		eventA1 := &ThingWasDone{Id: "A", Number: 1}
-		eventA2 := &ThingWasDone{Id: "A", Number: 2}
-		eventB := &ThingWasDone{Id: "B", Number: 3}
+		eventA1 := &ThingWasDone{ID: "A", Number: 1}
+		eventA2 := &ThingWasDone{ID: "A", Number: 2}
+		eventB := &ThingWasDone{ID: "B", Number: 3}
 		require.NoError(t, store.Save(eventA1, nil))
 		require.NoError(t, store.Save(eventA2, nil))
 		require.NoError(t, store.Save(eventB, nil))
@@ -54,22 +56,22 @@ func testEventsByStream(t *testing.T, newStore NewStoreFunc) {
 		expectedRecords := []rangedb.Record{
 			{
 				AggregateType:        "thing",
-				AggregateId:          "A",
+				AggregateID:          "A",
 				GlobalSequenceNumber: 0,
 				StreamSequenceNumber: 0,
 				EventType:            "ThingWasDone",
-				EventId:              eventId1,
+				EventID:              eventID1,
 				InsertTimestamp:      0,
 				Data:                 eventA1,
 				Metadata:             nil,
 			},
 			{
 				AggregateType:        "thing",
-				AggregateId:          "A",
+				AggregateID:          "A",
 				GlobalSequenceNumber: 1,
 				StreamSequenceNumber: 1,
 				EventType:            "ThingWasDone",
-				EventId:              eventId2,
+				EventID:              eventID2,
 				InsertTimestamp:      1,
 				Data:                 eventA2,
 				Metadata:             nil,
@@ -92,7 +94,7 @@ func testEventsByStreamOrderedBySequenceNumberLexicographically(t *testing.T, ne
 		const totalEvents = totalEventsToRequireBigEndian
 		events := make([]rangedb.Event, totalEvents)
 		for i := 0; i < totalEvents; i++ {
-			event := &ThingWasDone{Id: "A", Number: i}
+			event := &ThingWasDone{ID: "A", Number: i}
 			events[i] = event
 			require.NoError(t, store.Save(event, nil))
 		}
@@ -116,10 +118,10 @@ func testEventsByAggregateTypesOrderedByGlobalSequenceNumber(t *testing.T, newSt
 		store, tearDown, bindEvents := newStore(sequentialclock.New())
 		defer tearDown()
 		bindEvents(ThingWasDone{}, AnotherWasComplete{})
-		thingWasDoneA0 := &ThingWasDone{Id: "A", Number: 100}
-		thingWasDoneA1 := &ThingWasDone{Id: "A", Number: 200}
-		thingWasDoneB0 := &ThingWasDone{Id: "B", Number: 300}
-		AnotherWasCompleteX0 := &AnotherWasComplete{Id: "X"}
+		thingWasDoneA0 := &ThingWasDone{ID: "A", Number: 100}
+		thingWasDoneA1 := &ThingWasDone{ID: "A", Number: 200}
+		thingWasDoneB0 := &ThingWasDone{ID: "B", Number: 300}
+		AnotherWasCompleteX0 := &AnotherWasComplete{ID: "X"}
 		require.NoError(t, store.Save(thingWasDoneA0, nil))
 		require.NoError(t, store.Save(thingWasDoneB0, nil))
 		require.NoError(t, store.Save(thingWasDoneA1, nil))
@@ -132,44 +134,44 @@ func testEventsByAggregateTypesOrderedByGlobalSequenceNumber(t *testing.T, newSt
 		expectedRecords := []rangedb.Record{
 			{
 				AggregateType:        "thing",
-				AggregateId:          "A",
+				AggregateID:          "A",
 				GlobalSequenceNumber: 0,
 				StreamSequenceNumber: 0,
 				EventType:            "ThingWasDone",
-				EventId:              "d2ba8e70072943388203c438d4e94bf3",
+				EventID:              "d2ba8e70072943388203c438d4e94bf3",
 				InsertTimestamp:      0,
 				Data:                 thingWasDoneA0,
 				Metadata:             nil,
 			},
 			{
 				AggregateType:        "thing",
-				AggregateId:          "B",
+				AggregateID:          "B",
 				GlobalSequenceNumber: 1,
 				StreamSequenceNumber: 0,
 				EventType:            "ThingWasDone",
-				EventId:              "99cbd88bbcaf482ba1cc96ed12541707",
+				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
 				InsertTimestamp:      1,
 				Data:                 thingWasDoneB0,
 				Metadata:             nil,
 			},
 			{
 				AggregateType:        "thing",
-				AggregateId:          "A",
+				AggregateID:          "A",
 				GlobalSequenceNumber: 2,
 				StreamSequenceNumber: 1,
 				EventType:            "ThingWasDone",
-				EventId:              "2e9e6918af10498cb7349c89a351fdb7",
+				EventID:              "2e9e6918af10498cb7349c89a351fdb7",
 				InsertTimestamp:      2,
 				Data:                 thingWasDoneA1,
 				Metadata:             nil,
 			},
 			{
 				AggregateType:        "another",
-				AggregateId:          "X",
+				AggregateID:          "X",
 				GlobalSequenceNumber: 3,
 				StreamSequenceNumber: 0,
 				EventType:            "AnotherWasComplete",
-				EventId:              "5042958739514c948f776fc9f820bca0",
+				EventID:              "5042958739514c948f776fc9f820bca0",
 				InsertTimestamp:      3,
 				Data:                 AnotherWasCompleteX0,
 				Metadata:             nil,
@@ -187,10 +189,10 @@ func testAllEventsOrderedByGlobalSequenceNumber(t *testing.T, newStore NewStoreF
 		store, tearDown, bindEvents := newStore(sequentialclock.New())
 		defer tearDown()
 		bindEvents(ThingWasDone{}, AnotherWasComplete{})
-		thingWasDoneA0 := &ThingWasDone{Id: "A", Number: 100}
-		thingWasDoneA1 := &ThingWasDone{Id: "A", Number: 200}
-		thingWasDoneB0 := &ThingWasDone{Id: "B", Number: 300}
-		AnotherWasCompleteX0 := &AnotherWasComplete{Id: "X"}
+		thingWasDoneA0 := &ThingWasDone{ID: "A", Number: 100}
+		thingWasDoneA1 := &ThingWasDone{ID: "A", Number: 200}
+		thingWasDoneB0 := &ThingWasDone{ID: "B", Number: 300}
+		AnotherWasCompleteX0 := &AnotherWasComplete{ID: "X"}
 		require.NoError(t, store.Save(thingWasDoneA0, nil))
 		require.NoError(t, store.Save(thingWasDoneB0, nil))
 		require.NoError(t, store.Save(thingWasDoneA1, nil))
@@ -203,44 +205,44 @@ func testAllEventsOrderedByGlobalSequenceNumber(t *testing.T, newStore NewStoreF
 		expectedRecords := []rangedb.Record{
 			{
 				AggregateType:        "thing",
-				AggregateId:          "A",
+				AggregateID:          "A",
 				GlobalSequenceNumber: 0,
 				StreamSequenceNumber: 0,
 				EventType:            "ThingWasDone",
-				EventId:              "d2ba8e70072943388203c438d4e94bf3",
+				EventID:              "d2ba8e70072943388203c438d4e94bf3",
 				InsertTimestamp:      0,
 				Data:                 thingWasDoneA0,
 				Metadata:             nil,
 			},
 			{
 				AggregateType:        "thing",
-				AggregateId:          "B",
+				AggregateID:          "B",
 				GlobalSequenceNumber: 1,
 				StreamSequenceNumber: 0,
 				EventType:            "ThingWasDone",
-				EventId:              "99cbd88bbcaf482ba1cc96ed12541707",
+				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
 				InsertTimestamp:      1,
 				Data:                 thingWasDoneB0,
 				Metadata:             nil,
 			},
 			{
 				AggregateType:        "thing",
-				AggregateId:          "A",
+				AggregateID:          "A",
 				GlobalSequenceNumber: 2,
 				StreamSequenceNumber: 1,
 				EventType:            "ThingWasDone",
-				EventId:              "2e9e6918af10498cb7349c89a351fdb7",
+				EventID:              "2e9e6918af10498cb7349c89a351fdb7",
 				InsertTimestamp:      2,
 				Data:                 thingWasDoneA1,
 				Metadata:             nil,
 			},
 			{
 				AggregateType:        "another",
-				AggregateId:          "X",
+				AggregateID:          "X",
 				GlobalSequenceNumber: 3,
 				StreamSequenceNumber: 0,
 				EventType:            "AnotherWasComplete",
-				EventId:              "5042958739514c948f776fc9f820bca0",
+				EventID:              "5042958739514c948f776fc9f820bca0",
 				InsertTimestamp:      3,
 				Data:                 AnotherWasCompleteX0,
 				Metadata:             nil,
@@ -258,9 +260,9 @@ func testEventsByStreamStartingWithSecondEntry(t *testing.T, newStore NewStoreFu
 		store, tearDown, bindEvents := newStore(sequentialclock.New())
 		defer tearDown()
 		bindEvents(ThingWasDone{})
-		eventA1 := &ThingWasDone{Id: "A", Number: 1}
-		eventA2 := &ThingWasDone{Id: "A", Number: 2}
-		eventB := &ThingWasDone{Id: "B", Number: 3}
+		eventA1 := &ThingWasDone{ID: "A", Number: 1}
+		eventA2 := &ThingWasDone{ID: "A", Number: 2}
+		eventB := &ThingWasDone{ID: "B", Number: 3}
 		require.NoError(t, store.Save(eventA1, nil))
 		require.NoError(t, store.Save(eventA2, nil))
 		require.NoError(t, store.Save(eventB, nil))
@@ -272,11 +274,11 @@ func testEventsByStreamStartingWithSecondEntry(t *testing.T, newStore NewStoreFu
 		expectedRecords := []rangedb.Record{
 			{
 				AggregateType:        "thing",
-				AggregateId:          "A",
+				AggregateID:          "A",
 				GlobalSequenceNumber: 1,
 				StreamSequenceNumber: 1,
 				EventType:            "ThingWasDone",
-				EventId:              "99cbd88bbcaf482ba1cc96ed12541707",
+				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
 				InsertTimestamp:      1,
 				Data:                 eventA2,
 				Metadata:             nil,
@@ -295,9 +297,9 @@ func testEventsByAggregateType(t *testing.T, newStore NewStoreFunc) {
 		store, tearDown, bindEvents := newStore(sequentialclock.New())
 		defer tearDown()
 		bindEvents(ThingWasDone{})
-		eventA1 := &ThingWasDone{Id: "A", Number: 1}
-		eventA2 := &ThingWasDone{Id: "A", Number: 2}
-		eventB := &ThingWasDone{Id: "B", Number: 3}
+		eventA1 := &ThingWasDone{ID: "A", Number: 1}
+		eventA2 := &ThingWasDone{ID: "A", Number: 2}
+		eventB := &ThingWasDone{ID: "B", Number: 3}
 		require.NoError(t, store.Save(eventA1, nil))
 		require.NoError(t, store.Save(eventA2, nil))
 		require.NoError(t, store.Save(eventB, nil))
@@ -309,33 +311,33 @@ func testEventsByAggregateType(t *testing.T, newStore NewStoreFunc) {
 		expectedRecords := []rangedb.Record{
 			{
 				AggregateType:        "thing",
-				AggregateId:          "A",
+				AggregateID:          "A",
 				GlobalSequenceNumber: 0,
 				StreamSequenceNumber: 0,
 				EventType:            "ThingWasDone",
-				EventId:              "d2ba8e70072943388203c438d4e94bf3",
+				EventID:              "d2ba8e70072943388203c438d4e94bf3",
 				InsertTimestamp:      0,
 				Data:                 eventA1,
 				Metadata:             nil,
 			},
 			{
 				AggregateType:        "thing",
-				AggregateId:          "A",
+				AggregateID:          "A",
 				GlobalSequenceNumber: 1,
 				StreamSequenceNumber: 1,
 				EventType:            "ThingWasDone",
-				EventId:              "99cbd88bbcaf482ba1cc96ed12541707",
+				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
 				InsertTimestamp:      1,
 				Data:                 eventA2,
 				Metadata:             nil,
 			},
 			{
 				AggregateType:        "thing",
-				AggregateId:          "B",
+				AggregateID:          "B",
 				GlobalSequenceNumber: 2,
 				StreamSequenceNumber: 0,
 				EventType:            "ThingWasDone",
-				EventId:              "2e9e6918af10498cb7349c89a351fdb7",
+				EventID:              "2e9e6918af10498cb7349c89a351fdb7",
 				InsertTimestamp:      2,
 				Data:                 eventB,
 				Metadata:             nil,
@@ -352,9 +354,9 @@ func testEventsByAggregateTypeStartingWithSecondEntry(t *testing.T, newStore New
 		store, tearDown, bindEvents := newStore(sequentialclock.New())
 		defer tearDown()
 		bindEvents(ThingWasDone{})
-		eventA1 := &ThingWasDone{Id: "A", Number: 1}
-		eventA2 := &ThingWasDone{Id: "A", Number: 2}
-		eventB := &ThingWasDone{Id: "B", Number: 3}
+		eventA1 := &ThingWasDone{ID: "A", Number: 1}
+		eventA2 := &ThingWasDone{ID: "A", Number: 2}
+		eventB := &ThingWasDone{ID: "B", Number: 3}
 		require.NoError(t, store.Save(eventA1, nil))
 		require.NoError(t, store.Save(eventA2, nil))
 		require.NoError(t, store.Save(eventB, nil))
@@ -366,22 +368,22 @@ func testEventsByAggregateTypeStartingWithSecondEntry(t *testing.T, newStore New
 		expectedRecords := []rangedb.Record{
 			{
 				AggregateType:        "thing",
-				AggregateId:          "A",
+				AggregateID:          "A",
 				GlobalSequenceNumber: 1,
 				StreamSequenceNumber: 1,
 				EventType:            "ThingWasDone",
-				EventId:              "99cbd88bbcaf482ba1cc96ed12541707",
+				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
 				InsertTimestamp:      1,
 				Data:                 eventA2,
 				Metadata:             nil,
 			},
 			{
 				AggregateType:        "thing",
-				AggregateId:          "B",
+				AggregateID:          "B",
 				GlobalSequenceNumber: 2,
 				StreamSequenceNumber: 0,
 				EventType:            "ThingWasDone",
-				EventId:              "2e9e6918af10498cb7349c89a351fdb7",
+				EventID:              "2e9e6918af10498cb7349c89a351fdb7",
 				InsertTimestamp:      2,
 				Data:                 eventB,
 				Metadata:             nil,
@@ -391,21 +393,21 @@ func testEventsByAggregateTypeStartingWithSecondEntry(t *testing.T, newStore New
 	})
 }
 
-func testSaveEventGeneratesEventIdIfEmpty(t *testing.T, newStore NewStoreFunc) {
-	t.Run("SaveEvent generates eventId if empty", func(t *testing.T) {
+func testSaveEventGeneratesEventIDIfEmpty(t *testing.T, newStore NewStoreFunc) {
+	t.Run("SaveEvent generates eventID if empty", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
 		const aggregateType = "thing"
-		const aggregateId = "95eb3409cf6e4d909d41cca0c70ec812"
+		const aggregateID = "95eb3409cf6e4d909d41cca0c70ec812"
 		store, tearDown, bindEvents := newStore(sequentialclock.New())
 		defer tearDown()
 		bindEvents(ThingWasDone{})
-		event := &ThingWasDone{Id: aggregateId, Number: 1}
+		event := &ThingWasDone{ID: aggregateID, Number: 1}
 
 		// When
 		err := store.SaveEvent(
 			aggregateType,
-			aggregateId,
+			aggregateID,
 			"ThingWasDone",
 			"",
 			event,
@@ -418,11 +420,11 @@ func testSaveEventGeneratesEventIdIfEmpty(t *testing.T, newStore NewStoreFunc) {
 		expectedRecords := []rangedb.Record{
 			{
 				AggregateType:        aggregateType,
-				AggregateId:          aggregateId,
+				AggregateID:          aggregateID,
 				GlobalSequenceNumber: 0,
 				StreamSequenceNumber: 0,
 				EventType:            "ThingWasDone",
-				EventId:              "d2ba8e70072943388203c438d4e94bf3",
+				EventID:              "d2ba8e70072943388203c438d4e94bf3",
 				InsertTimestamp:      0,
 				Data:                 event,
 				Metadata:             nil,
@@ -439,13 +441,13 @@ func testSubscribeSendsNewEventsToSubscribersOnSave(t *testing.T, newStore NewSt
 		// Given
 		shortuuid.SetRand(100)
 		const aggregateType = "thing"
-		const aggregateId = "95eb3409cf6e4d909d41cca0c70ec812"
+		const aggregateID = "95eb3409cf6e4d909d41cca0c70ec812"
 		store, tearDown, bindEvents := newStore(sequentialclock.New())
 		defer tearDown()
 		bindEvents(ThingWasDone{})
-		event1 := &ThingWasDone{Id: aggregateId, Number: 1}
+		event1 := &ThingWasDone{ID: aggregateID, Number: 1}
 		require.NoError(t, store.Save(event1, nil))
-		event2 := &ThingWasDone{Id: aggregateId, Number: 1}
+		event2 := &ThingWasDone{ID: aggregateID, Number: 1}
 		countSubscriber1 := NewCountSubscriber()
 		countSubscriber2 := NewCountSubscriber()
 		store.Subscribe(countSubscriber1, countSubscriber2)
@@ -453,7 +455,7 @@ func testSubscribeSendsNewEventsToSubscribersOnSave(t *testing.T, newStore NewSt
 		// When
 		err := store.SaveEvent(
 			aggregateType,
-			aggregateId,
+			aggregateID,
 			"ThingWasDone",
 			"",
 			event2,
@@ -472,13 +474,13 @@ func testSubscribeAndReplaySendsPreviousAndNewEventsToSubscribersOnSave(t *testi
 		// Given
 		shortuuid.SetRand(100)
 		const aggregateType = "thing"
-		const aggregateId = "95eb3409cf6e4d909d41cca0c70ec812"
+		const aggregateID = "95eb3409cf6e4d909d41cca0c70ec812"
 		store, tearDown, bindEvents := newStore(sequentialclock.New())
 		defer tearDown()
 		bindEvents(ThingWasDone{})
-		event1 := &ThingWasDone{Id: aggregateId, Number: 1}
+		event1 := &ThingWasDone{ID: aggregateID, Number: 1}
 		require.NoError(t, store.Save(event1, nil))
-		event2 := &ThingWasDone{Id: aggregateId, Number: 1}
+		event2 := &ThingWasDone{ID: aggregateID, Number: 1}
 		countSubscriber1 := NewCountSubscriber()
 		countSubscriber2 := NewCountSubscriber()
 		store.SubscribeAndReplay(countSubscriber1, countSubscriber2)
@@ -486,7 +488,7 @@ func testSubscribeAndReplaySendsPreviousAndNewEventsToSubscribersOnSave(t *testi
 		// When
 		err := store.SaveEvent(
 			aggregateType,
-			aggregateId,
+			aggregateID,
 			"ThingWasDone",
 			"",
 			event2,
@@ -514,6 +516,7 @@ type countSubscriber struct {
 	TotalEvents int
 }
 
+// NewCountSubscriber returns a countSubscriber.
 func NewCountSubscriber() *countSubscriber {
 	return &countSubscriber{}
 }

@@ -25,13 +25,13 @@ func Test_WriteAndRead_Valid(t *testing.T) {
 	records := make(chan *rangedb.Record)
 	record := &rangedb.Record{
 		AggregateType:        "thing",
-		AggregateId:          "af75f67d85ef4027a5ea4ae41519bbfd",
+		AggregateID:          "af75f67d85ef4027a5ea4ae41519bbfd",
 		GlobalSequenceNumber: 11,
 		StreamSequenceNumber: 2,
 		InsertTimestamp:      9,
-		EventId:              "eb2a6381e30145ebbcb1f2d4f4c7ee51",
+		EventID:              "eb2a6381e30145ebbcb1f2d4f4c7ee51",
 		EventType:            "ThingWasDone",
-		Data:                 &rangedbtest.ThingWasDone{Id: "3006a61d5bca41ee86ba992626db7df7", Number: 100},
+		Data:                 &rangedbtest.ThingWasDone{ID: "3006a61d5bca41ee86ba992626db7df7", Number: 100},
 		Metadata:             nil,
 	}
 	expectedRecord := *record

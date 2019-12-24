@@ -19,25 +19,28 @@ import (
 
 type api struct {
 	jsonRecordIoStream    rangedb.RecordIoStream
-	ndJsonRecordIoStream  rangedb.RecordIoStream
+	ndJSONRecordIoStream  rangedb.RecordIoStream
 	msgpackRecordIoStream rangedb.RecordIoStream
 	store                 rangedb.Store
 	handler               http.Handler
-	projections           *Projections
+	projections           *projections
 }
 
+// Option defines functional option parameters for api.
 type Option func(*api)
 
+// WithStore is a functional option to inject a Store.
 func WithStore(store rangedb.Store) Option {
 	return func(api *api) {
 		api.store = store
 	}
 }
 
+// New constructs an api.
 func New(options ...Option) *api {
 	api := &api{
 		jsonRecordIoStream:    jsonrecordiostream.New(),
-		ndJsonRecordIoStream:  ndjsonrecordiostream.New(),
+		ndJSONRecordIoStream:  ndjsonrecordiostream.New(),
 		msgpackRecordIoStream: msgpackrecordiostream.New(),
 		store:                 inmemorystore.New(),
 	}
@@ -53,7 +56,7 @@ func New(options ...Option) *api {
 }
 
 func (a *api) initRoutes() {
-	const stream = "{aggregateType:[a-zA-Z-]+}/{aggregateId:[0-9a-f]{32}}"
+	const stream = "{aggregateType:[a-zA-Z-]+}/{aggregateID:[0-9a-f]{32}}"
 	const extension = ".{extension:json|ndjson|msgpack}"
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/health-check", a.HealthCheck)
@@ -83,10 +86,10 @@ func (a *api) AllEvents(w http.ResponseWriter, r *http.Request) {
 
 func (a *api) EventsByStream(w http.ResponseWriter, r *http.Request) {
 	aggregateType := mux.Vars(r)["aggregateType"]
-	aggregateId := mux.Vars(r)["aggregateId"]
+	aggregateID := mux.Vars(r)["aggregateID"]
 	extension := mux.Vars(r)["extension"]
 
-	streamName := rangedb.GetStream(aggregateType, aggregateId)
+	streamName := rangedb.GetStream(aggregateType, aggregateID)
 	events := a.store.EventsByStream(streamName)
 	a.writeEvents(w, events, extension)
 }
@@ -108,7 +111,7 @@ func (a *api) EventsByAggregateType(w http.ResponseWriter, r *http.Request) {
 
 func (a *api) SaveEvents(w http.ResponseWriter, r *http.Request) {
 	aggregateType := mux.Vars(r)["aggregateType"]
-	aggregateId := mux.Vars(r)["aggregateId"]
+	aggregateID := mux.Vars(r)["aggregateID"]
 
 	if r.Header.Get("Content-Type") != "application/json" {
 		http.Error(w, "invalid content type", http.StatusBadRequest)
@@ -119,7 +122,7 @@ func (a *api) SaveEvents(w http.ResponseWriter, r *http.Request) {
 
 	records, errors := a.jsonRecordIoStream.Read(r.Body)
 
-	err := a.saveRecords(aggregateType, aggregateId, records, errors)
+	err := a.saveRecords(aggregateType, aggregateID, records, errors)
 	if err != nil {
 		if _, ok := err.(*InvalidInput); ok {
 			w.WriteHeader(http.StatusBadRequest)
@@ -136,7 +139,7 @@ func (a *api) SaveEvents(w http.ResponseWriter, r *http.Request) {
 	_, _ = fmt.Fprintf(w, `{"status":"OK"}`)
 }
 
-func (a *api) saveRecords(aggregateType, aggregateId string, records <-chan *rangedb.Record, errors <-chan error) error {
+func (a *api) saveRecords(aggregateType, aggregateID string, records <-chan *rangedb.Record, errors <-chan error) error {
 	for {
 		select {
 		case record, ok := <-records:
@@ -146,9 +149,9 @@ func (a *api) saveRecords(aggregateType, aggregateId string, records <-chan *ran
 
 			err := a.store.SaveEvent(
 				aggregateType,
-				aggregateId,
+				aggregateID,
 				record.EventType,
-				record.EventId,
+				record.EventID,
 				record.Data,
 				record.Metadata,
 			)
@@ -198,34 +201,36 @@ func (a *api) writeEvents(w http.ResponseWriter, events <-chan *rangedb.Record, 
 	case "json":
 		w.Header().Set(`Content-Type`, `application/json`)
 		errors := a.jsonRecordIoStream.Write(w, events)
-		_ = <-errors
+		<-errors
 
 	case "ndjson":
 		w.Header().Set(`Content-Type`, `application/json; boundary=LF`)
-		errors := a.ndJsonRecordIoStream.Write(w, events)
-		_ = <-errors
+		errors := a.ndJSONRecordIoStream.Write(w, events)
+		<-errors
 
 	case "msgpack":
 		w.Header().Set(`Content-Type`, `application/msgpack`)
 		base64Writer := base64.NewEncoder(base64.RawStdEncoding, w)
 		errors := a.msgpackRecordIoStream.Write(base64Writer, events)
-		_ = <-errors
+		<-errors
 		_ = base64Writer.Close()
 
 	}
 }
 
 func (a *api) initProjections() {
-	a.projections = &Projections{
-		aggregateTypeInfo: NewAggregateTypeInfo(),
+	a.projections = &projections{
+		aggregateTypeInfo: newAggregateTypeInfo(),
 	}
 	a.store.SubscribeAndReplay(a.projections.aggregateTypeInfo)
 }
 
+// InvalidInput defines an error wrapper for invalid client input.
 type InvalidInput struct {
 	err error
 }
 
+// NewInvalidInput constructs an InvalidInput wrapping an error.
 func NewInvalidInput(err error) *InvalidInput {
 	return &InvalidInput{err: err}
 }

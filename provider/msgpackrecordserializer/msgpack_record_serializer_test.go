@@ -119,7 +119,7 @@ func Test_UnmarshalRecord(t *testing.T) {
 		})
 
 		// Then
-		assert.Equal(t, msgpackrecordserializer.EOF, err)
+		assert.Equal(t, msgpackrecordserializer.ErrorEOF, err)
 		assert.Nil(t, record)
 	})
 }
@@ -129,12 +129,12 @@ func ExampleNew_serialize() {
 	serializer := msgpackrecordserializer.New()
 	serializer.Bind(rangedbtest.ThingWasDone{})
 	event := &rangedbtest.ThingWasDone{
-		Id:     "A",
+		ID:     "A",
 		Number: 1,
 	}
 	record := &rangedb.Record{
 		AggregateType:        "thing",
-		AggregateId:          "60f01cc527844cde9953c998a2c077a7",
+		AggregateID:          "60f01cc527844cde9953c998a2c077a7",
 		GlobalSequenceNumber: 100,
 		StreamSequenceNumber: 2,
 		EventType:            "ThingWasDone",
@@ -162,7 +162,7 @@ func ExampleNew_deserializeWithBoundEvent() {
 	fmt.Printf("%#v\n", record.Data)
 
 	// Output:
-	// &rangedbtest.ThingWasDone{Id:"A", Number:1}
+	// &rangedbtest.ThingWasDone{ID:"A", Number:1}
 }
 
 func ExampleNew_deserializeWithUnboundEvent() {

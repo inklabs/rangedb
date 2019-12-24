@@ -15,6 +15,7 @@ type msgpackSerializer struct {
 	eventTypes map[string]reflect.Type
 }
 
+// New constructs a msgpackSerializer.
 func New() *msgpackSerializer {
 	return &msgpackSerializer{
 		eventTypes: map[string]reflect.Type{},
@@ -43,6 +44,10 @@ func (s *msgpackSerializer) eventTypeLookup(eventTypeName string) (r reflect.Typ
 	return eventType, ok
 }
 
+// MarshalRecord encodes a Record as msgpack.
+//
+// The record, excluding data, is encoded first. Then, event data is encoded.
+// Encoding the event data second allows decoding to parse into a struct if defined.
 func MarshalRecord(record *rangedb.Record) ([]byte, error) {
 	var buf bytes.Buffer
 
@@ -65,6 +70,10 @@ func MarshalRecord(record *rangedb.Record) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// UnmarshalRecord decodes a Record using the supplied msgpack decoder.
+//
+// The record, excluding data, is decoded first. Then, event data is decoded.
+// Event data will be parsed into a struct if supplied by getEventType.
 func UnmarshalRecord(decoder *msgpack.Decoder, getEventType func(eventTypeName string) (reflect.Type, bool)) (*rangedb.Record, error) {
 	record := rangedb.Record{}
 
@@ -72,7 +81,7 @@ func UnmarshalRecord(decoder *msgpack.Decoder, getEventType func(eventTypeName s
 	if decodeErr != nil {
 		var err error
 		if decodeErr.Error() == "EOF" {
-			err = EOF
+			err = ErrorEOF
 		} else {
 			err = fmt.Errorf("failed decoding record: %v", decodeErr)
 		}
@@ -102,7 +111,8 @@ func UnmarshalRecord(decoder *msgpack.Decoder, getEventType func(eventTypeName s
 	return &record, nil
 }
 
-var EOF = errors.New("EOF")
+// ErrorEOF defines an end of file error.
+var ErrorEOF = errors.New("EOF")
 
 func getType(object interface{}) reflect.Type {
 	t := reflect.TypeOf(object)

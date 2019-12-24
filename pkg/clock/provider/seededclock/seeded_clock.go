@@ -9,6 +9,7 @@ type seededClock struct {
 	index int
 }
 
+// New constructs a seeded clock.
 func New(times ...time.Time) *seededClock {
 	if len(times) == 0 {
 		times = []time.Time{time.Unix(0, 0)}
