@@ -1,5 +1,7 @@
 package rangedbtest
 
+//go:generate go run ../gen/eventbinder/main.go -package rangedbtest -files events.go
+
 // ThingWasDone is an event used for testing.
 type ThingWasDone struct {
 	ID     string `json:"id"`

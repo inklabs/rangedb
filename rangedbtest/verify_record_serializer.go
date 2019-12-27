@@ -15,14 +15,7 @@ import (
 func VerifyRecordSerializer(t *testing.T, newSerializer func() rangedb.RecordSerializer) {
 	t.Helper()
 
-	testSerializeAndDeserializeWithBoundEvent(t, newSerializer)
-	testSerializeAndDeserializeWithUnBoundEvent(t, newSerializer)
-	testSerializeWithBoundEventAndDeserializeWithUnboundEvent(t, newSerializer)
-	testSerializeWithUnboundEventAndDeserializeWithboundEvent(t, newSerializer)
-}
-
-func testSerializeAndDeserializeWithBoundEvent(t *testing.T, newSerializer func() rangedb.RecordSerializer) bool {
-	return t.Run("serialize and deserialize with bound event", func(t *testing.T) {
+	t.Run("serialize and deserialize with bound event", func(t *testing.T) {
 		// Given
 		serializer := newSerializer()
 		serializer.Bind(&ThingWasDone{})
@@ -47,10 +40,8 @@ func testSerializeAndDeserializeWithBoundEvent(t *testing.T, newSerializer func(
 		require.NoError(t, err)
 		assert.Equal(t, record, actualRecord)
 	})
-}
 
-func testSerializeAndDeserializeWithUnBoundEvent(t *testing.T, newSerializer func() rangedb.RecordSerializer) bool {
-	return t.Run("serialize and deserialize with unbound event", func(t *testing.T) {
+	t.Run("serialize and deserialize with unbound event", func(t *testing.T) {
 		// Given
 		serializer := newSerializer()
 		event := &ThingWasDone{ID: "A", Number: 1}
@@ -79,10 +70,8 @@ func testSerializeAndDeserializeWithUnBoundEvent(t *testing.T, newSerializer fun
 		}
 		assert.Equal(t, fmt.Sprintf("%v", &expectedRecord), fmt.Sprintf("%v", actualRecord))
 	})
-}
 
-func testSerializeWithBoundEventAndDeserializeWithUnboundEvent(t *testing.T, newSerializer func() rangedb.RecordSerializer) bool {
-	return t.Run("serialize with bound event and deserialize with unbound event", func(t *testing.T) {
+	t.Run("serialize with bound event and deserialize with unbound event", func(t *testing.T) {
 		// Given
 		boundSerializer := newSerializer()
 		boundSerializer.Bind(&ThingWasDone{})
@@ -113,10 +102,8 @@ func testSerializeWithBoundEventAndDeserializeWithUnboundEvent(t *testing.T, new
 		}
 		assert.Equal(t, fmt.Sprintf("%v", &expectedRecord), fmt.Sprintf("%v", actualRecord))
 	})
-}
 
-func testSerializeWithUnboundEventAndDeserializeWithboundEvent(t *testing.T, newSerializer func() rangedb.RecordSerializer) bool {
-	return t.Run("serialize with unbound event and deserialize with bound event", func(t *testing.T) {
+	t.Run("serialize with unbound event and deserialize with bound event", func(t *testing.T) {
 		// Given
 		unBoundSerializer := newSerializer()
 		event := &ThingWasDone{ID: "A", Number: 1}
