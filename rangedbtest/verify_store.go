@@ -21,19 +21,6 @@ type NewStoreFunc func(clock.Clock) (store rangedb.Store, tearDown func(), bindE
 func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 	t.Helper()
 
-	testEventsByStream(t, newStore)
-	testEventsByStreamOrderedBySequenceNumberLexicographically(t, newStore)
-	testEventsByAggregateTypesOrderedByGlobalSequenceNumber(t, newStore)
-	testAllEventsOrderedByGlobalSequenceNumber(t, newStore)
-	testEventsByStreamStartingWithSecondEntry(t, newStore)
-	testEventsByAggregateType(t, newStore)
-	testEventsByAggregateTypeStartingWithSecondEntry(t, newStore)
-	testSaveEventGeneratesEventIDIfEmpty(t, newStore)
-	testSubscribeSendsNewEventsToSubscribersOnSave(t, newStore)
-	testSubscribeAndReplaySendsPreviousAndNewEventsToSubscribersOnSave(t, newStore)
-}
-
-func testEventsByStream(t *testing.T, newStore NewStoreFunc) {
 	t.Run("get events by stream", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
@@ -53,7 +40,7 @@ func testEventsByStream(t *testing.T, newStore NewStoreFunc) {
 		eventsChannel := store.EventsByStream(rangedb.GetEventStream(eventA1))
 
 		// Then
-		expectedRecords := []rangedb.Record{
+		expectedRecords := []*rangedb.Record{
 			{
 				AggregateType:        "thing",
 				AggregateID:          "A",
@@ -81,9 +68,7 @@ func testEventsByStream(t *testing.T, newStore NewStoreFunc) {
 		require.Equal(t, expectedRecords, actualRecords)
 		assert.Equal(t, eventA1, actualRecords[0].Data)
 	})
-}
 
-func testEventsByStreamOrderedBySequenceNumberLexicographically(t *testing.T, newStore NewStoreFunc) {
 	t.Run("get events by stream are ordered by sequence number lexicographically", func(t *testing.T) {
 		// Given
 		const totalEventsToRequireBigEndian = 257
@@ -109,9 +94,7 @@ func testEventsByStreamOrderedBySequenceNumberLexicographically(t *testing.T, ne
 			assert.Equal(t, events[i], actualRecord.Data)
 		}
 	})
-}
 
-func testEventsByAggregateTypesOrderedByGlobalSequenceNumber(t *testing.T, newStore NewStoreFunc) {
 	t.Run("get events by two aggregate types ordered by global sequence number", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
@@ -131,7 +114,7 @@ func testEventsByAggregateTypesOrderedByGlobalSequenceNumber(t *testing.T, newSt
 		eventsChannel := store.EventsByAggregateTypes("thing", "another", "missing")
 
 		// Then
-		expectedRecords := []rangedb.Record{
+		expectedRecords := []*rangedb.Record{
 			{
 				AggregateType:        "thing",
 				AggregateID:          "A",
@@ -180,9 +163,7 @@ func testEventsByAggregateTypesOrderedByGlobalSequenceNumber(t *testing.T, newSt
 		actualRecords := recordChannelToRecordsSlice(eventsChannel)
 		require.Equal(t, expectedRecords, actualRecords)
 	})
-}
 
-func testAllEventsOrderedByGlobalSequenceNumber(t *testing.T, newStore NewStoreFunc) {
 	t.Run("get all events ordered by global sequence number", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
@@ -202,7 +183,7 @@ func testAllEventsOrderedByGlobalSequenceNumber(t *testing.T, newStore NewStoreF
 		eventsChannel := store.AllEvents()
 
 		// Then
-		expectedRecords := []rangedb.Record{
+		expectedRecords := []*rangedb.Record{
 			{
 				AggregateType:        "thing",
 				AggregateID:          "A",
@@ -251,9 +232,7 @@ func testAllEventsOrderedByGlobalSequenceNumber(t *testing.T, newStore NewStoreF
 		actualRecords := recordChannelToRecordsSlice(eventsChannel)
 		require.Equal(t, expectedRecords, actualRecords)
 	})
-}
 
-func testEventsByStreamStartingWithSecondEntry(t *testing.T, newStore NewStoreFunc) {
 	t.Run("get events by stream starting with second entry", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
@@ -271,7 +250,7 @@ func testEventsByStreamStartingWithSecondEntry(t *testing.T, newStore NewStoreFu
 		eventsChannel := store.EventsByStreamStartingWith(rangedb.GetEventStream(eventA1), 1)
 
 		// Then
-		expectedRecords := []rangedb.Record{
+		expectedRecords := []*rangedb.Record{
 			{
 				AggregateType:        "thing",
 				AggregateID:          "A",
@@ -287,9 +266,7 @@ func testEventsByStreamStartingWithSecondEntry(t *testing.T, newStore NewStoreFu
 		actualRecords := recordChannelToRecordsSlice(eventsChannel)
 		assert.Equal(t, expectedRecords, actualRecords)
 	})
-}
 
-func testEventsByAggregateType(t *testing.T, newStore NewStoreFunc) {
 	t.Run("get events by aggregate type", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
@@ -308,7 +285,7 @@ func testEventsByAggregateType(t *testing.T, newStore NewStoreFunc) {
 		eventsChannel := store.EventsByAggregateType(eventA1.AggregateType())
 
 		// Then
-		expectedRecords := []rangedb.Record{
+		expectedRecords := []*rangedb.Record{
 			{
 				AggregateType:        "thing",
 				AggregateID:          "A",
@@ -345,9 +322,7 @@ func testEventsByAggregateType(t *testing.T, newStore NewStoreFunc) {
 		}
 		assert.Equal(t, expectedRecords, recordChannelToRecordsSlice(eventsChannel))
 	})
-}
 
-func testEventsByAggregateTypeStartingWithSecondEntry(t *testing.T, newStore NewStoreFunc) {
 	t.Run("get events by aggregate type starting with second entry", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
@@ -365,7 +340,7 @@ func testEventsByAggregateTypeStartingWithSecondEntry(t *testing.T, newStore New
 		eventsChannel := store.EventsByAggregateTypeStartingWith(eventA1.AggregateType(), 1)
 
 		// Then
-		expectedRecords := []rangedb.Record{
+		expectedRecords := []*rangedb.Record{
 			{
 				AggregateType:        "thing",
 				AggregateID:          "A",
@@ -391,9 +366,7 @@ func testEventsByAggregateTypeStartingWithSecondEntry(t *testing.T, newStore New
 		}
 		assert.Equal(t, expectedRecords, recordChannelToRecordsSlice(eventsChannel))
 	})
-}
 
-func testSaveEventGeneratesEventIDIfEmpty(t *testing.T, newStore NewStoreFunc) {
 	t.Run("SaveEvent generates eventID if empty", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
@@ -417,7 +390,7 @@ func testSaveEventGeneratesEventIDIfEmpty(t *testing.T, newStore NewStoreFunc) {
 		// Then
 		require.NoError(t, err)
 		eventsChannel := store.EventsByStream(rangedb.GetEventStream(event))
-		expectedRecords := []rangedb.Record{
+		expectedRecords := []*rangedb.Record{
 			{
 				AggregateType:        aggregateType,
 				AggregateID:          aggregateID,
@@ -434,9 +407,7 @@ func testSaveEventGeneratesEventIDIfEmpty(t *testing.T, newStore NewStoreFunc) {
 		require.Equal(t, expectedRecords, actualRecords)
 		assert.Equal(t, event, actualRecords[0].Data)
 	})
-}
 
-func testSubscribeSendsNewEventsToSubscribersOnSave(t *testing.T, newStore NewStoreFunc) {
 	t.Run("Subscribe sends new events to subscribers on save", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
@@ -467,9 +438,7 @@ func testSubscribeSendsNewEventsToSubscribersOnSave(t *testing.T, newStore NewSt
 		assert.Equal(t, 1, countSubscriber1.TotalEvents)
 		assert.Equal(t, 1, countSubscriber2.TotalEvents)
 	})
-}
 
-func testSubscribeAndReplaySendsPreviousAndNewEventsToSubscribersOnSave(t *testing.T, newStore NewStoreFunc) {
 	t.Run("Subscribe sends previous and new events to subscribers on save", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
@@ -500,13 +469,43 @@ func testSubscribeAndReplaySendsPreviousAndNewEventsToSubscribersOnSave(t *testi
 		assert.Equal(t, 2, countSubscriber1.TotalEvents)
 		assert.Equal(t, 2, countSubscriber2.TotalEvents)
 	})
+
+	t.Run("save event by value and get event by pointer from store", func(t *testing.T) {
+		// Given
+		shortuuid.SetRand(100)
+		store, tearDown, bindEvents := newStore(sequentialclock.New())
+		defer tearDown()
+		bindEvents(&ThingWasDone{})
+		event := ThingWasDone{ID: "A", Number: 1}
+		require.NoError(t, store.Save(event, nil))
+
+		// When
+		eventsChannel := store.AllEvents()
+
+		// Then
+		expectedRecords := []*rangedb.Record{
+			{
+				AggregateType:        "thing",
+				AggregateID:          "A",
+				GlobalSequenceNumber: 0,
+				StreamSequenceNumber: 0,
+				EventType:            "ThingWasDone",
+				EventID:              "d2ba8e70072943388203c438d4e94bf3",
+				InsertTimestamp:      0,
+				Data:                 &event,
+				Metadata:             nil,
+			},
+		}
+		actualRecords := recordChannelToRecordsSlice(eventsChannel)
+		assert.Equal(t, expectedRecords, actualRecords)
+	})
 }
 
-func recordChannelToRecordsSlice(records <-chan *rangedb.Record) []rangedb.Record {
-	var events []rangedb.Record
+func recordChannelToRecordsSlice(records <-chan *rangedb.Record) []*rangedb.Record {
+	var events []*rangedb.Record
 
 	for record := range records {
-		events = append(events, *record)
+		events = append(events, record)
 	}
 
 	return events

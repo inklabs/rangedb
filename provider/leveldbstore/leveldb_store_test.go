@@ -60,7 +60,7 @@ func Test_Failures(t *testing.T) {
 		// Given
 		dbPath := filepath.Join(os.TempDir(), fmt.Sprintf("testserializefailure-%d", os.Getuid()))
 		store, err := leveldbstore.New(dbPath,
-			leveldbstore.WithSerializer(NewFailingSerializer()),
+			leveldbstore.WithSerializer(rangedbtest.NewFailingSerializer()),
 		)
 		require.NoError(t, err)
 		defer func() {
@@ -83,7 +83,7 @@ func Test_Failures(t *testing.T) {
 		logger := log.New(&logBuffer, "", 0)
 		dbPath := filepath.Join(os.TempDir(), fmt.Sprintf("testdeserializefailure-%d", os.Getuid()))
 		store, err := leveldbstore.New(dbPath,
-			leveldbstore.WithSerializer(NewFailingDeserializer()),
+			leveldbstore.WithSerializer(rangedbtest.NewFailingDeserializer()),
 			leveldbstore.WithLogger(logger),
 		)
 		require.NoError(t, err)
@@ -105,35 +105,3 @@ func Test_Failures(t *testing.T) {
 		assert.Equal(t, "failed to deserialize record for prefix (thing!): failingDeserializer.Deserialize\n", logBuffer.String())
 	})
 }
-
-type failingSerializer struct{}
-
-func NewFailingSerializer() *failingSerializer {
-	return &failingSerializer{}
-}
-
-func (f *failingSerializer) Serialize(_ *rangedb.Record) ([]byte, error) {
-	return nil, fmt.Errorf("failingSerializer.Serialize")
-}
-
-func (f *failingSerializer) Deserialize(data []byte) (*rangedb.Record, error) {
-	return jsonrecordserializer.New().Deserialize(data)
-}
-
-func (f *failingSerializer) Bind(_ ...rangedb.Event) {}
-
-type failingDeserializer struct{}
-
-func NewFailingDeserializer() *failingDeserializer {
-	return &failingDeserializer{}
-}
-
-func (f *failingDeserializer) Serialize(record *rangedb.Record) ([]byte, error) {
-	return jsonrecordserializer.New().Serialize(record)
-}
-
-func (f *failingDeserializer) Deserialize(_ []byte) (*rangedb.Record, error) {
-	return nil, fmt.Errorf("failingDeserializer.Deserialize")
-}
-
-func (f *failingDeserializer) Bind(_ ...rangedb.Event) {}
