@@ -507,7 +507,10 @@ func TestApi_ListAggregates(t *testing.T) {
 	require.NoError(t, store.Save(event1, nil))
 	require.NoError(t, store.Save(event2, nil))
 	require.NoError(t, store.Save(event3, nil))
-	api := rangedbapi.New(rangedbapi.WithStore(store))
+	api := rangedbapi.New(
+		rangedbapi.WithStore(store),
+		rangedbapi.WithBaseUri("http://0.0.0.0:8080"),
+	)
 	request := httptest.NewRequest("GET", "/list-aggregate-types", nil)
 	response := httptest.NewRecorder()
 
@@ -521,22 +524,22 @@ func TestApi_ListAggregates(t *testing.T) {
 		"data":[
 			{
 				"links": {
-					"self": "http://127.0.0.1:8080/events/another.json"
+					"self": "http://0.0.0.0:8080/events/another.json"
 				},
 				"name": "another",
 				"totalEvents": 1
 			},
 			{
 				"links": {
-					"self": "http://127.0.0.1:8080/events/thing.json"
+					"self": "http://0.0.0.0:8080/events/thing.json"
 				},
 				"name": "thing",
 				"totalEvents": 2
 			}
 		],
 		"links": {
-			"allEvents": "http://127.0.0.1:8080/events.json",
-			"self": "http://127.0.0.1:8080/list-aggregate-types"
+			"allEvents": "http://0.0.0.0:8080/events.json",
+			"self": "http://0.0.0.0:8080/list-aggregate-types"
 		}
 	}`
 	assertJsonEqual(t, expectedJson, response.Body.String())

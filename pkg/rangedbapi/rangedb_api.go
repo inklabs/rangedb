@@ -24,6 +24,7 @@ type api struct {
 	store                 rangedb.Store
 	handler               http.Handler
 	projections           *projections
+	baseUri               string
 }
 
 // Option defines functional option parameters for api.
@@ -36,6 +37,13 @@ func WithStore(store rangedb.Store) Option {
 	}
 }
 
+// WithBaseUri is a functional option to inject the base URI for use in API links.
+func WithBaseUri(baseUri string) Option {
+	return func(api *api) {
+		api.baseUri = baseUri
+	}
+}
+
 // New constructs an api.
 func New(options ...Option) *api {
 	api := &api{
@@ -43,6 +51,7 @@ func New(options ...Option) *api {
 		ndJSONRecordIoStream:  ndjsonrecordiostream.New(),
 		msgpackRecordIoStream: msgpackrecordiostream.New(),
 		store:                 inmemorystore.New(),
+		baseUri:               "http://127.0.0.1",
 	}
 
 	for _, option := range options {
@@ -183,7 +192,7 @@ func (a *api) ListAggregateTypes(w http.ResponseWriter, _ *http.Request) {
 			"name":        aggregateType,
 			"totalEvents": a.projections.aggregateTypeInfo.TotalEventsByAggregateType[aggregateType],
 			"links": map[string]interface{}{
-				"self": fmt.Sprintf("http://127.0.0.1:8080/events/%s.json", aggregateType),
+				"self": fmt.Sprintf("%s/events/%s.json", a.baseUri, aggregateType),
 			},
 		})
 	}
@@ -194,8 +203,8 @@ func (a *api) ListAggregateTypes(w http.ResponseWriter, _ *http.Request) {
 	}{
 		Data: data,
 		Links: map[string]string{
-			"allEvents": "http://127.0.0.1:8080/events.json",
-			"self":      "http://127.0.0.1:8080/list-aggregate-types",
+			"allEvents": fmt.Sprintf("%s/events.json", a.baseUri),
+			"self":      fmt.Sprintf("%s/list-aggregate-types", a.baseUri),
 		},
 	}
 
