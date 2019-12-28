@@ -7,11 +7,11 @@ Docker containers are automatically built here: https://hub.docker.com/r/inklabs
 ### Build Image
 
 ```
-docker build -f build/Dockerfile -t inklabs/rangedb .
+docker build -f build/Dockerfile -t inklabs/rangedb:local .
 ```
 
 ### Run Container
 
 ```
-docker run -p 8080:8080 inklabs/rangedb
+docker run -p 8080:8080 inklabs/rangedb:local
 ```
