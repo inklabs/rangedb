@@ -17,6 +17,7 @@ func main() {
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
 	port := flag.Int("port", 8080, "port")
+	baseUri := flag.String("baseUri", "http://0.0.0.0:8080", "")
 	dbPath := flag.String("dbPath", ".leveldb", "path to LevelDB directory")
 	flag.Parse()
 
@@ -26,7 +27,10 @@ func main() {
 		log.Fatalf("Unable to load db (%s): %v", *dbPath, err)
 	}
 
-	api := rangedbapi.New(rangedbapi.WithStore(leveldbStore))
+	api := rangedbapi.New(
+		rangedbapi.WithStore(leveldbStore),
+		rangedbapi.WithBaseUri(*baseUri),
+	)
 	websocketAPI := rangedbws.New(
 		rangedbws.WithStore(leveldbStore),
 		rangedbws.WithLogger(logger),
