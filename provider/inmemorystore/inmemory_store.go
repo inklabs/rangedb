@@ -71,25 +71,29 @@ func (s *inMemoryStore) AllEvents() <-chan *rangedb.Record {
 	return s.recordsStartingWith(s.allRecords, 0)
 }
 
-func (s *inMemoryStore) EventsByStream(stream string) <-chan *rangedb.Record {
-	return s.EventsByStreamStartingWith(stream, 0)
-}
-
-func (s *inMemoryStore) EventsByStreamStartingWith(stream string, eventNumber uint64) <-chan *rangedb.Record {
-	return s.recordsStartingWith(s.recordsByStream[stream], eventNumber)
-}
-
-func (s *inMemoryStore) EventsByAggregateType(aggregateType string) <-chan *rangedb.Record {
+func (s *inMemoryStore) AllEventsByAggregateType(aggregateType string) <-chan *rangedb.Record {
 	return s.EventsByAggregateTypeStartingWith(aggregateType, 0)
 }
 
-func (s *inMemoryStore) EventsByAggregateTypes(aggregateTypes ...string) <-chan *rangedb.Record {
-	channels := rangedb.GetEventsByAggregateTypes(s, aggregateTypes...)
+func (s *inMemoryStore) AllEventsByAggregateTypes(aggregateTypes ...string) <-chan *rangedb.Record {
+	channels := rangedb.GetAllEventsByAggregateTypes(s, aggregateTypes...)
 	return rangedb.MergeRecordChannelsInOrder(channels)
+}
+
+func (s *inMemoryStore) AllEventsByStream(stream string) <-chan *rangedb.Record {
+	return s.EventsByStreamStartingWith(stream, 0)
+}
+
+func (s *inMemoryStore) EventsByAggregateType(pagination rangedb.Pagination, aggregateType string) <-chan *rangedb.Record {
+	return s.paginateRecords(pagination, s.recordsByAggregateType[aggregateType])
 }
 
 func (s *inMemoryStore) EventsByAggregateTypeStartingWith(aggregateType string, eventNumber uint64) <-chan *rangedb.Record {
 	return s.recordsStartingWith(s.recordsByAggregateType[aggregateType], eventNumber)
+}
+
+func (s *inMemoryStore) EventsByStreamStartingWith(stream string, eventNumber uint64) <-chan *rangedb.Record {
+	return s.recordsStartingWith(s.recordsByStream[stream], eventNumber)
 }
 
 func (s *inMemoryStore) recordsStartingWith(serializedRecords [][]byte, eventNumber uint64) <-chan *rangedb.Record {
@@ -111,6 +115,39 @@ func (s *inMemoryStore) recordsStartingWith(serializedRecords [][]byte, eventNum
 				records <- record
 			}
 			count++
+		}
+		close(records)
+	}()
+
+	return records
+}
+
+func (s *inMemoryStore) paginateRecords(pagination rangedb.Pagination, serializedRecords [][]byte) <-chan *rangedb.Record {
+	s.mux.RLock()
+
+	records := make(chan *rangedb.Record)
+
+	go func() {
+		defer s.mux.RUnlock()
+
+		firstEventNumber := (pagination.Page - 1) * pagination.ItemsPerPage
+		count := 0
+		for _, data := range serializedRecords {
+			count++
+			if count <= firstEventNumber {
+				continue
+			}
+
+			record, err := s.serializer.Deserialize(data)
+			if err != nil {
+				s.logger.Printf("failed to deserialize record: %v", err)
+			}
+
+			records <- record
+
+			if count-firstEventNumber >= pagination.ItemsPerPage {
+				break
+			}
 		}
 		close(records)
 	}()

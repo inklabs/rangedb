@@ -45,7 +45,7 @@ func Test_Failures(t *testing.T) {
 		assert.EqualError(t, err, "failingSerializer.Serialize")
 	})
 
-	t.Run("EventsByStream fails when deserialize fails", func(t *testing.T) {
+	t.Run("AllEventsByStream fails when deserialize fails", func(t *testing.T) {
 		// Given
 		var logBuffer bytes.Buffer
 		logger := log.New(&logBuffer, "", 0)
@@ -58,7 +58,7 @@ func Test_Failures(t *testing.T) {
 		require.NoError(t, err)
 
 		// When
-		events := store.EventsByStream(rangedb.GetEventStream(event))
+		events := store.AllEventsByStream(rangedb.GetEventStream(event))
 
 		// Then
 		require.Nil(t, <-events)

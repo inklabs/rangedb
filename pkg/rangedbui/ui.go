@@ -89,7 +89,11 @@ type aggregateTypeTemplateVars struct {
 func (a *webUI) aggregateType(w http.ResponseWriter, r *http.Request) {
 	aggregateTypeName := mux.Vars(r)["aggregateType"]
 
-	records := rangedb.RecordChannelToSlice(a.store.EventsByAggregateType(aggregateTypeName))
+	itemsPerPage := r.URL.Query().Get("itemsPerPage")
+	page := r.URL.Query().Get("page")
+	pagination := rangedb.NewPaginationFromString(itemsPerPage, page)
+
+	records := rangedb.RecordChannelToSlice(a.store.EventsByAggregateType(pagination, aggregateTypeName))
 
 	a.renderWithValues(w, "aggregate-type.html", aggregateTypeTemplateVars{
 		AggregateTypeInfo: AggregateTypeInfo{
@@ -110,7 +114,7 @@ func (a *webUI) stream(w http.ResponseWriter, r *http.Request) {
 	aggregateID := mux.Vars(r)["aggregateID"]
 
 	stream := rangedb.GetStream(aggregateTypeName, aggregateID)
-	records := rangedb.RecordChannelToSlice(a.store.EventsByStream(stream))
+	records := rangedb.RecordChannelToSlice(a.store.AllEventsByStream(stream))
 
 	a.renderWithValues(w, "stream.html", streamTemplateVars{
 		StreamName: stream,
