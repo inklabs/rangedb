@@ -1,0 +1,37 @@
+#header, #header a {
+    color: #F2F5F6;
+}
+
+#header, #header .menu {
+    background-color: #365975;
+}
+
+#content {
+    margin-top: 1em;
+}
+
+#footer {
+    margin-top: 2em;
+}
+
+.top-bar {
+    padding: 0 10px;
+}
+
+.top-bar-title {
+    font-size: 24px;
+    line-height: 28px;
+}
+
+.top-bar-title img {
+    vertical-align: bottom;
+}
+
+.records th {
+    white-space: nowrap;
+}
+
+.records .date {
+    white-space: nowrap;
+    font-size: small;
+}

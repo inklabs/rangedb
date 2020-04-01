@@ -14,10 +14,10 @@ COPY . .
 RUN go generate ./... && go vet ./... && go test ./...
 
 # Build
-RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags "-extldflags -static" -o /go/bin/rangedb-api ./cmd/rangedb-api
+RUN CGO_ENABLED=0 GOOS=linux go build -a -ldflags "-extldflags -static" -o /go/bin/rangedb ./cmd/rangedb
 
 # Prepare final image
 FROM scratch AS release
-COPY --from=build /go/bin/rangedb-api /bin/rangedb-api
-ENTRYPOINT ["/bin/rangedb-api"]
+COPY --from=build /go/bin/rangedb /bin/rangedb
+ENTRYPOINT ["/bin/rangedb"]
 EXPOSE 8080

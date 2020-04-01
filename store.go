@@ -4,6 +4,8 @@ import (
 	"fmt"
 )
 
+const Version = "0.2.x"
+
 // Record contains event data and metadata.
 type Record struct {
 	AggregateType        string      `msgpack:"a" json:"aggregateType"`
@@ -74,4 +76,15 @@ func ReplayEvents(store Store, subscribers ...RecordSubscriber) {
 			subscriber.Accept(record)
 		}
 	}
+}
+
+// RecordChannelToSlice reads all records from the channel into a slice
+func RecordChannelToSlice(records <-chan *Record) []*Record {
+	var events []*Record
+
+	for record := range records {
+		events = append(events, record)
+	}
+
+	return events
 }

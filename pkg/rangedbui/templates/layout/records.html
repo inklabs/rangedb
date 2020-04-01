@@ -1,0 +1,26 @@
+{{define "records"}}
+<table class="records">
+    <thead>
+    <tr>
+        <th>Event #</th>
+        <th>Event Type</th>
+        <th>Aggregate ID</th>
+        <th>Insert Date</th>
+        <th>Data</th>
+    </tr>
+    </thead>
+    <tbody>
+
+    {{range .}}
+        {{- /*gotype: github.com/inklabs/rangedb.Record*/ -}}
+        <tr>
+            <td>{{.StreamSequenceNumber}}</td>
+            <td>{{.EventType}}</td>
+            <td><a href="/e/{{.AggregateType}}/{{.AggregateID}}">{{.AggregateID}}</a></td>
+            <td class="date">{{formatDate .InsertTimestamp "Jan 02, 2006 15:04:05 UTC"}}</td>
+            <td>{{formatJson .Data}}</td>
+        </tr>
+    {{end}}
+    </tbody>
+</table>
+{{end}}

@@ -19,6 +19,7 @@ import (
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock/provider/sequentialclock"
 	"github.com/inklabs/rangedb/pkg/jsontools"
+	"github.com/inklabs/rangedb/pkg/projection"
 	"github.com/inklabs/rangedb/pkg/rangedbapi"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/provider/msgpackrecordiostream"
@@ -543,6 +544,17 @@ func TestApi_ListAggregates(t *testing.T) {
 		}
 	}`
 	assertJsonEqual(t, expectedJson, response.Body.String())
+}
+
+func TestApi_AggregateTypeStatsProjection(t *testing.T) {
+	// Given
+	api := rangedbapi.New()
+
+	// When
+	aggregateTypeStats := api.AggregateTypeStatsProjection()
+
+	// Then
+	assert.IsType(t, &projection.AggregateTypeStats{}, aggregateTypeStats)
 }
 
 func Test_InvalidInput(t *testing.T) {

@@ -11,6 +11,7 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/inklabs/rangedb"
+	"github.com/inklabs/rangedb/pkg/projection"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/provider/jsonrecordiostream"
 	"github.com/inklabs/rangedb/provider/msgpackrecordiostream"
@@ -23,8 +24,10 @@ type api struct {
 	msgpackRecordIoStream rangedb.RecordIoStream
 	store                 rangedb.Store
 	handler               http.Handler
-	projections           *projections
 	baseUri               string
+	projections           struct {
+		aggregateTypeStats *projection.AggregateTypeStats
+	}
 }
 
 // Option defines functional option parameters for api.
@@ -78,10 +81,8 @@ func (a *api) initRoutes() {
 }
 
 func (a *api) initProjections() {
-	a.projections = &projections{
-		aggregateTypeInfo: newAggregateTypeInfo(),
-	}
-	a.store.SubscribeAndReplay(a.projections.aggregateTypeInfo)
+	a.projections.aggregateTypeStats = projection.NewAggregateTypeStats()
+	a.store.SubscribeAndReplay(a.projections.aggregateTypeStats)
 }
 
 func (a *api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -155,6 +156,10 @@ func (a *api) SaveEvents(w http.ResponseWriter, r *http.Request) {
 	_, _ = fmt.Fprintf(w, `{"status":"OK"}`)
 }
 
+func (a *api) AggregateTypeStatsProjection() *projection.AggregateTypeStats {
+	return a.projections.aggregateTypeStats
+}
+
 func (a *api) saveRecords(aggregateType, aggregateID string, records <-chan *rangedb.Record, errors <-chan error) error {
 	for {
 		select {
@@ -187,10 +192,10 @@ func (a *api) saveRecords(aggregateType, aggregateID string, records <-chan *ran
 
 func (a *api) ListAggregateTypes(w http.ResponseWriter, _ *http.Request) {
 	var data []map[string]interface{}
-	for _, aggregateType := range a.projections.aggregateTypeInfo.SortedAggregateTypes() {
+	for _, aggregateType := range a.projections.aggregateTypeStats.SortedAggregateTypes() {
 		data = append(data, map[string]interface{}{
 			"name":        aggregateType,
-			"totalEvents": a.projections.aggregateTypeInfo.TotalEventsByAggregateType[aggregateType],
+			"totalEvents": a.projections.aggregateTypeStats.TotalEventsByAggregateType[aggregateType],
 			"links": map[string]interface{}{
 				"self": fmt.Sprintf("%s/events/%s.json", a.baseUri, aggregateType),
 			},

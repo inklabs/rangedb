@@ -1,0 +1,32 @@
+{{- /*gotype: github.com/inklabs/rangedb/pkg/rangedbui.aggregateTypesTemplateVars*/ -}}
+
+{{template "base" .}}
+{{define "pageTitle" }}Aggregate Types{{end}}
+
+{{define "content"}}
+    <div class="grid-container">
+        <div class="grid-x grid-padding-x">
+            <div class="cell medium-6 medium-order-1">
+                <h3>Aggregate Types</h3>
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Total Events</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {{range .AggregateTypes}}
+                    <tr>
+                        <td><a href="/e/{{.Name}}">{{.Name}}</a></td>
+                        <td>{{.TotalEvents}}</td>
+                    </tr>
+                    {{end}}
+                    </tbody>
+                </table>
+                <ul>
+                </ul>
+            </div>
+        </div>
+    </div>
+{{end}}

@@ -1,0 +1,51 @@
+{{define "base"}}
+    <!doctype html>
+    <html class="no-js" lang="en">
+    <head>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <title>{{block "pageTitle" .}}{{end}} - RangeDB</title>
+        <link rel="icon" href="/static/img/favicon.ico"/>
+        <link rel="shortcut icon" type="image/x-icon" href="/static/img/favicon.ico"/>
+        <link rel="stylesheet" href="/static/css/foundation-6.5.3.min.css">
+        <link rel="stylesheet" href="/static/css/foundation-icons.css">
+        <link rel="stylesheet" href="/static/css/site.css">
+        {{block "extraHead" .}}{{end}}
+    </head>
+    <body>
+    <div id="header" class="top-bar">
+        <div class="top-bar-left">
+            <div class="top-bar-title">
+                <a href="/">
+                    <img src="/static/img/rangedb-logo-white-30x30.png" width="30" height="30" alt="RangeDB Logo"/>
+                    <span>RangeDB</span>
+                </a>
+            </div>
+        </div>
+        <div class="top-bar-right">
+            <ul class="menu">
+                <li><a href="/">Home</a></li>
+                <li><a href="/aggregate-types">Aggregates</a></li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="content">
+        {{block "content" .}}{{end}}
+    </div>
+
+    <div id="footer" class="grid-container">
+        <div class="grid-x grid-padding-x align-center">
+            <div class="cell text-center">
+                <small>
+                    RangeDB {{rangeDBVersion}}
+                    | <a href="https://github.com/inklabs/rangedb">Documentation</a>
+                    | <a href="/api/list-aggregate-types">API</a>
+                </small>
+            </div>
+        </div>
+    </div>
+
+    </body>
+    </html>
+{{end}}

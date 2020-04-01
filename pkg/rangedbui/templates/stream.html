@@ -1,0 +1,15 @@
+{{- /*gotype: github.com/inklabs/rangedb/pkg/rangedbui.streamTemplateVars*/ -}}
+
+{{template "base" .}}
+{{define "pageTitle"}}{{.StreamName}}{{end}}
+
+{{define "content"}}
+    <div class="grid-container">
+        <div class="grid-x grid-padding-x">
+            <div class="cell medium-12 medium-order-1">
+                <h3>Stream: {{.StreamName}}</h3>
+                {{template "records" .Records}}
+            </div>
+        </div>
+    </div>
+{{end}}
