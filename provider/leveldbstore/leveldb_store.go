@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"github.com/inklabs/rangedb/pkg/paging"
 	"io/ioutil"
 	"log"
 	"sync"
@@ -97,7 +98,7 @@ func (s *levelDbStore) AllEventsByStream(stream string) <-chan *rangedb.Record {
 	return s.getEventsByPrefixStartingWith(stream, 0)
 }
 
-func (s *levelDbStore) EventsByAggregateType(pagination rangedb.Pagination, aggregateType string) <-chan *rangedb.Record {
+func (s *levelDbStore) EventsByAggregateType(pagination paging.Pagination, aggregateType string) <-chan *rangedb.Record {
 	return s.paginateEventsByLookup(pagination, getAggregateTypeKeyPrefix(aggregateType))
 }
 
@@ -244,7 +245,7 @@ func (s *levelDbStore) getEventsByLookup(key string) <-chan *rangedb.Record {
 	return records
 }
 
-func (s *levelDbStore) paginateEventsByLookup(pagination rangedb.Pagination, key string) <-chan *rangedb.Record {
+func (s *levelDbStore) paginateEventsByLookup(pagination paging.Pagination, key string) <-chan *rangedb.Record {
 	records := make(chan *rangedb.Record)
 
 	go func() {

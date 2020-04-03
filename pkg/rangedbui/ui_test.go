@@ -124,8 +124,8 @@ func Test_AggregateType(t *testing.T) {
 		assert.Contains(t, response.Body.String(), "Aggregate Type: thing")
 		assert.Contains(t, response.Body.String(), "/e/thing/f6b6f8ed682c4b5180f625e53b3c4bac")
 		assert.NotContains(t, response.Body.String(), "/e/thing/1ce1d596e54744b3b878d579ccc31d81")
-		assert.NotContains(t, response.Body.String(), "/e/thing?itemsPerPage=1&page=1")
-		assert.Contains(t, response.Body.String(), "/e/thing?itemsPerPage=1&page=2")
+		assert.NotContains(t, response.Body.String(), "/e/thing?itemsPerPage=1&amp;page=1")
+		assert.Contains(t, response.Body.String(), "/e/thing?itemsPerPage=1&amp;page=2")
 	})
 
 	t.Run("renders events by aggregate type, one record per page, 2nd page", func(t *testing.T) {
@@ -143,8 +143,9 @@ func Test_AggregateType(t *testing.T) {
 		assert.Contains(t, response.Body.String(), "Aggregate Type: thing")
 		assert.NotContains(t, response.Body.String(), "/e/thing/f6b6f8ed682c4b5180f625e53b3c4bac")
 		assert.Contains(t, response.Body.String(), "/e/thing/1ce1d596e54744b3b878d579ccc31d81")
-		assert.Contains(t, response.Body.String(), "/e/thing?itemsPerPage=1&page=1")
-		assert.NotContains(t, response.Body.String(), "/e/thing?itemsPerPage=1&page=2")
+		assert.Contains(t, response.Body.String(), "/e/thing?itemsPerPage=1&amp;page=1")
+		assert.NotContains(t, response.Body.String(), "/e/thing?itemsPerPage=1&amp;page=2")
+		assert.NotContains(t, response.Body.String(), "/e/thing?itemsPerPage=1&amp;page=3")
 	})
 }
 

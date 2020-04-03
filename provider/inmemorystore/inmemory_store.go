@@ -1,6 +1,7 @@
 package inmemorystore
 
 import (
+	"github.com/inklabs/rangedb/pkg/paging"
 	"io/ioutil"
 	"log"
 	"sync"
@@ -84,7 +85,7 @@ func (s *inMemoryStore) AllEventsByStream(stream string) <-chan *rangedb.Record 
 	return s.EventsByStreamStartingWith(stream, 0)
 }
 
-func (s *inMemoryStore) EventsByAggregateType(pagination rangedb.Pagination, aggregateType string) <-chan *rangedb.Record {
+func (s *inMemoryStore) EventsByAggregateType(pagination paging.Pagination, aggregateType string) <-chan *rangedb.Record {
 	return s.paginateRecords(pagination, s.recordsByAggregateType[aggregateType])
 }
 
@@ -122,7 +123,7 @@ func (s *inMemoryStore) recordsStartingWith(serializedRecords [][]byte, eventNum
 	return records
 }
 
-func (s *inMemoryStore) paginateRecords(pagination rangedb.Pagination, serializedRecords [][]byte) <-chan *rangedb.Record {
+func (s *inMemoryStore) paginateRecords(pagination paging.Pagination, serializedRecords [][]byte) <-chan *rangedb.Record {
 	s.mux.RLock()
 
 	records := make(chan *rangedb.Record)

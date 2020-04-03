@@ -1,11 +1,12 @@
-package rangedb
+package paging
 
 import (
+	"fmt"
 	"strconv"
 )
 
 const (
-	DefaultItemsPerPage = 20
+	DefaultItemsPerPage = 10
 	DefaultPage         = 1
 	MaxItemsPerPage     = 1000
 )
@@ -15,8 +16,9 @@ type Pagination struct {
 	Page         int
 }
 
-func DefaultPagination() Pagination {
-	return NewPagination(DefaultItemsPerPage, DefaultPage)
+type Links struct {
+	Previous string
+	Next     string
 }
 
 func NewPagination(itemsPerPage, page int) Pagination {
@@ -50,4 +52,23 @@ func NewPaginationFromString(itemsPerPageInput, pageInput string) Pagination {
 	}
 
 	return NewPagination(itemsPerPage, page)
+}
+
+func (p Pagination) Links(baseURI string, totalRecords uint64) Links {
+	previous := ""
+	next := ""
+
+	if p.Page > 1 {
+		previous = fmt.Sprintf("%s?itemsPerPage=%d&page=%d", baseURI, p.ItemsPerPage, p.Page-1)
+	}
+
+	totalPages := int(totalRecords / uint64(p.ItemsPerPage))
+	if p.Page < totalPages {
+		next = fmt.Sprintf("%s?itemsPerPage=%d&page=%d", baseURI, p.ItemsPerPage, p.Page+1)
+	}
+
+	return Links{
+		Previous: previous,
+		Next:     next,
+	}
 }

@@ -2,6 +2,7 @@ package rangedbapi_test
 
 import (
 	"fmt"
+	"github.com/inklabs/rangedb/pkg/paging"
 
 	"github.com/inklabs/rangedb"
 )
@@ -28,7 +29,7 @@ func (f failingEventStore) AllEventsByStream(_ string) <-chan *rangedb.Record {
 	return getClosedChannel()
 }
 
-func (f failingEventStore) EventsByAggregateType(_ rangedb.Pagination, _ string) <-chan *rangedb.Record {
+func (f failingEventStore) EventsByAggregateType(_ paging.Pagination, _ string) <-chan *rangedb.Record {
 	return getClosedChannel()
 }
 

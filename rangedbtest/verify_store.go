@@ -1,6 +1,7 @@
 package rangedbtest
 
 import (
+	"github.com/inklabs/rangedb/pkg/paging"
 	"math/rand"
 	"testing"
 
@@ -336,7 +337,7 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		require.NoError(t, store.Save(eventA1, nil))
 		require.NoError(t, store.Save(eventA2, nil))
 		require.NoError(t, store.Save(eventB, nil))
-		pagination := rangedb.NewPagination(2, 1)
+		pagination := paging.NewPagination(2, 1)
 
 		// When
 		eventsChannel := store.EventsByAggregateType(pagination, eventA1.AggregateType())
@@ -384,7 +385,7 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		require.NoError(t, store.Save(eventA2, nil))
 		require.NoError(t, store.Save(eventB1, nil))
 		require.NoError(t, store.Save(eventB2, nil))
-		pagination := rangedb.NewPagination(2, 2)
+		pagination := paging.NewPagination(2, 2)
 
 		// When
 		eventsChannel := store.EventsByAggregateType(pagination, eventA1.AggregateType())

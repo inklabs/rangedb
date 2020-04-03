@@ -2,11 +2,10 @@ package rangedb_test
 
 import (
 	"fmt"
+	"github.com/inklabs/rangedb/pkg/paging"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/inklabs/rangedb"
 )
 
 func TestNewPagination(t *testing.T) {
@@ -17,14 +16,14 @@ func TestNewPagination(t *testing.T) {
 		expectedItemsPerPage int
 		expectedPage         int
 	}{
-		{"", "", rangedb.DefaultItemsPerPage, rangedb.DefaultPage},
-		{"x", "z", rangedb.DefaultItemsPerPage, rangedb.DefaultPage},
-		{"-1", "-2", rangedb.DefaultItemsPerPage, rangedb.DefaultPage},
-		{"0", "0", rangedb.DefaultItemsPerPage, rangedb.DefaultPage},
+		{"", "", paging.DefaultItemsPerPage, paging.DefaultPage},
+		{"x", "z", paging.DefaultItemsPerPage, paging.DefaultPage},
+		{"-1", "-2", paging.DefaultItemsPerPage, paging.DefaultPage},
+		{"0", "0", paging.DefaultItemsPerPage, paging.DefaultPage},
 		{"1", "1", 1, 1},
 		{"10", "1", 10, 1},
 		{"500", "20", 500, 20},
-		{"99999", "20", rangedb.MaxItemsPerPage, 20},
+		{"99999", "20", paging.MaxItemsPerPage, 20},
 	}
 
 	for _, tt := range paginationTests {
@@ -32,7 +31,7 @@ func TestNewPagination(t *testing.T) {
 			tt.itemsPerPage, tt.page, tt.expectedItemsPerPage, tt.expectedPage)
 		t.Run(name, func(t *testing.T) {
 			// When
-			pagination := rangedb.NewPaginationFromString(tt.itemsPerPage, tt.page)
+			pagination := paging.NewPaginationFromString(tt.itemsPerPage, tt.page)
 
 			// Then
 			assert.Equal(t, tt.expectedItemsPerPage, pagination.ItemsPerPage)

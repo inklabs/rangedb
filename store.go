@@ -2,6 +2,7 @@ package rangedb
 
 import (
 	"fmt"
+	"github.com/inklabs/rangedb/pkg/paging"
 )
 
 const Version = "0.2.x"
@@ -25,7 +26,7 @@ type Store interface {
 	AllEventsByAggregateType(aggregateType string) <-chan *Record
 	AllEventsByAggregateTypes(aggregateTypes ...string) <-chan *Record
 	AllEventsByStream(stream string) <-chan *Record
-	EventsByAggregateType(pagination Pagination, aggregateType string) <-chan *Record
+	EventsByAggregateType(pagination paging.Pagination, aggregateType string) <-chan *Record
 	EventsByAggregateTypeStartingWith(aggregateType string, eventNumber uint64) <-chan *Record
 	EventsByStreamStartingWith(stream string, eventNumber uint64) <-chan *Record
 	Save(event Event, metadata interface{}) error
