@@ -36,13 +36,13 @@ func Test_GetEventStream_ReturnsStreamFromMessage(t *testing.T) {
 	assert.Equal(t, "thing!e2c2b4fa64344d17984fc53631f3c462", stream)
 }
 
-func Test_GetEventsByAggregateTypes(t *testing.T) {
+func Test_GetAllEventsByAggregateTypes(t *testing.T) {
 	// Given
 	aggregateTypes := []string{"one", "two"}
 	inMemoryStore := inmemorystore.New()
 
 	// When
-	channels := rangedb.GetEventsByAggregateTypes(inMemoryStore, aggregateTypes...)
+	channels := rangedb.GetAllEventsByAggregateTypes(inMemoryStore, aggregateTypes...)
 
 	// Then
 	assert.Equal(t, 2, len(channels))

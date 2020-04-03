@@ -2,6 +2,7 @@ package rangedb
 
 import (
 	"fmt"
+	"github.com/inklabs/rangedb/pkg/paging"
 )
 
 const Version = "0.2.x"
@@ -22,11 +23,12 @@ type Record struct {
 // Store is the interface that stores and retrieves event records.
 type Store interface {
 	AllEvents() <-chan *Record
-	EventsByStream(stream string) <-chan *Record
-	EventsByStreamStartingWith(stream string, eventNumber uint64) <-chan *Record
-	EventsByAggregateType(aggregateType string) <-chan *Record
-	EventsByAggregateTypes(aggregateTypes ...string) <-chan *Record
+	AllEventsByAggregateType(aggregateType string) <-chan *Record
+	AllEventsByAggregateTypes(aggregateTypes ...string) <-chan *Record
+	AllEventsByStream(stream string) <-chan *Record
+	EventsByAggregateType(pagination paging.Pagination, aggregateType string) <-chan *Record
 	EventsByAggregateTypeStartingWith(aggregateType string, eventNumber uint64) <-chan *Record
+	EventsByStreamStartingWith(stream string, eventNumber uint64) <-chan *Record
 	Save(event Event, metadata interface{}) error
 	SaveEvent(aggregateType, aggregateID, eventType, eventID string, event, metadata interface{}) error
 	Subscribe(subscribers ...RecordSubscriber)
@@ -60,11 +62,11 @@ func GetStream(aggregateType, aggregateID string) string {
 	return fmt.Sprintf("%s!%s", aggregateType, aggregateID)
 }
 
-// GetEventsByAggregateTypes returns a slice of Record channels by aggregateType.
-func GetEventsByAggregateTypes(store Store, aggregateTypes ...string) []<-chan *Record {
+// GetAllEventsByAggregateTypes returns a slice of Record channels by aggregateType.
+func GetAllEventsByAggregateTypes(store Store, aggregateTypes ...string) []<-chan *Record {
 	var channels []<-chan *Record
 	for _, aggregateType := range aggregateTypes {
-		channels = append(channels, store.EventsByAggregateType(aggregateType))
+		channels = append(channels, store.AllEventsByAggregateType(aggregateType))
 	}
 	return channels
 }

@@ -1,0 +1,18 @@
+{{- /*gotype: github.com/inklabs/rangedb/pkg/paging.Links*/ -}}
+
+{{define "pagination"}}
+<nav aria-label="Pagination">
+    <ul class="pagination text-center">
+        {{if .Previous}}
+            <li class="pagination-previous"><a href="{{.Previous}}" aria-label="Previous Page">Previous</a></li>
+        {{else}}
+            <li class="pagination-previous disabled">Previous</li>
+        {{end}}
+        {{if .Next}}
+            <li class="pagination-next"><a href="{{.Next}}" aria-label="Next page">Next</a></li>
+        {{else}}
+            <li class="pagination-next disabled">Next</li>
+        {{end}}
+    </ul>
+</nav>
+{{end}}

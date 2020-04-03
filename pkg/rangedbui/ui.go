@@ -1,6 +1,8 @@
 package rangedbui
 
 import (
+	"fmt"
+	"github.com/inklabs/rangedb/pkg/paging"
 	"log"
 	"net/http"
 
@@ -83,20 +85,29 @@ func (a *webUI) aggregateTypes(w http.ResponseWriter, _ *http.Request) {
 
 type aggregateTypeTemplateVars struct {
 	AggregateTypeInfo AggregateTypeInfo
+	PaginationLinks   paging.Links
 	Records           []*rangedb.Record
 }
 
 func (a *webUI) aggregateType(w http.ResponseWriter, r *http.Request) {
 	aggregateTypeName := mux.Vars(r)["aggregateType"]
 
-	records := rangedb.RecordChannelToSlice(a.store.EventsByAggregateType(aggregateTypeName))
+	itemsPerPage := r.URL.Query().Get("itemsPerPage")
+	page := r.URL.Query().Get("page")
+	pagination := paging.NewPaginationFromString(itemsPerPage, page)
+
+	records := rangedb.RecordChannelToSlice(a.store.EventsByAggregateType(pagination, aggregateTypeName))
+
+	baseURI := fmt.Sprintf("/e/%s", aggregateTypeName)
+	totalRecords := a.aggregateTypeStats.TotalEventsByAggregateType[aggregateTypeName]
 
 	a.renderWithValues(w, "aggregate-type.html", aggregateTypeTemplateVars{
 		AggregateTypeInfo: AggregateTypeInfo{
 			Name:        aggregateTypeName,
 			TotalEvents: a.aggregateTypeStats.TotalEventsByAggregateType[aggregateTypeName],
 		},
-		Records: records,
+		PaginationLinks: pagination.Links(baseURI, totalRecords),
+		Records:         records,
 	})
 }
 
@@ -110,7 +121,7 @@ func (a *webUI) stream(w http.ResponseWriter, r *http.Request) {
 	aggregateID := mux.Vars(r)["aggregateID"]
 
 	stream := rangedb.GetStream(aggregateTypeName, aggregateID)
-	records := rangedb.RecordChannelToSlice(a.store.EventsByStream(stream))
+	records := rangedb.RecordChannelToSlice(a.store.AllEventsByStream(stream))
 
 	a.renderWithValues(w, "stream.html", streamTemplateVars{
 		StreamName: stream,

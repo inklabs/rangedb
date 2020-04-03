@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"github.com/inklabs/rangedb/pkg/paging"
 	"io/ioutil"
 	"log"
 	"sync"
@@ -84,25 +85,29 @@ func (s *levelDbStore) AllEvents() <-chan *rangedb.Record {
 	return s.getEventsByLookup(allEventsPrefix)
 }
 
-func (s *levelDbStore) EventsByStream(stream string) <-chan *rangedb.Record {
-	return s.getEventsByPrefixStartingWith(stream, 0)
-}
-
-func (s *levelDbStore) EventsByStreamStartingWith(stream string, eventNumber uint64) <-chan *rangedb.Record {
-	return s.getEventsByPrefixStartingWith(stream, eventNumber)
-}
-
-func (s *levelDbStore) EventsByAggregateType(aggregateType string) <-chan *rangedb.Record {
+func (s *levelDbStore) AllEventsByAggregateType(aggregateType string) <-chan *rangedb.Record {
 	return s.getEventsByLookup(getAggregateTypeKeyPrefix(aggregateType))
 }
 
-func (s *levelDbStore) EventsByAggregateTypes(aggregateTypes ...string) <-chan *rangedb.Record {
-	channels := rangedb.GetEventsByAggregateTypes(s, aggregateTypes...)
+func (s *levelDbStore) AllEventsByAggregateTypes(aggregateTypes ...string) <-chan *rangedb.Record {
+	channels := rangedb.GetAllEventsByAggregateTypes(s, aggregateTypes...)
 	return rangedb.MergeRecordChannelsInOrder(channels)
+}
+
+func (s *levelDbStore) AllEventsByStream(stream string) <-chan *rangedb.Record {
+	return s.getEventsByPrefixStartingWith(stream, 0)
+}
+
+func (s *levelDbStore) EventsByAggregateType(pagination paging.Pagination, aggregateType string) <-chan *rangedb.Record {
+	return s.paginateEventsByLookup(pagination, getAggregateTypeKeyPrefix(aggregateType))
 }
 
 func (s *levelDbStore) EventsByAggregateTypeStartingWith(aggregateType string, eventNumber uint64) <-chan *rangedb.Record {
 	return s.getEventsByPrefixStartingWith(aggregateType, eventNumber)
+}
+
+func (s *levelDbStore) EventsByStreamStartingWith(stream string, eventNumber uint64) <-chan *rangedb.Record {
+	return s.getEventsByPrefixStartingWith(stream, eventNumber)
 }
 
 func (s *levelDbStore) Save(event rangedb.Event, metadata interface{}) error {
@@ -230,6 +235,48 @@ func (s *levelDbStore) getEventsByLookup(key string) <-chan *rangedb.Record {
 			}
 
 			records <- record
+		}
+		iter.Release()
+
+		_ = iter.Error()
+		close(records)
+	}()
+
+	return records
+}
+
+func (s *levelDbStore) paginateEventsByLookup(pagination paging.Pagination, key string) <-chan *rangedb.Record {
+	records := make(chan *rangedb.Record)
+
+	go func() {
+		firstEventNumber := (pagination.Page - 1) * pagination.ItemsPerPage
+		count := 0
+
+		iter := s.db.NewIterator(util.BytesPrefix([]byte(key)), nil)
+		for iter.Next() {
+			count++
+			if count <= firstEventNumber {
+				continue
+			}
+
+			targetKey := iter.Value()
+
+			data, err := s.db.Get(targetKey, nil)
+			if err != nil {
+				s.logger.Printf("unable to find lookup record %s for %s: %v", targetKey, iter.Key(), err)
+				continue
+			}
+
+			record, err := s.serializer.Deserialize(data)
+			if err != nil {
+				s.logger.Printf("failed to deserialize record %s for %s: %v", targetKey, iter.Key(), err)
+			}
+
+			records <- record
+
+			if count-firstEventNumber >= pagination.ItemsPerPage {
+				break
+			}
 		}
 		iter.Release()
 

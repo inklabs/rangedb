@@ -1,6 +1,7 @@
 package rangedbtest
 
 import (
+	"github.com/inklabs/rangedb/pkg/paging"
 	"math/rand"
 	"testing"
 
@@ -21,7 +22,7 @@ type NewStoreFunc func(clock.Clock) (store rangedb.Store, tearDown func(), bindE
 func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 	t.Helper()
 
-	t.Run("get events by stream", func(t *testing.T) {
+	t.Run("get all events by stream", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
 		const eventID1 = "d2ba8e70072943388203c438d4e94bf3"
@@ -37,7 +38,7 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		require.NoError(t, store.Save(eventB, nil))
 
 		// When
-		eventsChannel := store.EventsByStream(rangedb.GetEventStream(eventA1))
+		eventsChannel := store.AllEventsByStream(rangedb.GetEventStream(eventA1))
 
 		// Then
 		expectedRecords := []*rangedb.Record{
@@ -69,7 +70,7 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		assert.Equal(t, eventA1, actualRecords[0].Data)
 	})
 
-	t.Run("get events by stream are ordered by sequence number lexicographically", func(t *testing.T) {
+	t.Run("get all events by stream are ordered by sequence number lexicographically", func(t *testing.T) {
 		// Given
 		const totalEventsToRequireBigEndian = 257
 		shortuuid.SetRand(100)
@@ -85,7 +86,7 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		}
 
 		// When
-		eventsChannel := store.EventsByStream("thing!A")
+		eventsChannel := store.AllEventsByStream("thing!A")
 
 		// Then
 		actualRecords := recordChannelToRecordsSlice(eventsChannel)
@@ -95,7 +96,7 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		}
 	})
 
-	t.Run("get events by two aggregate types ordered by global sequence number", func(t *testing.T) {
+	t.Run("get all events by two aggregate types ordered by global sequence number", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
 		store, tearDown, bindEvents := newStore(sequentialclock.New())
@@ -111,7 +112,7 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		require.NoError(t, store.Save(AnotherWasCompleteX0, nil))
 
 		// When
-		eventsChannel := store.EventsByAggregateTypes("thing", "another", "missing")
+		eventsChannel := store.AllEventsByAggregateTypes("thing", "another", "missing")
 
 		// Then
 		expectedRecords := []*rangedb.Record{
@@ -267,7 +268,7 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		assert.Equal(t, expectedRecords, actualRecords)
 	})
 
-	t.Run("get events by aggregate type", func(t *testing.T) {
+	t.Run("get all events by aggregate type", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
 		uuid.SetRand(rand.New(rand.NewSource(100)))
@@ -282,7 +283,7 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		require.NoError(t, store.Save(eventB, nil))
 
 		// When
-		eventsChannel := store.EventsByAggregateType(eventA1.AggregateType())
+		eventsChannel := store.AllEventsByAggregateType(eventA1.AggregateType())
 
 		// Then
 		expectedRecords := []*rangedb.Record{
@@ -317,6 +318,100 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 				EventID:              "2e9e6918af10498cb7349c89a351fdb7",
 				InsertTimestamp:      2,
 				Data:                 eventB,
+				Metadata:             nil,
+			},
+		}
+		assert.Equal(t, expectedRecords, recordChannelToRecordsSlice(eventsChannel))
+	})
+
+	t.Run("get 1st page of events by aggregate type, with 2 records per page", func(t *testing.T) {
+		// Given
+		shortuuid.SetRand(100)
+		uuid.SetRand(rand.New(rand.NewSource(100)))
+		store, tearDown, bindEvents := newStore(sequentialclock.New())
+		defer tearDown()
+		bindEvents(ThingWasDone{})
+		eventA1 := &ThingWasDone{ID: "A", Number: 1}
+		eventA2 := &ThingWasDone{ID: "A", Number: 2}
+		eventB := &ThingWasDone{ID: "B", Number: 3}
+		require.NoError(t, store.Save(eventA1, nil))
+		require.NoError(t, store.Save(eventA2, nil))
+		require.NoError(t, store.Save(eventB, nil))
+		pagination := paging.NewPagination(2, 1)
+
+		// When
+		eventsChannel := store.EventsByAggregateType(pagination, eventA1.AggregateType())
+
+		// Then
+		expectedRecords := []*rangedb.Record{
+			{
+				AggregateType:        "thing",
+				AggregateID:          "A",
+				GlobalSequenceNumber: 0,
+				StreamSequenceNumber: 0,
+				EventType:            "ThingWasDone",
+				EventID:              "d2ba8e70072943388203c438d4e94bf3",
+				InsertTimestamp:      0,
+				Data:                 eventA1,
+				Metadata:             nil,
+			},
+			{
+				AggregateType:        "thing",
+				AggregateID:          "A",
+				GlobalSequenceNumber: 1,
+				StreamSequenceNumber: 1,
+				EventType:            "ThingWasDone",
+				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+				InsertTimestamp:      1,
+				Data:                 eventA2,
+				Metadata:             nil,
+			},
+		}
+		assert.Equal(t, expectedRecords, recordChannelToRecordsSlice(eventsChannel))
+	})
+
+	t.Run("get 2nd page of events by aggregate type, with 2 records per page", func(t *testing.T) {
+		// Given
+		shortuuid.SetRand(100)
+		uuid.SetRand(rand.New(rand.NewSource(100)))
+		store, tearDown, bindEvents := newStore(sequentialclock.New())
+		defer tearDown()
+		bindEvents(ThingWasDone{})
+		eventA1 := &ThingWasDone{ID: "A", Number: 1}
+		eventA2 := &ThingWasDone{ID: "A", Number: 2}
+		eventB1 := &ThingWasDone{ID: "B", Number: 3}
+		eventB2 := &ThingWasDone{ID: "B", Number: 4}
+		require.NoError(t, store.Save(eventA1, nil))
+		require.NoError(t, store.Save(eventA2, nil))
+		require.NoError(t, store.Save(eventB1, nil))
+		require.NoError(t, store.Save(eventB2, nil))
+		pagination := paging.NewPagination(2, 2)
+
+		// When
+		eventsChannel := store.EventsByAggregateType(pagination, eventA1.AggregateType())
+
+		// Then
+		expectedRecords := []*rangedb.Record{
+			{
+				AggregateType:        "thing",
+				AggregateID:          "B",
+				GlobalSequenceNumber: 2,
+				StreamSequenceNumber: 0,
+				EventType:            "ThingWasDone",
+				EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+				InsertTimestamp:      2,
+				Data:                 eventB1,
+				Metadata:             nil,
+			},
+			{
+				AggregateType:        "thing",
+				AggregateID:          "B",
+				GlobalSequenceNumber: 3,
+				StreamSequenceNumber: 1,
+				EventType:            "ThingWasDone",
+				EventID:              "5042958739514c948f776fc9f820bca0",
+				InsertTimestamp:      3,
+				Data:                 eventB2,
 				Metadata:             nil,
 			},
 		}
@@ -389,7 +484,7 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 
 		// Then
 		require.NoError(t, err)
-		eventsChannel := store.EventsByStream(rangedb.GetEventStream(event))
+		eventsChannel := store.AllEventsByStream(rangedb.GetEventStream(event))
 		expectedRecords := []*rangedb.Record{
 			{
 				AggregateType:        aggregateType,
