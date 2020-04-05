@@ -2,6 +2,8 @@ package paging
 
 import (
 	"fmt"
+	"math"
+	"net/url"
 	"strconv"
 )
 
@@ -40,6 +42,13 @@ func NewPagination(itemsPerPage, page int) Pagination {
 	}
 }
 
+func NewPaginationFromQuery(values url.Values) Pagination {
+	itemsPerPage := values.Get("itemsPerPage")
+	page := values.Get("page")
+
+	return NewPaginationFromString(itemsPerPage, page)
+}
+
 func NewPaginationFromString(itemsPerPageInput, pageInput string) Pagination {
 	itemsPerPage, err := strconv.Atoi(itemsPerPageInput)
 	if err != nil {
@@ -62,7 +71,7 @@ func (p Pagination) Links(baseURI string, totalRecords uint64) Links {
 		previous = fmt.Sprintf("%s?itemsPerPage=%d&page=%d", baseURI, p.ItemsPerPage, p.Page-1)
 	}
 
-	totalPages := int(totalRecords / uint64(p.ItemsPerPage))
+	totalPages := int(math.Ceil(float64(totalRecords) / float64(p.ItemsPerPage)))
 	if p.Page < totalPages {
 		next = fmt.Sprintf("%s?itemsPerPage=%d&page=%d", baseURI, p.ItemsPerPage, p.Page+1)
 	}

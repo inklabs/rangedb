@@ -2,6 +2,7 @@ package rangedbapi_test
 
 import (
 	"fmt"
+
 	"github.com/inklabs/rangedb/pkg/paging"
 
 	"github.com/inklabs/rangedb"
@@ -37,6 +38,10 @@ func (f failingEventStore) EventsByAggregateTypeStartingWith(_ string, _ uint64)
 	return getClosedChannel()
 }
 
+func (f failingEventStore) EventsByStream(_ paging.Pagination, _ string) <-chan *rangedb.Record {
+	return getClosedChannel()
+}
+
 func (f failingEventStore) EventsByStreamStartingWith(_ string, _ uint64) <-chan *rangedb.Record {
 	return getClosedChannel()
 }
@@ -52,6 +57,10 @@ func (f failingEventStore) SaveEvent(_, _, _, _ string, _, _ interface{}) error 
 func (f failingEventStore) Subscribe(_ ...rangedb.RecordSubscriber) {}
 
 func (f failingEventStore) SubscribeAndReplay(_ ...rangedb.RecordSubscriber) {}
+
+func (f failingEventStore) TotalEventsInStream(_ string) uint64 {
+	return 0
+}
 
 func getClosedChannel() <-chan *rangedb.Record {
 	channel := make(chan *rangedb.Record)

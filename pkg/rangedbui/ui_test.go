@@ -154,6 +154,17 @@ func Test_Stream(t *testing.T) {
 	templateManager, err := memorytemplate.New(rangedbui.GetTemplates())
 	require.NoError(t, err)
 	store, aggregateTypeStats := storeWithTwoEvents()
+	_ = store.SaveEvent(
+		"thing",
+		"f6b6f8ed682c4b5180f625e53b3c4bac",
+		"ThingWasDone",
+		"01f96eb13c204a7699d2138e7d64639b",
+		rangedbtest.ThingWasDone{
+			ID:     "01f96eb13c204a7699d2138e7d64639b",
+			Number: 0,
+		},
+		nil,
+	)
 	ui := rangedbui.New(templateManager, aggregateTypeStats, store)
 
 	t.Run("renders events by stream", func(t *testing.T) {
@@ -170,6 +181,25 @@ func Test_Stream(t *testing.T) {
 		assert.Contains(t, response.Body.String(), "thing")
 		assert.Contains(t, response.Body.String(), "Stream: thing!f6b6f8ed682c4b5180f625e53b3c4bac")
 		assert.Contains(t, response.Body.String(), "/e/thing/f6b6f8ed682c4b5180f625e53b3c4bac")
+	})
+
+	t.Run("renders events by stream, one record per page, 1st page", func(t *testing.T) {
+		// Given
+		request := httptest.NewRequest("GET", "/e/thing/f6b6f8ed682c4b5180f625e53b3c4bac?itemsPerPage=1&page=1", nil)
+		response := httptest.NewRecorder()
+
+		// When
+		ui.ServeHTTP(response, request)
+
+		// Then
+		assert.Equal(t, http.StatusOK, response.Code)
+		assert.Equal(t, "text/html; charset=utf-8", response.Header().Get("Content-Type"))
+		assert.Contains(t, response.Body.String(), "thing")
+		assert.Contains(t, response.Body.String(), "Stream: thing!f6b6f8ed682c4b5180f625e53b3c4bac")
+		assert.Contains(t, response.Body.String(), "cf20808548c84706b8cd7b611872eaa4")
+		assert.NotContains(t, response.Body.String(), "01f96eb13c204a7699d2138e7d64639b")
+		assert.NotContains(t, response.Body.String(), "/e/thing/f6b6f8ed682c4b5180f625e53b3c4bac?itemsPerPage=1&amp;page=1")
+		assert.Contains(t, response.Body.String(), "/e/thing/f6b6f8ed682c4b5180f625e53b3c4bac?itemsPerPage=1&amp;page=2")
 	})
 }
 

@@ -1,14 +1,19 @@
 {{- /*gotype: github.com/inklabs/rangedb/pkg/rangedbui.streamTemplateVars*/ -}}
 
 {{template "base" .}}
-{{define "pageTitle"}}{{.StreamName}}{{end}}
+{{define "pageTitle"}}{{.StreamInfo.Name}}{{end}}
 
 {{define "content"}}
     <div class="grid-container">
         <div class="grid-x grid-padding-x">
             <div class="cell medium-12 medium-order-1">
-                <h3>Stream: {{.StreamName}}</h3>
+                <a href="{{.AggregateTypeURL}}">{{.AggregateType}}</a>
+                <h3>
+                    Stream: {{.StreamInfo.Name}}
+                    <small>({{.StreamInfo.TotalEvents}})</small>
+                </h3>
                 {{template "records" .Records}}
+                {{template "pagination" .PaginationLinks}}
             </div>
         </div>
     </div>

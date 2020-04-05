@@ -234,6 +234,91 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		require.Equal(t, expectedRecords, actualRecords)
 	})
 
+	t.Run("get 1st page of events by stream, with 2 records per page", func(t *testing.T) {
+		// Given
+		shortuuid.SetRand(100)
+		uuid.SetRand(rand.New(rand.NewSource(100)))
+		store, tearDown, bindEvents := newStore(sequentialclock.New())
+		defer tearDown()
+		bindEvents(ThingWasDone{})
+		eventA1 := &ThingWasDone{ID: "A", Number: 1}
+		eventA2 := &ThingWasDone{ID: "A", Number: 2}
+		eventA3 := &ThingWasDone{ID: "A", Number: 3}
+		eventB := &ThingWasDone{ID: "B", Number: 3}
+		require.NoError(t, store.Save(eventA1, nil))
+		require.NoError(t, store.Save(eventA2, nil))
+		require.NoError(t, store.Save(eventA3, nil))
+		require.NoError(t, store.Save(eventB, nil))
+		pagination := paging.NewPagination(2, 1)
+
+		// When
+		eventsChannel := store.EventsByStream(pagination, rangedb.GetEventStream(eventA1))
+
+		// Then
+		expectedRecords := []*rangedb.Record{
+			{
+				AggregateType:        "thing",
+				AggregateID:          "A",
+				GlobalSequenceNumber: 0,
+				StreamSequenceNumber: 0,
+				EventType:            "ThingWasDone",
+				EventID:              "d2ba8e70072943388203c438d4e94bf3",
+				InsertTimestamp:      0,
+				Data:                 eventA1,
+				Metadata:             nil,
+			},
+			{
+				AggregateType:        "thing",
+				AggregateID:          "A",
+				GlobalSequenceNumber: 1,
+				StreamSequenceNumber: 1,
+				EventType:            "ThingWasDone",
+				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+				InsertTimestamp:      1,
+				Data:                 eventA2,
+				Metadata:             nil,
+			},
+		}
+		assert.Equal(t, expectedRecords, recordChannelToRecordsSlice(eventsChannel))
+	})
+
+	t.Run("get 2nd page of events by stream, with 2 records per page", func(t *testing.T) {
+		// Given
+		shortuuid.SetRand(100)
+		uuid.SetRand(rand.New(rand.NewSource(100)))
+		store, tearDown, bindEvents := newStore(sequentialclock.New())
+		defer tearDown()
+		bindEvents(ThingWasDone{})
+		eventA1 := &ThingWasDone{ID: "A", Number: 1}
+		eventA2 := &ThingWasDone{ID: "A", Number: 2}
+		eventA3 := &ThingWasDone{ID: "A", Number: 3}
+		eventB := &ThingWasDone{ID: "B", Number: 3}
+		require.NoError(t, store.Save(eventA1, nil))
+		require.NoError(t, store.Save(eventA2, nil))
+		require.NoError(t, store.Save(eventA3, nil))
+		require.NoError(t, store.Save(eventB, nil))
+		pagination := paging.NewPagination(2, 2)
+
+		// When
+		eventsChannel := store.EventsByStream(pagination, rangedb.GetEventStream(eventA1))
+
+		// Then
+		expectedRecords := []*rangedb.Record{
+			{
+				AggregateType:        "thing",
+				AggregateID:          "A",
+				GlobalSequenceNumber: 2,
+				StreamSequenceNumber: 2,
+				EventType:            "ThingWasDone",
+				EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+				InsertTimestamp:      2,
+				Data:                 eventA3,
+				Metadata:             nil,
+			},
+		}
+		assert.Equal(t, expectedRecords, recordChannelToRecordsSlice(eventsChannel))
+	})
+
 	t.Run("get events by stream starting with second entry", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
@@ -593,6 +678,24 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		}
 		actualRecords := recordChannelToRecordsSlice(eventsChannel)
 		assert.Equal(t, expectedRecords, actualRecords)
+	})
+
+	t.Run("get total events", func(t *testing.T) {
+		store, tearDown, bindEvents := newStore(sequentialclock.New())
+		defer tearDown()
+		bindEvents(ThingWasDone{})
+		eventA1 := &ThingWasDone{ID: "A", Number: 1}
+		eventA2 := &ThingWasDone{ID: "A", Number: 2}
+		eventB := &ThingWasDone{ID: "B", Number: 3}
+		require.NoError(t, store.Save(eventA1, nil))
+		require.NoError(t, store.Save(eventA2, nil))
+		require.NoError(t, store.Save(eventB, nil))
+
+		// When
+		totalEvents := store.TotalEventsInStream(rangedb.GetEventStream(eventA1))
+
+		// Then
+		assert.Equal(t, 2, int(totalEvents))
 	})
 }
 

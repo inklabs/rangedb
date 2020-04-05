@@ -91,10 +91,7 @@ type aggregateTypeTemplateVars struct {
 
 func (a *webUI) aggregateType(w http.ResponseWriter, r *http.Request) {
 	aggregateTypeName := mux.Vars(r)["aggregateType"]
-
-	itemsPerPage := r.URL.Query().Get("itemsPerPage")
-	page := r.URL.Query().Get("page")
-	pagination := paging.NewPaginationFromString(itemsPerPage, page)
+	pagination := paging.NewPaginationFromQuery(r.URL.Query())
 
 	records := rangedb.RecordChannelToSlice(a.store.EventsByAggregateType(pagination, aggregateTypeName))
 
@@ -112,20 +109,34 @@ func (a *webUI) aggregateType(w http.ResponseWriter, r *http.Request) {
 }
 
 type streamTemplateVars struct {
-	StreamName string
-	Records    []*rangedb.Record
+	PaginationLinks  paging.Links
+	Records          []*rangedb.Record
+	StreamInfo       StreamInfo
+	AggregateType    string
+	AggregateTypeURL string
 }
 
 func (a *webUI) stream(w http.ResponseWriter, r *http.Request) {
 	aggregateTypeName := mux.Vars(r)["aggregateType"]
 	aggregateID := mux.Vars(r)["aggregateID"]
+	pagination := paging.NewPaginationFromQuery(r.URL.Query())
 
-	stream := rangedb.GetStream(aggregateTypeName, aggregateID)
-	records := rangedb.RecordChannelToSlice(a.store.AllEventsByStream(stream))
+	streamName := rangedb.GetStream(aggregateTypeName, aggregateID)
+	records := rangedb.RecordChannelToSlice(a.store.EventsByStream(pagination, streamName))
+
+	baseURI := fmt.Sprintf("/e/%s/%s", aggregateTypeName, aggregateID)
+	totalRecords := a.store.TotalEventsInStream(streamName)
+	aggregateURL := fmt.Sprintf("/e/%s", aggregateTypeName)
 
 	a.renderWithValues(w, "stream.html", streamTemplateVars{
-		StreamName: stream,
-		Records:    records,
+		PaginationLinks: pagination.Links(baseURI, totalRecords),
+		Records:         records,
+		StreamInfo: StreamInfo{
+			Name:        streamName,
+			TotalEvents: a.store.TotalEventsInStream(streamName),
+		},
+		AggregateType:    aggregateTypeName,
+		AggregateTypeURL: aggregateURL,
 	})
 }
 
@@ -146,6 +157,11 @@ func (a *webUI) renderWithValues(w http.ResponseWriter, tpl string, data interfa
 }
 
 type AggregateTypeInfo struct {
+	Name        string
+	TotalEvents uint64
+}
+
+type StreamInfo struct {
 	Name        string
 	TotalEvents uint64
 }

@@ -1,14 +1,16 @@
 package paging_test
 
 import (
-	"github.com/inklabs/rangedb/pkg/paging"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	"github.com/inklabs/rangedb/pkg/paging"
 )
 
 func TestNewLinks_HasNextPage(t *testing.T) {
 	// Given
-	totalRecords := uint64(100)
+	totalRecords := uint64(16)
 	pagination := paging.NewPagination(10, 1)
 
 	// When

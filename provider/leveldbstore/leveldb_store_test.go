@@ -102,6 +102,6 @@ func Test_Failures(t *testing.T) {
 
 		// Then
 		require.Nil(t, <-events)
-		assert.Equal(t, "failed to deserialize record for prefix (thing!): failingDeserializer.Deserialize\n", logBuffer.String())
+		assert.Equal(t, "failed to deserialize record: failingDeserializer.Deserialize\n", logBuffer.String())
 	})
 }

@@ -1,7 +1,6 @@
 package inmemorystore
 
 import (
-	"github.com/inklabs/rangedb/pkg/paging"
 	"io/ioutil"
 	"log"
 	"sync"
@@ -9,6 +8,7 @@ import (
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
 	"github.com/inklabs/rangedb/pkg/clock/provider/systemclock"
+	"github.com/inklabs/rangedb/pkg/paging"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
@@ -93,6 +93,10 @@ func (s *inMemoryStore) EventsByAggregateTypeStartingWith(aggregateType string, 
 	return s.recordsStartingWith(s.recordsByAggregateType[aggregateType], eventNumber)
 }
 
+func (s *inMemoryStore) EventsByStream(pagination paging.Pagination, streamName string) <-chan *rangedb.Record {
+	return s.paginateRecords(pagination, s.recordsByStream[streamName])
+}
+
 func (s *inMemoryStore) EventsByStreamStartingWith(stream string, eventNumber uint64) <-chan *rangedb.Record {
 	return s.recordsStartingWith(s.recordsByStream[stream], eventNumber)
 }
@@ -111,6 +115,7 @@ func (s *inMemoryStore) recordsStartingWith(serializedRecords [][]byte, eventNum
 				record, err := s.serializer.Deserialize(data)
 				if err != nil {
 					s.logger.Printf("failed to deserialize record: %v", err)
+					continue
 				}
 
 				records <- record
@@ -142,6 +147,7 @@ func (s *inMemoryStore) paginateRecords(pagination paging.Pagination, serialized
 			record, err := s.serializer.Deserialize(data)
 			if err != nil {
 				s.logger.Printf("failed to deserialize record: %v", err)
+				continue
 			}
 
 			records <- record
@@ -215,6 +221,10 @@ func (s *inMemoryStore) Subscribe(subscribers ...rangedb.RecordSubscriber) {
 	defer s.subscriberMux.Unlock()
 
 	s.subscribers = append(s.subscribers, subscribers...)
+}
+
+func (s *inMemoryStore) TotalEventsInStream(streamName string) uint64 {
+	return uint64(len(s.recordsByStream[streamName]))
 }
 
 func (s *inMemoryStore) notifySubscribers(record *rangedb.Record) {

@@ -28,11 +28,13 @@ type Store interface {
 	AllEventsByStream(stream string) <-chan *Record
 	EventsByAggregateType(pagination paging.Pagination, aggregateType string) <-chan *Record
 	EventsByAggregateTypeStartingWith(aggregateType string, eventNumber uint64) <-chan *Record
-	EventsByStreamStartingWith(stream string, eventNumber uint64) <-chan *Record
+	EventsByStream(pagination paging.Pagination, streamName string) <-chan *Record
+	EventsByStreamStartingWith(streamName string, eventNumber uint64) <-chan *Record
 	Save(event Event, metadata interface{}) error
 	SaveEvent(aggregateType, aggregateID, eventType, eventID string, event, metadata interface{}) error
 	Subscribe(subscribers ...RecordSubscriber)
 	SubscribeAndReplay(subscribers ...RecordSubscriber)
+	TotalEventsInStream(streamName string) uint64
 }
 
 // Event is the interface that defines the required event methods.

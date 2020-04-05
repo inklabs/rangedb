@@ -4,17 +4,18 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/inklabs/rangedb/pkg/paging"
 	"io/ioutil"
 	"log"
 	"sync"
 
 	"github.com/syndtr/goleveldb/leveldb"
+	"github.com/syndtr/goleveldb/leveldb/iterator"
 	"github.com/syndtr/goleveldb/leveldb/util"
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
 	"github.com/inklabs/rangedb/pkg/clock/provider/systemclock"
+	"github.com/inklabs/rangedb/pkg/paging"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
@@ -106,6 +107,10 @@ func (s *levelDbStore) EventsByAggregateTypeStartingWith(aggregateType string, e
 	return s.getEventsByPrefixStartingWith(aggregateType, eventNumber)
 }
 
+func (s *levelDbStore) EventsByStream(pagination paging.Pagination, streamName string) <-chan *rangedb.Record {
+	return s.paginateEventsByPrefix(pagination, streamName)
+}
+
 func (s *levelDbStore) EventsByStreamStartingWith(stream string, eventNumber uint64) <-chan *rangedb.Record {
 	return s.getEventsByPrefixStartingWith(stream, eventNumber)
 }
@@ -180,6 +185,10 @@ func (s *levelDbStore) Subscribe(subscribers ...rangedb.RecordSubscriber) {
 	s.subscribers = append(s.subscribers, subscribers...)
 }
 
+func (s *levelDbStore) TotalEventsInStream(streamName string) uint64 {
+	return s.getNextStreamSequenceNumber(streamName)
+}
+
 func (s *levelDbStore) notifySubscribers(record *rangedb.Record) {
 	s.subscriberMux.RLock()
 	defer s.subscriberMux.RUnlock()
@@ -197,14 +206,48 @@ func (s *levelDbStore) getEventsByPrefixStartingWith(prefix string, eventNumber 
 		count := uint64(0)
 		for iter.Next() {
 			if count >= eventNumber {
-				record, err := s.serializer.Deserialize(iter.Value())
+				record, err := s.getRecordByValue(iter.Value())
 				if err != nil {
-					s.logger.Printf("failed to deserialize record for prefix (%v): %v", prefix, err)
+					continue
 				}
 
 				records <- record
 			}
 			count++
+		}
+		iter.Release()
+
+		_ = iter.Error()
+		close(records)
+	}()
+
+	return records
+}
+
+func (s *levelDbStore) paginateEventsByPrefix(pagination paging.Pagination, prefix string) <-chan *rangedb.Record {
+	records := make(chan *rangedb.Record)
+
+	go func() {
+		firstEventNumber := (pagination.Page - 1) * pagination.ItemsPerPage
+		count := 0
+
+		iter := s.db.NewIterator(util.BytesPrefix([]byte(prefix)), nil)
+		for iter.Next() {
+			count++
+			if count <= firstEventNumber {
+				continue
+			}
+
+			record, err := s.getRecordByValue(iter.Value())
+			if err != nil {
+				continue
+			}
+
+			records <- record
+
+			if count-firstEventNumber >= pagination.ItemsPerPage {
+				break
+			}
 		}
 		iter.Release()
 
@@ -223,15 +266,9 @@ func (s *levelDbStore) getEventsByLookup(key string) <-chan *rangedb.Record {
 		for iter.Next() {
 			targetKey := iter.Value()
 
-			data, err := s.db.Get(targetKey, nil)
+			record, err := s.getRecordByLookup(targetKey, iter)
 			if err != nil {
-				s.logger.Printf("unable to find lookup record %s for %s: %v", targetKey, iter.Key(), err)
 				continue
-			}
-
-			record, err := s.serializer.Deserialize(data)
-			if err != nil {
-				s.logger.Printf("failed to deserialize record %s for %s: %v", targetKey, iter.Key(), err)
 			}
 
 			records <- record
@@ -243,6 +280,26 @@ func (s *levelDbStore) getEventsByLookup(key string) <-chan *rangedb.Record {
 	}()
 
 	return records
+}
+
+func (s *levelDbStore) getRecordByLookup(targetKey []byte, iter iterator.Iterator) (*rangedb.Record, error) {
+	data, err := s.db.Get(targetKey, nil)
+	if err != nil {
+		s.logger.Printf("unable to find lookup record %s for %s: %v", targetKey, iter.Key(), err)
+		return nil, err
+	}
+
+	return s.getRecordByValue(data)
+}
+
+func (s *levelDbStore) getRecordByValue(value []byte) (*rangedb.Record, error) {
+	record, err := s.serializer.Deserialize(value)
+	if err != nil {
+		s.logger.Printf("failed to deserialize record: %v", err)
+		return nil, err
+	}
+
+	return record, nil
 }
 
 func (s *levelDbStore) paginateEventsByLookup(pagination paging.Pagination, key string) <-chan *rangedb.Record {
@@ -261,15 +318,9 @@ func (s *levelDbStore) paginateEventsByLookup(pagination paging.Pagination, key 
 
 			targetKey := iter.Value()
 
-			data, err := s.db.Get(targetKey, nil)
+			record, err := s.getRecordByLookup(targetKey, iter)
 			if err != nil {
-				s.logger.Printf("unable to find lookup record %s for %s: %v", targetKey, iter.Key(), err)
 				continue
-			}
-
-			record, err := s.serializer.Deserialize(data)
-			if err != nil {
-				s.logger.Printf("failed to deserialize record %s for %s: %v", targetKey, iter.Key(), err)
 			}
 
 			records <- record
