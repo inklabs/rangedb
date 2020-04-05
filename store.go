@@ -5,7 +5,7 @@ import (
 	"github.com/inklabs/rangedb/pkg/paging"
 )
 
-const Version = "0.2.x"
+const Version = "0.2.0"
 
 // Record contains event data and metadata.
 type Record struct {
