@@ -2,21 +2,20 @@ package rangedbui
 
 import (
 	"fmt"
-	"github.com/inklabs/rangedb/pkg/paging"
 	"log"
 	"net/http"
 
+	"github.com/inklabs/rangedb/pkg/paging"
+
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/rakyll/statik/fs"
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/projection"
 	"github.com/inklabs/rangedb/pkg/rangedbui/pkg/templatemanager"
-	_ "github.com/inklabs/rangedb/pkg/rangedbui/statik"
 )
 
-//go:generate go run github.com/rakyll/statik -src ./static
+//go:generate go run github.com/shurcooL/vfsgen/cmd/vfsgendev -source="github.com/inklabs/rangedb/pkg/rangedbui".StaticAssets
 //go:generate go run ./gen/pack-templates -path ./templates -package rangedbui
 
 type webUI struct {
@@ -45,13 +44,12 @@ func New(
 func (a *webUI) initRoutes() {
 	const aggregateType = "{aggregateType:[a-zA-Z-]+}"
 	const stream = aggregateType + "/{aggregateID:[0-9a-f]{32}}"
-	statikFS, _ := fs.New()
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/", a.index)
 	router.HandleFunc("/aggregate-types", a.aggregateTypes)
 	router.HandleFunc("/e/"+aggregateType, a.aggregateType)
 	router.HandleFunc("/e/"+stream, a.stream)
-	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(statikFS)))
+	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(StaticAssets)))
 
 	a.handler = handlers.CompressHandler(router)
 }
