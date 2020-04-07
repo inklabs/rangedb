@@ -16,7 +16,9 @@ before_script:
   - ./cc-test-reporter before-build
 
 script:
-  - go test -coverprofile c.out ./...
+  - go test -coverprofile c.out.tmp ./...
+  - cat c.out.tmp | grep -v "_vfsdata.go" | grep -v "_gen.go" > c.out
+  - go tool cover -func c.out
 
 after_script:
   - ./cc-test-reporter after-build --exit-code $TRAVIS_TEST_RESULT
