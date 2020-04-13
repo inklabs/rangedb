@@ -2,6 +2,8 @@
 
 ## API Examples
 
+https://godoc.org/github.com/inklabs/rangedb/pkg/rangedbapi
+
 * [Get All Events](../pkg/rangedbapi/get_all_events_test.go)
 * [Get Events by Aggregate Type](../pkg/rangedbapi/get_events_by_aggregate_type_test.go)
 * [Get Events by Multiple Aggregate Types](../pkg/rangedbapi/get_events_by_aggregate_types_test.go)
@@ -10,6 +12,8 @@
 * [Save Events](../pkg/rangedbapi/save_events_test.go)
 
 ## Websocket API Examples
+
+https://godoc.org/github.com/inklabs/rangedb/pkg/rangedbws
 
 * [Stream All Events](../pkg/rangedbws/stream_all_events_test.go)
 * [Stream Events by Aggregate Type](../pkg/rangedbws/stream_events_by_aggregate_type_test.go)

@@ -557,17 +557,6 @@ func TestApi_AggregateTypeStatsProjection(t *testing.T) {
 	assert.IsType(t, &projection.AggregateTypeStats{}, aggregateTypeStats)
 }
 
-func Test_InvalidInput(t *testing.T) {
-	// Given
-	err := fmt.Errorf("EOF")
-
-	// When
-	invalidErr := rangedbapi.NewInvalidInput(err)
-
-	// Then
-	assert.Equal(t, "invalid input: EOF", invalidErr.Error())
-}
-
 func assertJsonEqual(t *testing.T, expectedJson, actualJson string) {
 	t.Helper()
 	assert.Equal(t, jsontools.PrettyJSONString(expectedJson), jsontools.PrettyJSONString(actualJson))

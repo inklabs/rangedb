@@ -78,17 +78,10 @@ func Test_AggregateType(t *testing.T) {
 	templateManager, err := memorytemplate.New(rangedbui.GetTemplates())
 	require.NoError(t, err)
 	store, aggregateTypeStats := storeWithTwoEvents()
-	_ = store.SaveEvent(
-		"thing",
-		"1ce1d596e54744b3b878d579ccc31d81",
-		"ThingWasDone",
-		"971e3df1f523488ba7dcc7800be3d303",
-		rangedbtest.ThingWasDone{
-			ID:     "01c48bfc1614449884c583402e97e4b9",
-			Number: 0,
-		},
-		nil,
-	)
+	_ = store.Save(rangedbtest.ThingWasDone{
+		ID:     "1ce1d596e54744b3b878d579ccc31d81",
+		Number: 0,
+	}, nil)
 
 	ui := rangedbui.New(templateManager, aggregateTypeStats, store)
 
@@ -154,17 +147,10 @@ func Test_Stream(t *testing.T) {
 	templateManager, err := memorytemplate.New(rangedbui.GetTemplates())
 	require.NoError(t, err)
 	store, aggregateTypeStats := storeWithTwoEvents()
-	_ = store.SaveEvent(
-		"thing",
-		"f6b6f8ed682c4b5180f625e53b3c4bac",
-		"ThingWasDone",
-		"01f96eb13c204a7699d2138e7d64639b",
-		rangedbtest.ThingWasDone{
-			ID:     "01f96eb13c204a7699d2138e7d64639b",
-			Number: 0,
-		},
-		nil,
-	)
+	_ = store.Save(rangedbtest.ThingWasDone{
+		ID:     "f6b6f8ed682c4b5180f625e53b3c4bac",
+		Number: 0,
+	}, nil)
 	ui := rangedbui.New(templateManager, aggregateTypeStats, store)
 
 	t.Run("renders events by stream", func(t *testing.T) {
@@ -196,7 +182,7 @@ func Test_Stream(t *testing.T) {
 		assert.Equal(t, "text/html; charset=utf-8", response.Header().Get("Content-Type"))
 		assert.Contains(t, response.Body.String(), "thing")
 		assert.Contains(t, response.Body.String(), "Stream: thing!f6b6f8ed682c4b5180f625e53b3c4bac")
-		assert.Contains(t, response.Body.String(), "cf20808548c84706b8cd7b611872eaa4")
+		assert.Contains(t, response.Body.String(), "f6b6f8ed682c4b5180f625e53b3c4bac")
 		assert.NotContains(t, response.Body.String(), "01f96eb13c204a7699d2138e7d64639b")
 		assert.NotContains(t, response.Body.String(), "/e/thing/f6b6f8ed682c4b5180f625e53b3c4bac?itemsPerPage=1&amp;page=1")
 		assert.Contains(t, response.Body.String(), "/e/thing/f6b6f8ed682c4b5180f625e53b3c4bac?itemsPerPage=1&amp;page=2")
@@ -224,28 +210,14 @@ func storeWithTwoEvents() (rangedb.Store, *projection.AggregateTypeStats) {
 	aggregateTypeStats := projection.NewAggregateTypeStats()
 	store.Subscribe(aggregateTypeStats)
 
-	_ = store.SaveEvent(
-		"thing",
-		"f6b6f8ed682c4b5180f625e53b3c4bac",
-		"ThingWasDone",
-		"cf20808548c84706b8cd7b611872eaa4",
-		rangedbtest.ThingWasDone{
-			ID:     "cf20808548c84706b8cd7b611872eaa4",
-			Number: 0,
-		},
-		nil,
-	)
+	_ = store.Save(rangedbtest.ThingWasDone{
+		ID:     "f6b6f8ed682c4b5180f625e53b3c4bac",
+		Number: 0,
+	}, nil)
 
-	_ = store.SaveEvent(
-		"another",
-		"d2966d9ecb344d96a919655e2980fc11",
-		"AnotherWasComplete",
-		"5e4a649230924041a7ccf18887ccc153",
-		rangedbtest.AnotherWasComplete{
-			ID: "5e4a649230924041a7ccf18887ccc153",
-		},
-		nil,
-	)
+	_ = store.Save(rangedbtest.AnotherWasComplete{
+		ID: "5e4a649230924041a7ccf18887ccc153",
+	}, nil)
 
 	return store, aggregateTypeStats
 }

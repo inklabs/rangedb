@@ -71,12 +71,12 @@ func (a *api) initRoutes() {
 	const stream = "{aggregateType:[a-zA-Z-]+}/{aggregateID:[0-9a-f]{32}}"
 	const extension = ".{extension:json|ndjson|msgpack}"
 	router := mux.NewRouter().StrictSlash(true)
-	router.HandleFunc("/health-check", a.HealthCheck)
-	router.HandleFunc("/save-events/"+stream, a.SaveEvents)
-	router.HandleFunc("/events"+extension, a.AllEvents)
-	router.HandleFunc("/events/"+stream+extension, a.EventsByStream)
-	router.HandleFunc("/events/{aggregateType:[a-zA-Z-,]+}"+extension, a.EventsByAggregateType)
-	router.HandleFunc("/list-aggregate-types", a.ListAggregateTypes)
+	router.HandleFunc("/health-check", a.healthCheck)
+	router.HandleFunc("/save-events/"+stream, a.saveEvents)
+	router.HandleFunc("/events"+extension, a.allEvents)
+	router.HandleFunc("/events/"+stream+extension, a.eventsByStream)
+	router.HandleFunc("/events/{aggregateType:[a-zA-Z-,]+}"+extension, a.eventsByAggregateType)
+	router.HandleFunc("/list-aggregate-types", a.listAggregateTypes)
 	a.handler = handlers.CompressHandler(router)
 }
 
@@ -89,19 +89,19 @@ func (a *api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a.handler.ServeHTTP(w, r)
 }
 
-func (a *api) HealthCheck(w http.ResponseWriter, _ *http.Request) {
+func (a *api) healthCheck(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set(`Content-Type`, `application/json`)
 	_, _ = fmt.Fprintf(w, `{"status":"OK"}`)
 }
 
-func (a *api) AllEvents(w http.ResponseWriter, r *http.Request) {
+func (a *api) allEvents(w http.ResponseWriter, r *http.Request) {
 	extension := mux.Vars(r)["extension"]
 
 	events := a.store.AllEvents()
 	a.writeEvents(w, events, extension)
 }
 
-func (a *api) EventsByStream(w http.ResponseWriter, r *http.Request) {
+func (a *api) eventsByStream(w http.ResponseWriter, r *http.Request) {
 	aggregateType := mux.Vars(r)["aggregateType"]
 	aggregateID := mux.Vars(r)["aggregateID"]
 	extension := mux.Vars(r)["extension"]
@@ -111,7 +111,7 @@ func (a *api) EventsByStream(w http.ResponseWriter, r *http.Request) {
 	a.writeEvents(w, events, extension)
 }
 
-func (a *api) EventsByAggregateType(w http.ResponseWriter, r *http.Request) {
+func (a *api) eventsByAggregateType(w http.ResponseWriter, r *http.Request) {
 	aggregateTypeInput := mux.Vars(r)["aggregateType"]
 	aggregateTypes := strings.Split(aggregateTypeInput, ",")
 	extension := mux.Vars(r)["extension"]
@@ -126,7 +126,7 @@ func (a *api) EventsByAggregateType(w http.ResponseWriter, r *http.Request) {
 	a.writeEvents(w, events, extension)
 }
 
-func (a *api) SaveEvents(w http.ResponseWriter, r *http.Request) {
+func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 	aggregateType := mux.Vars(r)["aggregateType"]
 	aggregateID := mux.Vars(r)["aggregateID"]
 
@@ -141,7 +141,7 @@ func (a *api) SaveEvents(w http.ResponseWriter, r *http.Request) {
 
 	err := a.saveRecords(aggregateType, aggregateID, records, errors)
 	if err != nil {
-		if _, ok := err.(*InvalidInput); ok {
+		if _, ok := err.(*invalidInput); ok {
 			w.WriteHeader(http.StatusBadRequest)
 			_, _ = fmt.Fprintf(w, `{"status":"Failed"}`)
 			return
@@ -185,12 +185,12 @@ func (a *api) saveRecords(aggregateType, aggregateID string, records <-chan *ran
 				return nil
 			}
 
-			return NewInvalidInput(err)
+			return newInvalidInput(err)
 		}
 	}
 }
 
-func (a *api) ListAggregateTypes(w http.ResponseWriter, _ *http.Request) {
+func (a *api) listAggregateTypes(w http.ResponseWriter, _ *http.Request) {
 	var data []map[string]interface{}
 	for _, aggregateType := range a.projections.aggregateTypeStats.SortedAggregateTypes() {
 		data = append(data, map[string]interface{}{
@@ -240,16 +240,14 @@ func (a *api) writeEvents(w http.ResponseWriter, events <-chan *rangedb.Record, 
 	}
 }
 
-// InvalidInput defines an error wrapper for invalid client input.
-type InvalidInput struct {
+type invalidInput struct {
 	err error
 }
 
-// NewInvalidInput constructs an InvalidInput wrapping an error.
-func NewInvalidInput(err error) *InvalidInput {
-	return &InvalidInput{err: err}
+func newInvalidInput(err error) *invalidInput {
+	return &invalidInput{err: err}
 }
 
-func (i InvalidInput) Error() string {
+func (i invalidInput) Error() string {
 	return fmt.Sprintf("invalid input: %v", i.err)
 }
