@@ -164,7 +164,8 @@ func (s *levelDbStore) SaveEvent(aggregateType, aggregateID, eventType, eventID 
 
 	err = s.db.Write(batch, nil)
 	if err == nil {
-		s.notifySubscribers(record)
+		deSerializedRecord, _ := s.serializer.Deserialize(data)
+		s.notifySubscribers(deSerializedRecord)
 	}
 
 	return err

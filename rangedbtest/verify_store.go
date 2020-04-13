@@ -1,7 +1,6 @@
 package rangedbtest
 
 import (
-	"github.com/inklabs/rangedb/pkg/paging"
 	"math/rand"
 	"testing"
 
@@ -12,6 +11,7 @@ import (
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
 	"github.com/inklabs/rangedb/pkg/clock/provider/sequentialclock"
+	"github.com/inklabs/rangedb/pkg/paging"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 )
 
@@ -588,7 +588,7 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		assert.Equal(t, event, actualRecords[0].Data)
 	})
 
-	t.Run("Subscribe sends new events to subscribers on save", func(t *testing.T) {
+	t.Run("Subscribe sends new events to subscribers on save (by pointer)", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
 		const aggregateType = "thing"
@@ -619,6 +619,35 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		assert.Equal(t, 1, countSubscriber2.TotalEvents)
 	})
 
+	t.Run("Subscribe sends new events to subscribers on save (by value)", func(t *testing.T) {
+		// Given
+		shortuuid.SetRand(100)
+		const aggregateType = "thing"
+		const aggregateID = "95eb3409cf6e4d909d41cca0c70ec812"
+		store, tearDown, bindEvents := newStore(sequentialclock.New())
+		defer tearDown()
+		bindEvents(ThingWasDone{})
+		event := ThingWasDone{ID: aggregateID, Number: 2}
+		require.NoError(t, store.Save(event, nil))
+		countSubscriber := NewCountSubscriber()
+		store.Subscribe(countSubscriber)
+
+		// When
+		err := store.SaveEvent(
+			aggregateType,
+			aggregateID,
+			"ThingWasDone",
+			"",
+			event,
+			nil,
+		)
+
+		// Then
+		require.NoError(t, err)
+		assert.Equal(t, 1, countSubscriber.TotalEvents)
+		assert.Equal(t, 2, countSubscriber.TotalThingWasDone)
+	})
+
 	t.Run("Subscribe sends previous and new events to subscribers on save", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
@@ -627,9 +656,9 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		store, tearDown, bindEvents := newStore(sequentialclock.New())
 		defer tearDown()
 		bindEvents(ThingWasDone{})
-		event1 := &ThingWasDone{ID: aggregateID, Number: 1}
+		event1 := &ThingWasDone{ID: aggregateID, Number: 2}
 		require.NoError(t, store.Save(event1, nil))
-		event2 := &ThingWasDone{ID: aggregateID, Number: 1}
+		event2 := &ThingWasDone{ID: aggregateID, Number: 3}
 		countSubscriber1 := NewCountSubscriber()
 		countSubscriber2 := NewCountSubscriber()
 		store.SubscribeAndReplay(countSubscriber1, countSubscriber2)
@@ -647,7 +676,9 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		// Then
 		require.NoError(t, err)
 		assert.Equal(t, 2, countSubscriber1.TotalEvents)
+		assert.Equal(t, 5, countSubscriber1.TotalThingWasDone)
 		assert.Equal(t, 2, countSubscriber2.TotalEvents)
+		assert.Equal(t, 5, countSubscriber2.TotalThingWasDone)
 	})
 
 	t.Run("save event by value and get event by pointer from store", func(t *testing.T) {
@@ -678,6 +709,7 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		}
 		actualRecords := recordChannelToRecordsSlice(eventsChannel)
 		assert.Equal(t, expectedRecords, actualRecords)
+		assert.IsType(t, &ThingWasDone{}, actualRecords[0].Data)
 	})
 
 	t.Run("get total events", func(t *testing.T) {
@@ -710,7 +742,8 @@ func recordChannelToRecordsSlice(records <-chan *rangedb.Record) []*rangedb.Reco
 }
 
 type countSubscriber struct {
-	TotalEvents int
+	TotalEvents       int
+	TotalThingWasDone int
 }
 
 // NewCountSubscriber returns a countSubscriber.
@@ -718,6 +751,12 @@ func NewCountSubscriber() *countSubscriber {
 	return &countSubscriber{}
 }
 
-func (c *countSubscriber) Accept(_ *rangedb.Record) {
+func (c *countSubscriber) Accept(record *rangedb.Record) {
 	c.TotalEvents++
+
+	event, ok := record.Data.(*ThingWasDone)
+	if ok {
+		c.TotalThingWasDone += event.Number
+	}
+
 }

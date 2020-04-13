@@ -203,7 +203,8 @@ func (s *inMemoryStore) SaveEvent(aggregateType, aggregateID, eventType, eventID
 	s.recordsByStream[stream] = append(s.recordsByStream[stream], data)
 	s.recordsByAggregateType[aggregateType] = append(s.recordsByAggregateType[aggregateType], data)
 
-	s.notifySubscribers(record)
+	deSerializedRecord, _ := s.serializer.Deserialize(data)
+	s.notifySubscribers(deSerializedRecord)
 
 	return nil
 }
