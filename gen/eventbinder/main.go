@@ -70,11 +70,7 @@ package {{ .PackageName }}
 
 import "github.com/inklabs/rangedb"
 
-type eventBinder interface {
-	Bind(events ...rangedb.Event)
-}
-
-func BindEvents(binder eventBinder) {
+func BindEvents(binder rangedb.EventBinder) {
 	binder.Bind({{ range .EventNames }}
 		&{{ . }}{},{{ end }}
 	)

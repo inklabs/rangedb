@@ -15,11 +15,8 @@ import (
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 )
 
-// NewStoreFunc defines a helper function to verify the store interface.
-type NewStoreFunc func(clock.Clock) (store rangedb.Store, tearDown func(), bindEvents func(events ...rangedb.Event))
-
 // VerifyStore verifies the Store interface.
-func VerifyStore(t *testing.T, newStore NewStoreFunc) {
+func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) rangedb.Store) {
 	t.Helper()
 
 	t.Run("get all events by stream", func(t *testing.T) {
@@ -27,9 +24,8 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		shortuuid.SetRand(100)
 		const eventID1 = "d2ba8e70072943388203c438d4e94bf3"
 		const eventID2 = "99cbd88bbcaf482ba1cc96ed12541707"
-		store, tearDown, bindEvents := newStore(sequentialclock.New())
-		defer tearDown()
-		bindEvents(ThingWasDone{})
+		store := newStore(t, sequentialclock.New())
+		store.Bind(ThingWasDone{})
 		eventA1 := &ThingWasDone{ID: "A", Number: 1}
 		eventA2 := &ThingWasDone{ID: "A", Number: 2}
 		eventB := &ThingWasDone{ID: "B", Number: 3}
@@ -74,9 +70,8 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		// Given
 		const totalEventsToRequireBigEndian = 257
 		shortuuid.SetRand(100)
-		store, tearDown, bindEvents := newStore(sequentialclock.New())
-		defer tearDown()
-		bindEvents(ThingWasDone{})
+		store := newStore(t, sequentialclock.New())
+		store.Bind(ThingWasDone{})
 		const totalEvents = totalEventsToRequireBigEndian
 		events := make([]rangedb.Event, totalEvents)
 		for i := 0; i < totalEvents; i++ {
@@ -99,9 +94,8 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 	t.Run("get all events by two aggregate types ordered by global sequence number", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
-		store, tearDown, bindEvents := newStore(sequentialclock.New())
-		defer tearDown()
-		bindEvents(ThingWasDone{}, AnotherWasComplete{})
+		store := newStore(t, sequentialclock.New())
+		store.Bind(ThingWasDone{}, AnotherWasComplete{})
 		thingWasDoneA0 := &ThingWasDone{ID: "A", Number: 100}
 		thingWasDoneA1 := &ThingWasDone{ID: "A", Number: 200}
 		thingWasDoneB0 := &ThingWasDone{ID: "B", Number: 300}
@@ -168,9 +162,8 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 	t.Run("get all events ordered by global sequence number", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
-		store, tearDown, bindEvents := newStore(sequentialclock.New())
-		defer tearDown()
-		bindEvents(ThingWasDone{}, AnotherWasComplete{})
+		store := newStore(t, sequentialclock.New())
+		store.Bind(ThingWasDone{}, AnotherWasComplete{})
 		thingWasDoneA0 := &ThingWasDone{ID: "A", Number: 100}
 		thingWasDoneA1 := &ThingWasDone{ID: "A", Number: 200}
 		thingWasDoneB0 := &ThingWasDone{ID: "B", Number: 300}
@@ -238,9 +231,8 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		// Given
 		shortuuid.SetRand(100)
 		uuid.SetRand(rand.New(rand.NewSource(100)))
-		store, tearDown, bindEvents := newStore(sequentialclock.New())
-		defer tearDown()
-		bindEvents(ThingWasDone{})
+		store := newStore(t, sequentialclock.New())
+		store.Bind(ThingWasDone{})
 		eventA1 := &ThingWasDone{ID: "A", Number: 1}
 		eventA2 := &ThingWasDone{ID: "A", Number: 2}
 		eventA3 := &ThingWasDone{ID: "A", Number: 3}
@@ -286,9 +278,8 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		// Given
 		shortuuid.SetRand(100)
 		uuid.SetRand(rand.New(rand.NewSource(100)))
-		store, tearDown, bindEvents := newStore(sequentialclock.New())
-		defer tearDown()
-		bindEvents(ThingWasDone{})
+		store := newStore(t, sequentialclock.New())
+		store.Bind(ThingWasDone{})
 		eventA1 := &ThingWasDone{ID: "A", Number: 1}
 		eventA2 := &ThingWasDone{ID: "A", Number: 2}
 		eventA3 := &ThingWasDone{ID: "A", Number: 3}
@@ -322,9 +313,8 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 	t.Run("get events by stream starting with second entry", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
-		store, tearDown, bindEvents := newStore(sequentialclock.New())
-		defer tearDown()
-		bindEvents(ThingWasDone{})
+		store := newStore(t, sequentialclock.New())
+		store.Bind(ThingWasDone{})
 		eventA1 := &ThingWasDone{ID: "A", Number: 1}
 		eventA2 := &ThingWasDone{ID: "A", Number: 2}
 		eventB := &ThingWasDone{ID: "B", Number: 3}
@@ -357,9 +347,8 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		// Given
 		shortuuid.SetRand(100)
 		uuid.SetRand(rand.New(rand.NewSource(100)))
-		store, tearDown, bindEvents := newStore(sequentialclock.New())
-		defer tearDown()
-		bindEvents(ThingWasDone{})
+		store := newStore(t, sequentialclock.New())
+		store.Bind(ThingWasDone{})
 		eventA1 := &ThingWasDone{ID: "A", Number: 1}
 		eventA2 := &ThingWasDone{ID: "A", Number: 2}
 		eventB := &ThingWasDone{ID: "B", Number: 3}
@@ -413,9 +402,8 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		// Given
 		shortuuid.SetRand(100)
 		uuid.SetRand(rand.New(rand.NewSource(100)))
-		store, tearDown, bindEvents := newStore(sequentialclock.New())
-		defer tearDown()
-		bindEvents(ThingWasDone{})
+		store := newStore(t, sequentialclock.New())
+		store.Bind(ThingWasDone{})
 		eventA1 := &ThingWasDone{ID: "A", Number: 1}
 		eventA2 := &ThingWasDone{ID: "A", Number: 2}
 		eventB := &ThingWasDone{ID: "B", Number: 3}
@@ -459,9 +447,8 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		// Given
 		shortuuid.SetRand(100)
 		uuid.SetRand(rand.New(rand.NewSource(100)))
-		store, tearDown, bindEvents := newStore(sequentialclock.New())
-		defer tearDown()
-		bindEvents(ThingWasDone{})
+		store := newStore(t, sequentialclock.New())
+		store.Bind(ThingWasDone{})
 		eventA1 := &ThingWasDone{ID: "A", Number: 1}
 		eventA2 := &ThingWasDone{ID: "A", Number: 2}
 		eventB1 := &ThingWasDone{ID: "B", Number: 3}
@@ -506,9 +493,8 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 	t.Run("get events by aggregate type starting with second entry", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
-		store, tearDown, bindEvents := newStore(sequentialclock.New())
-		defer tearDown()
-		bindEvents(ThingWasDone{})
+		store := newStore(t, sequentialclock.New())
+		store.Bind(ThingWasDone{})
 		eventA1 := &ThingWasDone{ID: "A", Number: 1}
 		eventA2 := &ThingWasDone{ID: "A", Number: 2}
 		eventB := &ThingWasDone{ID: "B", Number: 3}
@@ -552,9 +538,8 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		shortuuid.SetRand(100)
 		const aggregateType = "thing"
 		const aggregateID = "95eb3409cf6e4d909d41cca0c70ec812"
-		store, tearDown, bindEvents := newStore(sequentialclock.New())
-		defer tearDown()
-		bindEvents(ThingWasDone{})
+		store := newStore(t, sequentialclock.New())
+		store.Bind(ThingWasDone{})
 		event := &ThingWasDone{ID: aggregateID, Number: 1}
 
 		// When
@@ -593,9 +578,8 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		shortuuid.SetRand(100)
 		const aggregateType = "thing"
 		const aggregateID = "95eb3409cf6e4d909d41cca0c70ec812"
-		store, tearDown, bindEvents := newStore(sequentialclock.New())
-		defer tearDown()
-		bindEvents(ThingWasDone{})
+		store := newStore(t, sequentialclock.New())
+		store.Bind(ThingWasDone{})
 		event1 := &ThingWasDone{ID: aggregateID, Number: 1}
 		require.NoError(t, store.Save(event1, nil))
 		event2 := &ThingWasDone{ID: aggregateID, Number: 1}
@@ -624,9 +608,8 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		shortuuid.SetRand(100)
 		const aggregateType = "thing"
 		const aggregateID = "95eb3409cf6e4d909d41cca0c70ec812"
-		store, tearDown, bindEvents := newStore(sequentialclock.New())
-		defer tearDown()
-		bindEvents(ThingWasDone{})
+		store := newStore(t, sequentialclock.New())
+		store.Bind(ThingWasDone{})
 		event := ThingWasDone{ID: aggregateID, Number: 2}
 		require.NoError(t, store.Save(event, nil))
 		countSubscriber := NewCountSubscriber()
@@ -653,9 +636,8 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 		shortuuid.SetRand(100)
 		const aggregateType = "thing"
 		const aggregateID = "95eb3409cf6e4d909d41cca0c70ec812"
-		store, tearDown, bindEvents := newStore(sequentialclock.New())
-		defer tearDown()
-		bindEvents(ThingWasDone{})
+		store := newStore(t, sequentialclock.New())
+		store.Bind(ThingWasDone{})
 		event1 := &ThingWasDone{ID: aggregateID, Number: 2}
 		require.NoError(t, store.Save(event1, nil))
 		event2 := &ThingWasDone{ID: aggregateID, Number: 3}
@@ -684,9 +666,8 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 	t.Run("save event by value and get event by pointer from store", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
-		store, tearDown, bindEvents := newStore(sequentialclock.New())
-		defer tearDown()
-		bindEvents(&ThingWasDone{})
+		store := newStore(t, sequentialclock.New())
+		store.Bind(&ThingWasDone{})
 		event := ThingWasDone{ID: "A", Number: 1}
 		require.NoError(t, store.Save(event, nil))
 
@@ -713,9 +694,8 @@ func VerifyStore(t *testing.T, newStore NewStoreFunc) {
 	})
 
 	t.Run("get total events", func(t *testing.T) {
-		store, tearDown, bindEvents := newStore(sequentialclock.New())
-		defer tearDown()
-		bindEvents(ThingWasDone{})
+		store := newStore(t, sequentialclock.New())
+		store.Bind(ThingWasDone{})
 		eventA1 := &ThingWasDone{ID: "A", Number: 1}
 		eventA2 := &ThingWasDone{ID: "A", Number: 2}
 		eventB := &ThingWasDone{ID: "B", Number: 3}

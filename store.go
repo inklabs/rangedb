@@ -5,7 +5,7 @@ import (
 	"github.com/inklabs/rangedb/pkg/paging"
 )
 
-const Version = "0.2.3"
+const Version = "0.2.4-dev"
 
 // Record contains event data and metadata.
 type Record struct {
@@ -20,8 +20,13 @@ type Record struct {
 	Metadata             interface{} `msgpack:"m" json:"metadata"`
 }
 
+type EventBinder interface {
+	Bind(events ...Event)
+}
+
 // Store is the interface that stores and retrieves event records.
 type Store interface {
+	EventBinder
 	AllEvents() <-chan *Record
 	AllEventsByAggregateType(aggregateType string) <-chan *Record
 	AllEventsByAggregateTypes(aggregateTypes ...string) <-chan *Record

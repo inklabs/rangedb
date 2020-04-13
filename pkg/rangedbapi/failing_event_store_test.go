@@ -14,6 +14,8 @@ func NewFailingEventStore() *failingEventStore {
 	return &failingEventStore{}
 }
 
+func (f failingEventStore) Bind(_ ...rangedb.Event) {}
+
 func (f failingEventStore) AllEvents() <-chan *rangedb.Record {
 	return getClosedChannel()
 }

@@ -17,18 +17,14 @@ import (
 )
 
 func Test_InMemory_VerifyStoreInterface(t *testing.T) {
-	rangedbtest.VerifyStore(t, func(clk clock.Clock) (rangedb.Store, func(), func(events ...rangedb.Event)) {
+	rangedbtest.VerifyStore(t, func(t *testing.T, clock clock.Clock) rangedb.Store {
 		serializer := jsonrecordserializer.New()
 		store := inmemorystore.New(
-			inmemorystore.WithClock(clk),
+			inmemorystore.WithClock(clock),
 			inmemorystore.WithSerializer(serializer),
 		)
-		bindEvents := func(events ...rangedb.Event) {
-			serializer.Bind(events...)
-		}
-		teardown := func() {}
 
-		return store, teardown, bindEvents
+		return store
 	})
 }
 

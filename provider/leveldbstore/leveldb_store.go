@@ -82,6 +82,10 @@ func New(dbFilePath string, options ...Option) (*levelDbStore, error) {
 	return s, nil
 }
 
+func (s *levelDbStore) Bind(events ...rangedb.Event) {
+	s.serializer.Bind(events...)
+}
+
 func (s *levelDbStore) AllEvents() <-chan *rangedb.Record {
 	return s.getEventsByLookup(allEventsPrefix)
 }

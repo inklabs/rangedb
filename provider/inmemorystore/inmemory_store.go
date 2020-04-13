@@ -68,6 +68,10 @@ func New(options ...Option) *inMemoryStore {
 	return s
 }
 
+func (s *inMemoryStore) Bind(events ...rangedb.Event) {
+	s.serializer.Bind(events...)
+}
+
 func (s *inMemoryStore) AllEvents() <-chan *rangedb.Record {
 	return s.recordsStartingWith(s.allRecords, 0)
 }

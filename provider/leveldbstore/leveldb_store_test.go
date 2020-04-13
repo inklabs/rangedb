@@ -19,15 +19,15 @@ import (
 )
 
 func Test_LevelDB_VerifyStoreInterface(t *testing.T) {
-	rangedbtest.VerifyStore(t, func(clk clock.Clock) (rangedb.Store, func(), func(events ...rangedb.Event)) {
+	rangedbtest.VerifyStore(t, func(t *testing.T, clk clock.Clock) rangedb.Store {
 		dbPath := filepath.Join(os.TempDir(), fmt.Sprintf("testevents-%d", os.Getuid()))
 
-		teardown := func() {
+		t.Cleanup(func() {
 			err := os.RemoveAll(dbPath)
 			if err != nil {
 				log.Fatalf("unable to teardown db: %v", err)
 			}
-		}
+		})
 
 		serializer := jsonrecordserializer.New()
 		store, err := leveldbstore.New(dbPath,
@@ -36,11 +36,7 @@ func Test_LevelDB_VerifyStoreInterface(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		bindEvents := func(events ...rangedb.Event) {
-			serializer.Bind(events...)
-		}
-
-		return store, teardown, bindEvents
+		return store
 	})
 }
 
@@ -63,12 +59,12 @@ func Test_Failures(t *testing.T) {
 			leveldbstore.WithSerializer(rangedbtest.NewFailingSerializer()),
 		)
 		require.NoError(t, err)
-		defer func() {
+		t.Cleanup(func() {
 			err := os.RemoveAll(dbPath)
 			if err != nil {
 				log.Fatalf("unable to teardown db: %v", err)
 			}
-		}()
+		})
 
 		// When
 		err = store.Save(rangedbtest.ThingWasDone{}, nil)
@@ -87,12 +83,12 @@ func Test_Failures(t *testing.T) {
 			leveldbstore.WithLogger(logger),
 		)
 		require.NoError(t, err)
-		defer func() {
+		t.Cleanup(func() {
 			err := os.RemoveAll(dbPath)
 			if err != nil {
 				log.Fatalf("unable to teardown db: %v", err)
 			}
-		}()
+		})
 		event := rangedbtest.ThingWasDone{}
 		err = store.Save(event, nil)
 		require.NoError(t, err)
