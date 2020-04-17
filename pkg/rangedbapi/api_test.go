@@ -114,7 +114,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		// Given
 		const aggregateID = "cbba5f386b2d4924ac34d1b9e9217d67"
 		const aggregateType = "thing"
-		api := rangedbapi.New(rangedbapi.WithStore(NewFailingEventStore()))
+		api := rangedbapi.New(rangedbapi.WithStore(rangedbtest.NewFailingEventStore()))
 		expectedJson := `[
 		{
 			"eventID": "b93bd54592394c999fad7095e2b4840e",
@@ -144,7 +144,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		// Given
 		const aggregateID = "cbba5f386b2d4924ac34d1b9e9217d67"
 		const aggregateType = "thing"
-		api := rangedbapi.New(rangedbapi.WithStore(NewFailingEventStore()))
+		api := rangedbapi.New(rangedbapi.WithStore(rangedbtest.NewFailingEventStore()))
 		invalidJson := `x`
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
 		request := httptest.NewRequest("POST", saveUri, strings.NewReader(invalidJson))

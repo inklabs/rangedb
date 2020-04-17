@@ -1,11 +1,10 @@
-package rangedbapi_test
+package rangedbtest
 
 import (
 	"fmt"
 
-	"github.com/inklabs/rangedb/pkg/paging"
-
 	"github.com/inklabs/rangedb"
+	"github.com/inklabs/rangedb/pkg/paging"
 )
 
 type failingEventStore struct{}
