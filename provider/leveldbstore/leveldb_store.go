@@ -132,7 +132,6 @@ func (s *levelDbStore) Save(event rangedb.Event, metadata interface{}) error {
 
 func (s *levelDbStore) SaveEvent(aggregateType, aggregateID, eventType, eventID string, event, metadata interface{}) error {
 	s.mux.Lock()
-	defer s.mux.Unlock()
 
 	if eventID == "" {
 		eventID = shortuuid.New().String()
@@ -154,6 +153,7 @@ func (s *levelDbStore) SaveEvent(aggregateType, aggregateID, eventType, eventID 
 	batch := new(leveldb.Batch)
 	data, err := s.serializer.Serialize(record)
 	if err != nil {
+		s.mux.Unlock()
 		return err
 	}
 
@@ -167,6 +167,8 @@ func (s *levelDbStore) SaveEvent(aggregateType, aggregateID, eventType, eventID 
 	batch.Put(allEventsKey, streamKey)
 
 	err = s.db.Write(batch, nil)
+	s.mux.Unlock()
+
 	if err == nil {
 		deSerializedRecord, _ := s.serializer.Deserialize(data)
 		s.notifySubscribers(deSerializedRecord)

@@ -179,7 +179,6 @@ func (s *inMemoryStore) Save(event rangedb.Event, metadata interface{}) error {
 
 func (s *inMemoryStore) SaveEvent(aggregateType, aggregateID, eventType, eventID string, event, metadata interface{}) error {
 	s.mux.Lock()
-	defer s.mux.Unlock()
 
 	if eventID == "" {
 		eventID = shortuuid.New().String()
@@ -200,12 +199,15 @@ func (s *inMemoryStore) SaveEvent(aggregateType, aggregateID, eventType, eventID
 
 	data, err := s.serializer.Serialize(record)
 	if err != nil {
+		s.mux.Unlock()
 		return err
 	}
 
 	s.allRecords = append(s.allRecords, data)
 	s.recordsByStream[stream] = append(s.recordsByStream[stream], data)
 	s.recordsByAggregateType[aggregateType] = append(s.recordsByAggregateType[aggregateType], data)
+
+	s.mux.Unlock()
 
 	deSerializedRecord, _ := s.serializer.Deserialize(data)
 	s.notifySubscribers(deSerializedRecord)

@@ -1,6 +1,7 @@
 package rangedbtest
 
 import (
+	"fmt"
 	"math/rand"
 	"testing"
 
@@ -663,6 +664,54 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		assert.Equal(t, 5, countSubscriber2.TotalThingWasDone)
 	})
 
+	t.Run("Subscriber dispatches command that results in saving another event", func(t *testing.T) {
+		// Given
+		shortuuid.SetRand(100)
+		const aggregateID = "95eb3409cf6e4d909d41cca0c70ec812"
+		store := newStore(t, sequentialclock.New())
+		store.Bind(ThingWasDone{}, AnotherWasComplete{})
+		event := ThingWasDone{ID: aggregateID, Number: 2}
+		triggerProcessManager := newTriggerProcessManager(store.Save)
+		store.Subscribe(triggerProcessManager)
+
+		// When
+		err := store.Save(event, nil)
+
+		// Then
+		require.NoError(t, err)
+		eventsChannel := store.AllEvents()
+		actualRecords := recordChannelToRecordsSlice(eventsChannel)
+		expectedRecords := []*rangedb.Record{
+			{
+				AggregateType:        "thing",
+				AggregateID:          aggregateID,
+				GlobalSequenceNumber: 0,
+				StreamSequenceNumber: 0,
+				EventType:            "ThingWasDone",
+				EventID:              "d2ba8e70072943388203c438d4e94bf3",
+				InsertTimestamp:      0,
+				Data:                 &event,
+				Metadata:             nil,
+			},
+			{
+				AggregateType:        "another",
+				AggregateID:          "2",
+				GlobalSequenceNumber: 1,
+				StreamSequenceNumber: 0,
+				EventType:            "AnotherWasComplete",
+				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+				InsertTimestamp:      1,
+				Data: &AnotherWasComplete{
+					ID: "2",
+				},
+				Metadata: nil,
+			},
+		}
+		assert.Equal(t, expectedRecords, actualRecords)
+		assert.IsType(t, &ThingWasDone{}, actualRecords[0].Data)
+		assert.IsType(t, &AnotherWasComplete{}, actualRecords[1].Data)
+	})
+
 	t.Run("save event by value and get event by pointer from store", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
@@ -726,7 +775,6 @@ type countSubscriber struct {
 	TotalThingWasDone int
 }
 
-// NewCountSubscriber returns a countSubscriber.
 func NewCountSubscriber() *countSubscriber {
 	return &countSubscriber{}
 }
@@ -739,4 +787,25 @@ func (c *countSubscriber) Accept(record *rangedb.Record) {
 		c.TotalThingWasDone += event.Number
 	}
 
+}
+
+type EventSaver func(event rangedb.Event, metadata interface{}) error
+
+type triggerProcessManager struct {
+	eventSaver EventSaver
+}
+
+func newTriggerProcessManager(eventSaver EventSaver) *triggerProcessManager {
+	return &triggerProcessManager{
+		eventSaver: eventSaver,
+	}
+}
+
+func (t *triggerProcessManager) Accept(record *rangedb.Record) {
+	switch event := record.Data.(type) {
+	case *ThingWasDone:
+		_ = t.eventSaver(AnotherWasComplete{
+			ID: fmt.Sprintf("%d", event.Number),
+		}, nil)
+	}
 }
