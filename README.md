@@ -19,3 +19,10 @@ Examples are provided [here](examples).
 ```
 docker run -p 8080:8080 inklabs/rangedb
 ```
+
+## Community
+
+### DDD-CQRS-ES slack group:
+
+* https://github.com/ddd-cqrs-es/slack-community
+* channel: #rangedb
