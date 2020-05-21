@@ -85,6 +85,10 @@ func (s *inMemoryStore) AllEventsByAggregateTypes(aggregateTypes ...string) <-ch
 	return rangedb.MergeRecordChannelsInOrder(channels)
 }
 
+func (s *inMemoryStore) EventsStartingWith(eventNumber uint64) <-chan *rangedb.Record {
+	return s.recordsStartingWith(s.allRecords, eventNumber)
+}
+
 func (s *inMemoryStore) AllEventsByStream(stream string) <-chan *rangedb.Record {
 	return s.EventsByStreamStartingWith(stream, 0)
 }

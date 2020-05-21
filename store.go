@@ -2,10 +2,11 @@ package rangedb
 
 import (
 	"fmt"
+
 	"github.com/inklabs/rangedb/pkg/paging"
 )
 
-const Version = "0.2.6"
+const Version = "0.3.0-dev"
 
 // Record contains event data and metadata.
 type Record struct {
@@ -27,11 +28,17 @@ type EventBinder interface {
 // Store is the interface that stores and retrieves event records.
 type Store interface {
 	EventBinder
+	// Deprecated: in favor of EventsStartingWith
 	AllEvents() <-chan *Record
+	// Deprecated: in favor of new method EventsByAggregateTypesStartingWith
 	AllEventsByAggregateType(aggregateType string) <-chan *Record
+	// Deprecated: in favor of new method EventsByAggregateTypesStartingWith
 	AllEventsByAggregateTypes(aggregateTypes ...string) <-chan *Record
+	// Deprecated: in favor of EventsByStreamStartingWith
 	AllEventsByStream(stream string) <-chan *Record
+	EventsStartingWith(eventNumber uint64) <-chan *Record
 	EventsByAggregateType(pagination paging.Pagination, aggregateType string) <-chan *Record
+	// Deprecated: in favor of new method EventsByAggregateTypesStartingWith
 	EventsByAggregateTypeStartingWith(aggregateType string, eventNumber uint64) <-chan *Record
 	EventsByStream(pagination paging.Pagination, streamName string) <-chan *Record
 	EventsByStreamStartingWith(streamName string, eventNumber uint64) <-chan *Record

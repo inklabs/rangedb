@@ -161,7 +161,7 @@ func TestApi_SaveEvents(t *testing.T) {
 	})
 }
 
-func TestApi_WithThreeEventsSaved(t *testing.T) {
+func TestApi_WithFourEventsSaved(t *testing.T) {
 	// Given
 	store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 	api := rangedbapi.New(rangedbapi.WithStore(store))
@@ -178,7 +178,8 @@ func TestApi_WithThreeEventsSaved(t *testing.T) {
 				Number: 100,
 			},
 			Metadata: nil,
-		}, SaveEventsRequest{
+		},
+		SaveEventsRequest{
 			EventId:   "27e9965ce0ce4b65a38d1e0b7768ba27",
 			EventType: "ThingWasDone",
 			Data: rangedbtest.ThingWasDone{

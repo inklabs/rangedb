@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package rangedbpb;
+
+service RangeDB {
+  rpc EventsStartingWith(StartingWith) returns (stream Record) {}
+}
+
+message StartingWith {
+  uint64 eventNumber = 1;
+}
+
+message Record {
+  string AggregateType = 1;
+  string AggregateID = 2;
+  uint64 GlobalSequenceNumber = 3;
+  uint64 StreamSequenceNumber = 4;
+  uint64 InsertTimestamp = 5;
+  string EventID = 6;
+  string EventType = 7;
+  string Data = 8;
+  string Metadata = 9;
+}

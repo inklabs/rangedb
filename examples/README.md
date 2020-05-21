@@ -1,6 +1,6 @@
 # RangeDB Examples
 
-## API Examples
+## HTTP API Examples
 
 https://godoc.org/github.com/inklabs/rangedb/pkg/rangedbapi
 
@@ -17,3 +17,7 @@ https://godoc.org/github.com/inklabs/rangedb/pkg/rangedbws
 
 * [Stream All Events](../pkg/rangedbws/stream_all_events_test.go)
 * [Stream Events by Aggregate Type](../pkg/rangedbws/stream_events_by_aggregate_type_test.go)
+
+## gRPC Examples
+
+* [Get All Events](../pkg/grpc/rangedbserver/get_all_events_test.go)

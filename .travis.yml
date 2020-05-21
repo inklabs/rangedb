@@ -17,7 +17,7 @@ before_script:
 
 script:
   - go test -coverprofile c.out.tmp ./...
-  - cat c.out.tmp | grep -v "_vfsdata.go" | grep -v "_gen.go" > c.out
+  - cat c.out.tmp | grep -v "_vfsdata.go" | grep -v "_gen.go" | grep -v ".pb.go" > c.out
   - go tool cover -func c.out
 
 after_script:

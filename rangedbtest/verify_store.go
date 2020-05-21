@@ -228,6 +228,37 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		require.Equal(t, expectedRecords, actualRecords)
 	})
 
+	t.Run("get all events starting with second entry", func(t *testing.T) {
+		// Given
+		shortuuid.SetRand(100)
+		store := newStore(t, sequentialclock.New())
+		store.Bind(ThingWasDone{})
+		event1 := &ThingWasDone{ID: "A", Number: 1}
+		event2 := &ThingWasDone{ID: "A", Number: 2}
+		require.NoError(t, store.Save(event1, nil))
+		require.NoError(t, store.Save(event2, nil))
+
+		// When
+		eventsChannel := store.EventsStartingWith(1)
+
+		// Then
+		expectedRecords := []*rangedb.Record{
+			{
+				AggregateType:        "thing",
+				AggregateID:          "A",
+				GlobalSequenceNumber: 1,
+				StreamSequenceNumber: 1,
+				EventType:            "ThingWasDone",
+				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+				InsertTimestamp:      1,
+				Data:                 event2,
+				Metadata:             nil,
+			},
+		}
+		actualRecords := recordChannelToRecordsSlice(eventsChannel)
+		assert.Equal(t, expectedRecords, actualRecords)
+	})
+
 	t.Run("get 1st page of events by stream, with 2 records per page", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)

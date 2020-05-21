@@ -31,6 +31,10 @@ func (f failingEventStore) AllEventsByStream(_ string) <-chan *rangedb.Record {
 	return getClosedChannel()
 }
 
+func (f failingEventStore) EventsStartingWith(_ uint64) <-chan *rangedb.Record {
+	return getClosedChannel()
+}
+
 func (f failingEventStore) EventsByAggregateType(_ paging.Pagination, _ string) <-chan *rangedb.Record {
 	return getClosedChannel()
 }

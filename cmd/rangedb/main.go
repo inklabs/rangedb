@@ -1,12 +1,20 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"time"
 
+	"google.golang.org/grpc"
+
+	"github.com/inklabs/rangedb/pkg/grpc/rangedbpb"
+	"github.com/inklabs/rangedb/pkg/grpc/rangedbserver"
 	"github.com/inklabs/rangedb/pkg/rangedbapi"
 	"github.com/inklabs/rangedb/pkg/rangedbui"
 	"github.com/inklabs/rangedb/pkg/rangedbui/pkg/templatemanager"
@@ -14,6 +22,10 @@ import (
 	"github.com/inklabs/rangedb/pkg/rangedbui/pkg/templatemanager/provider/memorytemplate"
 	"github.com/inklabs/rangedb/pkg/rangedbws"
 	"github.com/inklabs/rangedb/provider/leveldbstore"
+)
+
+const (
+	httpTimeout = 10 * time.Second
 )
 
 func main() {
@@ -24,7 +36,10 @@ func main() {
 	baseUri := flag.String("baseUri", "http://0.0.0.0:8080", "")
 	dbPath := flag.String("dbPath", ".leveldb", "path to LevelDB directory")
 	templatesPath := flag.String("templates", "", "optional templates path")
+	gRPCPort := flag.Int("gRPCPort", 8081, "gRPC port")
 	flag.Parse()
+
+	httpAddress := fmt.Sprintf("0.0.0.0:%d", *port)
 
 	logger := log.New(os.Stderr, "", 0)
 	leveldbStore, err := leveldbstore.New(*dbPath, leveldbstore.WithLogger(logger))
@@ -39,6 +54,9 @@ func main() {
 	websocketAPI := rangedbws.New(
 		rangedbws.WithStore(leveldbStore),
 		rangedbws.WithLogger(logger),
+	)
+	rangeDBServer := rangedbserver.New(
+		rangedbserver.WithStore(leveldbStore),
 	)
 
 	var templateManager templatemanager.TemplateManager
@@ -57,11 +75,56 @@ func main() {
 
 	ui := rangedbui.New(templateManager, api.AggregateTypeStatsProjection(), leveldbStore)
 
-	server := http.NewServeMux()
-	server.Handle("/", ui)
-	server.Handle("/api/", http.StripPrefix("/api", api))
-	server.Handle("/ws/", http.StripPrefix("/ws", websocketAPI))
+	muxServer := http.NewServeMux()
+	muxServer.Handle("/", ui)
+	muxServer.Handle("/api/", http.StripPrefix("/api", api))
+	muxServer.Handle("/ws/", http.StripPrefix("/ws", websocketAPI))
 
-	fmt.Printf("Listening: http://0.0.0.0:%d/\n", *port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", *port), server))
+	httpServer := &http.Server{
+		Addr:         httpAddress,
+		ReadTimeout:  httpTimeout + time.Second,
+		WriteTimeout: httpTimeout + time.Second,
+		Handler:      muxServer,
+	}
+
+	gRPCServer := grpc.NewServer()
+	rangedbpb.RegisterRangeDBServer(gRPCServer, rangeDBServer)
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt)
+
+	go serveGRPC(gRPCServer, *gRPCPort)
+	go serveHTTP(httpServer, httpAddress)
+
+	<-stop
+
+	fmt.Println("Shutting down gRPC server")
+	gRPCServer.GracefulStop()
+
+	fmt.Println("Shutting down HTTP server")
+	err = httpServer.Shutdown(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func serveHTTP(srv *http.Server, addr string) {
+	fmt.Printf("Listening: http://%s/\n", addr)
+	err := srv.ListenAndServe()
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func serveGRPC(srv *grpc.Server, gRPCPort int) {
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", gRPCPort))
+	if err != nil {
+		log.Fatalf("failed to bind to port: %v", err)
+	}
+
+	fmt.Printf("gRPC listening: 0.0.0.0:%d\n", gRPCPort)
+	err = srv.Serve(listener)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

@@ -87,11 +87,11 @@ func (s *levelDbStore) Bind(events ...rangedb.Event) {
 }
 
 func (s *levelDbStore) AllEvents() <-chan *rangedb.Record {
-	return s.getEventsByLookup(allEventsPrefix)
+	return s.getEventsByLookup(allEventsPrefix, 0)
 }
 
 func (s *levelDbStore) AllEventsByAggregateType(aggregateType string) <-chan *rangedb.Record {
-	return s.getEventsByLookup(getAggregateTypeKeyPrefix(aggregateType))
+	return s.getEventsByLookup(getAggregateTypeKeyPrefix(aggregateType), 0)
 }
 
 func (s *levelDbStore) AllEventsByAggregateTypes(aggregateTypes ...string) <-chan *rangedb.Record {
@@ -101,6 +101,10 @@ func (s *levelDbStore) AllEventsByAggregateTypes(aggregateTypes ...string) <-cha
 
 func (s *levelDbStore) AllEventsByStream(stream string) <-chan *rangedb.Record {
 	return s.getEventsByPrefixStartingWith(stream, 0)
+}
+
+func (s *levelDbStore) EventsStartingWith(eventNumber uint64) <-chan *rangedb.Record {
+	return s.getEventsByLookup(allEventsPrefix, eventNumber)
 }
 
 func (s *levelDbStore) EventsByAggregateType(pagination paging.Pagination, aggregateType string) <-chan *rangedb.Record {
@@ -265,20 +269,24 @@ func (s *levelDbStore) paginateEventsByPrefix(pagination paging.Pagination, pref
 	return records
 }
 
-func (s *levelDbStore) getEventsByLookup(key string) <-chan *rangedb.Record {
+func (s *levelDbStore) getEventsByLookup(key string, eventNumber uint64) <-chan *rangedb.Record {
 	records := make(chan *rangedb.Record)
 
 	go func() {
 		iter := s.db.NewIterator(util.BytesPrefix([]byte(key)), nil)
+		count := uint64(0)
 		for iter.Next() {
-			targetKey := iter.Value()
+			if count >= eventNumber {
+				targetKey := iter.Value()
 
-			record, err := s.getRecordByLookup(targetKey, iter)
-			if err != nil {
-				continue
+				record, err := s.getRecordByLookup(targetKey, iter)
+				if err != nil {
+					continue
+				}
+
+				records <- record
 			}
-
-			records <- record
+			count++
 		}
 		iter.Release()
 
