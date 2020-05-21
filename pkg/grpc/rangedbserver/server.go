@@ -1,9 +1,6 @@
 package rangedbserver
 
 import (
-	"encoding/json"
-	"fmt"
-
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/grpc/rangedbpb"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
@@ -36,24 +33,14 @@ func New(options ...Option) *rangeDBServer {
 	return server
 }
 
-func (s *rangeDBServer) EventsStartingWith(req *rangedbpb.StartingWith, stream rangedbpb.RangeDB_EventsStartingWithServer) error {
-	for record := range s.store.EventsStartingWith(req.EventNumber) {
-		data, metadata, err := s.marshalDataAndMetadata(record)
+func (s *rangeDBServer) Events(req *rangedbpb.EventsRequest, stream rangedbpb.RangeDB_EventsServer) error {
+	for record := range s.store.EventsStartingWith(req.StartingWithEventNumber) {
+		pbRecord, err := rangedbpb.ToPbRecord(record)
 		if err != nil {
 			return err
 		}
 
-		err = stream.Send(&rangedbpb.Record{
-			AggregateType:        record.AggregateType,
-			AggregateID:          record.AggregateID,
-			GlobalSequenceNumber: record.GlobalSequenceNumber,
-			StreamSequenceNumber: record.StreamSequenceNumber,
-			InsertTimestamp:      record.InsertTimestamp,
-			EventID:              record.EventID,
-			EventType:            record.EventType,
-			Data:                 data,
-			Metadata:             metadata,
-		})
+		err = stream.Send(pbRecord)
 		if err != nil {
 			return err
 		}
@@ -62,16 +49,18 @@ func (s *rangeDBServer) EventsStartingWith(req *rangedbpb.StartingWith, stream r
 	return nil
 }
 
-func (s *rangeDBServer) marshalDataAndMetadata(record *rangedb.Record) (string, string, error) {
-	data, err := json.Marshal(record.Data)
-	if err != nil {
-		return "", "", fmt.Errorf("unable to marshal data: %v", err)
+func (s *rangeDBServer) EventsByStream(req *rangedbpb.EventsByStreamRequest, stream rangedbpb.RangeDB_EventsByStreamServer) error {
+	for record := range s.store.EventsByStreamStartingWith(req.StreamName, req.StartingWithEventNumber) {
+		pbRecord, err := rangedbpb.ToPbRecord(record)
+		if err != nil {
+			return err
+		}
+
+		err = stream.Send(pbRecord)
+		if err != nil {
+			return err
+		}
 	}
 
-	metadata, err := json.Marshal(record.Metadata)
-	if err != nil {
-		return "", "", fmt.Errorf("unable to marshal metadata: %v", err)
-	}
-
-	return string(data), string(metadata), nil
+	return nil
 }

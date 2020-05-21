@@ -24,41 +24,88 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
-type StartingWith struct {
-	EventNumber          uint64   `protobuf:"varint,1,opt,name=eventNumber,proto3" json:"eventNumber,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
+type EventsRequest struct {
+	StartingWithEventNumber uint64   `protobuf:"varint,1,opt,name=startingWithEventNumber,proto3" json:"startingWithEventNumber,omitempty"`
+	XXX_NoUnkeyedLiteral    struct{} `json:"-"`
+	XXX_unrecognized        []byte   `json:"-"`
+	XXX_sizecache           int32    `json:"-"`
 }
 
-func (m *StartingWith) Reset()         { *m = StartingWith{} }
-func (m *StartingWith) String() string { return proto.CompactTextString(m) }
-func (*StartingWith) ProtoMessage()    {}
-func (*StartingWith) Descriptor() ([]byte, []int) {
+func (m *EventsRequest) Reset()         { *m = EventsRequest{} }
+func (m *EventsRequest) String() string { return proto.CompactTextString(m) }
+func (*EventsRequest) ProtoMessage()    {}
+func (*EventsRequest) Descriptor() ([]byte, []int) {
 	return fileDescriptor_40660d2deccf2909, []int{0}
 }
 
-func (m *StartingWith) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_StartingWith.Unmarshal(m, b)
+func (m *EventsRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_EventsRequest.Unmarshal(m, b)
 }
-func (m *StartingWith) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_StartingWith.Marshal(b, m, deterministic)
+func (m *EventsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_EventsRequest.Marshal(b, m, deterministic)
 }
-func (m *StartingWith) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_StartingWith.Merge(m, src)
+func (m *EventsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EventsRequest.Merge(m, src)
 }
-func (m *StartingWith) XXX_Size() int {
-	return xxx_messageInfo_StartingWith.Size(m)
+func (m *EventsRequest) XXX_Size() int {
+	return xxx_messageInfo_EventsRequest.Size(m)
 }
-func (m *StartingWith) XXX_DiscardUnknown() {
-	xxx_messageInfo_StartingWith.DiscardUnknown(m)
+func (m *EventsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_EventsRequest.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_StartingWith proto.InternalMessageInfo
+var xxx_messageInfo_EventsRequest proto.InternalMessageInfo
 
-func (m *StartingWith) GetEventNumber() uint64 {
+func (m *EventsRequest) GetStartingWithEventNumber() uint64 {
 	if m != nil {
-		return m.EventNumber
+		return m.StartingWithEventNumber
+	}
+	return 0
+}
+
+type EventsByStreamRequest struct {
+	StreamName              string   `protobuf:"bytes,1,opt,name=streamName,proto3" json:"streamName,omitempty"`
+	StartingWithEventNumber uint64   `protobuf:"varint,2,opt,name=startingWithEventNumber,proto3" json:"startingWithEventNumber,omitempty"`
+	XXX_NoUnkeyedLiteral    struct{} `json:"-"`
+	XXX_unrecognized        []byte   `json:"-"`
+	XXX_sizecache           int32    `json:"-"`
+}
+
+func (m *EventsByStreamRequest) Reset()         { *m = EventsByStreamRequest{} }
+func (m *EventsByStreamRequest) String() string { return proto.CompactTextString(m) }
+func (*EventsByStreamRequest) ProtoMessage()    {}
+func (*EventsByStreamRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_40660d2deccf2909, []int{1}
+}
+
+func (m *EventsByStreamRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_EventsByStreamRequest.Unmarshal(m, b)
+}
+func (m *EventsByStreamRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_EventsByStreamRequest.Marshal(b, m, deterministic)
+}
+func (m *EventsByStreamRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_EventsByStreamRequest.Merge(m, src)
+}
+func (m *EventsByStreamRequest) XXX_Size() int {
+	return xxx_messageInfo_EventsByStreamRequest.Size(m)
+}
+func (m *EventsByStreamRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_EventsByStreamRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_EventsByStreamRequest proto.InternalMessageInfo
+
+func (m *EventsByStreamRequest) GetStreamName() string {
+	if m != nil {
+		return m.StreamName
+	}
+	return ""
+}
+
+func (m *EventsByStreamRequest) GetStartingWithEventNumber() uint64 {
+	if m != nil {
+		return m.StartingWithEventNumber
 	}
 	return 0
 }
@@ -82,7 +129,7 @@ func (m *Record) Reset()         { *m = Record{} }
 func (m *Record) String() string { return proto.CompactTextString(m) }
 func (*Record) ProtoMessage()    {}
 func (*Record) Descriptor() ([]byte, []int) {
-	return fileDescriptor_40660d2deccf2909, []int{1}
+	return fileDescriptor_40660d2deccf2909, []int{2}
 }
 
 func (m *Record) XXX_Unmarshal(b []byte) error {
@@ -167,32 +214,36 @@ func (m *Record) GetMetadata() string {
 }
 
 func init() {
-	proto.RegisterType((*StartingWith)(nil), "rangedbpb.StartingWith")
+	proto.RegisterType((*EventsRequest)(nil), "rangedbpb.EventsRequest")
+	proto.RegisterType((*EventsByStreamRequest)(nil), "rangedbpb.EventsByStreamRequest")
 	proto.RegisterType((*Record)(nil), "rangedbpb.Record")
 }
 
 func init() { proto.RegisterFile("rangedb.proto", fileDescriptor_40660d2deccf2909) }
 
 var fileDescriptor_40660d2deccf2909 = []byte{
-	// 283 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x91, 0xcf, 0x4a, 0xc3, 0x40,
-	0x10, 0xc6, 0x6d, 0x8d, 0x49, 0x33, 0x5a, 0xc4, 0x41, 0x70, 0x29, 0x1e, 0x4a, 0xf0, 0xd0, 0x53,
-	0x28, 0xf5, 0x09, 0x94, 0x88, 0xe4, 0xa0, 0x42, 0x52, 0xf0, 0xbc, 0x69, 0x86, 0x18, 0x68, 0xfe,
-	0xb8, 0x99, 0x0a, 0xbe, 0xa2, 0x4f, 0x25, 0x99, 0xd6, 0x98, 0x96, 0xde, 0x76, 0x7e, 0xdf, 0x7c,
-	0x33, 0x3b, 0x7c, 0x30, 0x36, 0xba, 0xcc, 0x28, 0x4d, 0xfc, 0xda, 0x54, 0x5c, 0xa1, 0xbb, 0x2b,
-	0xeb, 0xc4, 0x9b, 0xc3, 0x45, 0xcc, 0xda, 0x70, 0x5e, 0x66, 0xef, 0x39, 0x7f, 0xe0, 0x14, 0xce,
-	0xe9, 0x8b, 0x4a, 0x7e, 0xdd, 0x14, 0x09, 0x19, 0x35, 0x98, 0x0e, 0x66, 0x56, 0xd4, 0x47, 0xde,
-	0xcf, 0x10, 0xec, 0x88, 0x56, 0x95, 0x49, 0xf1, 0x0e, 0xc6, 0x0f, 0x59, 0x66, 0x28, 0xd3, 0x4c,
-	0xcb, 0xef, 0x9a, 0xa4, 0xdd, 0x8d, 0xf6, 0x61, 0x3b, 0xb2, 0x03, 0x61, 0xa0, 0x86, 0xd2, 0xd3,
-	0x47, 0xb8, 0x80, 0xeb, 0xe7, 0x75, 0x95, 0xe8, 0x75, 0x4c, 0x9f, 0x1b, 0x2a, 0x57, 0xb4, 0xdb,
-	0x7e, 0x2a, 0xdb, 0x8f, 0x6a, 0xad, 0x27, 0x66, 0x43, 0xba, 0x38, 0xf0, 0x58, 0x5b, 0xcf, 0x31,
-	0x0d, 0x67, 0x70, 0x19, 0x96, 0x0d, 0x19, 0x5e, 0xe6, 0x05, 0x35, 0xac, 0x8b, 0x5a, 0x9d, 0x49,
-	0xfb, 0x21, 0x46, 0x05, 0xce, 0x53, 0x7b, 0x73, 0x18, 0x28, 0x5b, 0xfe, 0xfb, 0x57, 0xe2, 0x2d,
-	0xb8, 0xf2, 0x94, 0x7b, 0x1d, 0xd1, 0xfe, 0x01, 0x22, 0x58, 0x81, 0x66, 0xad, 0x46, 0x22, 0xc8,
-	0x1b, 0x27, 0x30, 0x7a, 0x21, 0xd6, 0x69, 0xcb, 0x5d, 0xe1, 0x5d, 0xbd, 0x78, 0x03, 0x27, 0x6a,
-	0xb3, 0x08, 0x1e, 0x31, 0x00, 0x94, 0x39, 0xcd, 0x5e, 0x1e, 0x37, 0x7e, 0x97, 0x95, 0xdf, 0x17,
-	0x26, 0x57, 0x3d, 0x61, 0x1b, 0x87, 0x77, 0x32, 0x1f, 0x24, 0xb6, 0x24, 0x7c, 0xff, 0x1b, 0x00,
-	0x00, 0xff, 0xff, 0xdb, 0x83, 0x3d, 0x42, 0xf2, 0x01, 0x00, 0x00,
+	// 335 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x92, 0xcf, 0x4e, 0xf2, 0x50,
+	0x10, 0xc5, 0xbf, 0xf2, 0x61, 0xa1, 0x63, 0xd0, 0x38, 0xd1, 0xd8, 0x10, 0x63, 0x08, 0x71, 0xc1,
+	0x8a, 0x18, 0xdc, 0xe8, 0x52, 0x52, 0x63, 0xba, 0x90, 0x45, 0x21, 0x71, 0x7d, 0x0b, 0x93, 0x4a,
+	0x42, 0xff, 0x70, 0xef, 0x60, 0xc2, 0x53, 0xf8, 0x5e, 0x3e, 0x95, 0xe9, 0x14, 0x10, 0x2a, 0xb0,
+	0xeb, 0xfc, 0x4e, 0xe7, 0xcc, 0x4c, 0xee, 0x81, 0x86, 0x56, 0x49, 0x44, 0x93, 0xb0, 0x9b, 0xe9,
+	0x94, 0x53, 0x74, 0x56, 0x65, 0x16, 0xb6, 0x7d, 0x68, 0xbc, 0x7c, 0x52, 0xc2, 0x26, 0xa0, 0xf9,
+	0x82, 0x0c, 0xe3, 0x23, 0x5c, 0x1b, 0x56, 0x9a, 0xa7, 0x49, 0xf4, 0x3e, 0xe5, 0x0f, 0x11, 0x07,
+	0x8b, 0x38, 0x24, 0xed, 0x5a, 0x2d, 0xab, 0x53, 0x0d, 0x0e, 0xc9, 0xed, 0x39, 0x5c, 0x15, 0x56,
+	0xfd, 0xe5, 0x90, 0x35, 0xa9, 0x78, 0x6d, 0x79, 0x0b, 0x60, 0x04, 0x0c, 0x54, 0x4c, 0xe2, 0xe2,
+	0x04, 0x5b, 0xe4, 0xd8, 0xc8, 0xca, 0xf1, 0x91, 0xdf, 0x15, 0xb0, 0x03, 0x1a, 0xa7, 0x7a, 0x82,
+	0x77, 0xd0, 0x78, 0x8e, 0x22, 0x4d, 0x91, 0x62, 0x1a, 0x2d, 0xb3, 0xf5, 0x9c, 0x5d, 0x88, 0x2d,
+	0x38, 0xdd, 0x00, 0xdf, 0x13, 0x7b, 0x27, 0xd8, 0x46, 0xd8, 0x83, 0xcb, 0xd7, 0x59, 0x1a, 0xaa,
+	0xd9, 0x30, 0xdf, 0x3e, 0x19, 0xd3, 0x6a, 0x93, 0xff, 0xb2, 0xc9, 0x5e, 0x2d, 0xef, 0x29, 0x2e,
+	0x2e, 0xf5, 0x54, 0x8b, 0x9e, 0x7d, 0x1a, 0x76, 0xe0, 0xdc, 0x4f, 0x0c, 0x69, 0x1e, 0x4d, 0x63,
+	0x32, 0xac, 0xe2, 0xcc, 0x3d, 0x91, 0xdf, 0xcb, 0x18, 0x5d, 0xa8, 0xc9, 0xcd, 0xbe, 0xe7, 0xda,
+	0xb2, 0xef, 0xba, 0xc4, 0x1b, 0x70, 0xe4, 0x53, 0xee, 0xad, 0x89, 0xf6, 0x0b, 0x10, 0xa1, 0xea,
+	0x29, 0x56, 0x6e, 0x5d, 0x04, 0xf9, 0xc6, 0x26, 0xd4, 0xdf, 0x88, 0xd5, 0x24, 0xe7, 0x8e, 0xf0,
+	0x4d, 0xdd, 0xfb, 0xb2, 0xa0, 0x16, 0xe4, 0xc1, 0xf0, 0xfa, 0xf8, 0x04, 0x76, 0xf1, 0x96, 0xe8,
+	0x76, 0x37, 0x61, 0xe9, 0xee, 0x24, 0xa5, 0x79, 0xb1, 0xa5, 0x14, 0x8f, 0xd0, 0xfe, 0x77, 0x6f,
+	0xa1, 0x0f, 0x67, 0xbb, 0x31, 0xc0, 0xd6, 0x1f, 0x8b, 0x52, 0x42, 0x0e, 0x58, 0x85, 0xb6, 0xc4,
+	0xf5, 0xe1, 0x27, 0x00, 0x00, 0xff, 0xff, 0xa5, 0xc3, 0xca, 0xec, 0xbf, 0x02, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -207,7 +258,8 @@ const _ = grpc.SupportPackageIsVersion6
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type RangeDBClient interface {
-	EventsStartingWith(ctx context.Context, in *StartingWith, opts ...grpc.CallOption) (RangeDB_EventsStartingWithClient, error)
+	Events(ctx context.Context, in *EventsRequest, opts ...grpc.CallOption) (RangeDB_EventsClient, error)
+	EventsByStream(ctx context.Context, in *EventsByStreamRequest, opts ...grpc.CallOption) (RangeDB_EventsByStreamClient, error)
 }
 
 type rangeDBClient struct {
@@ -218,12 +270,12 @@ func NewRangeDBClient(cc grpc.ClientConnInterface) RangeDBClient {
 	return &rangeDBClient{cc}
 }
 
-func (c *rangeDBClient) EventsStartingWith(ctx context.Context, in *StartingWith, opts ...grpc.CallOption) (RangeDB_EventsStartingWithClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_RangeDB_serviceDesc.Streams[0], "/rangedbpb.RangeDB/EventsStartingWith", opts...)
+func (c *rangeDBClient) Events(ctx context.Context, in *EventsRequest, opts ...grpc.CallOption) (RangeDB_EventsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_RangeDB_serviceDesc.Streams[0], "/rangedbpb.RangeDB/Events", opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &rangeDBEventsStartingWithClient{stream}
+	x := &rangeDBEventsClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -233,16 +285,48 @@ func (c *rangeDBClient) EventsStartingWith(ctx context.Context, in *StartingWith
 	return x, nil
 }
 
-type RangeDB_EventsStartingWithClient interface {
+type RangeDB_EventsClient interface {
 	Recv() (*Record, error)
 	grpc.ClientStream
 }
 
-type rangeDBEventsStartingWithClient struct {
+type rangeDBEventsClient struct {
 	grpc.ClientStream
 }
 
-func (x *rangeDBEventsStartingWithClient) Recv() (*Record, error) {
+func (x *rangeDBEventsClient) Recv() (*Record, error) {
+	m := new(Record)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *rangeDBClient) EventsByStream(ctx context.Context, in *EventsByStreamRequest, opts ...grpc.CallOption) (RangeDB_EventsByStreamClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_RangeDB_serviceDesc.Streams[1], "/rangedbpb.RangeDB/EventsByStream", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &rangeDBEventsByStreamClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type RangeDB_EventsByStreamClient interface {
+	Recv() (*Record, error)
+	grpc.ClientStream
+}
+
+type rangeDBEventsByStreamClient struct {
+	grpc.ClientStream
+}
+
+func (x *rangeDBEventsByStreamClient) Recv() (*Record, error) {
 	m := new(Record)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
@@ -252,39 +336,64 @@ func (x *rangeDBEventsStartingWithClient) Recv() (*Record, error) {
 
 // RangeDBServer is the server API for RangeDB service.
 type RangeDBServer interface {
-	EventsStartingWith(*StartingWith, RangeDB_EventsStartingWithServer) error
+	Events(*EventsRequest, RangeDB_EventsServer) error
+	EventsByStream(*EventsByStreamRequest, RangeDB_EventsByStreamServer) error
 }
 
 // UnimplementedRangeDBServer can be embedded to have forward compatible implementations.
 type UnimplementedRangeDBServer struct {
 }
 
-func (*UnimplementedRangeDBServer) EventsStartingWith(req *StartingWith, srv RangeDB_EventsStartingWithServer) error {
-	return status.Errorf(codes.Unimplemented, "method EventsStartingWith not implemented")
+func (*UnimplementedRangeDBServer) Events(req *EventsRequest, srv RangeDB_EventsServer) error {
+	return status.Errorf(codes.Unimplemented, "method Events not implemented")
+}
+func (*UnimplementedRangeDBServer) EventsByStream(req *EventsByStreamRequest, srv RangeDB_EventsByStreamServer) error {
+	return status.Errorf(codes.Unimplemented, "method EventsByStream not implemented")
 }
 
 func RegisterRangeDBServer(s *grpc.Server, srv RangeDBServer) {
 	s.RegisterService(&_RangeDB_serviceDesc, srv)
 }
 
-func _RangeDB_EventsStartingWith_Handler(srv interface{}, stream grpc.ServerStream) error {
-	m := new(StartingWith)
+func _RangeDB_Events_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(EventsRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(RangeDBServer).EventsStartingWith(m, &rangeDBEventsStartingWithServer{stream})
+	return srv.(RangeDBServer).Events(m, &rangeDBEventsServer{stream})
 }
 
-type RangeDB_EventsStartingWithServer interface {
+type RangeDB_EventsServer interface {
 	Send(*Record) error
 	grpc.ServerStream
 }
 
-type rangeDBEventsStartingWithServer struct {
+type rangeDBEventsServer struct {
 	grpc.ServerStream
 }
 
-func (x *rangeDBEventsStartingWithServer) Send(m *Record) error {
+func (x *rangeDBEventsServer) Send(m *Record) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _RangeDB_EventsByStream_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(EventsByStreamRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(RangeDBServer).EventsByStream(m, &rangeDBEventsByStreamServer{stream})
+}
+
+type RangeDB_EventsByStreamServer interface {
+	Send(*Record) error
+	grpc.ServerStream
+}
+
+type rangeDBEventsByStreamServer struct {
+	grpc.ServerStream
+}
+
+func (x *rangeDBEventsByStreamServer) Send(m *Record) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -294,8 +403,13 @@ var _RangeDB_serviceDesc = grpc.ServiceDesc{
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "EventsStartingWith",
-			Handler:       _RangeDB_EventsStartingWith_Handler,
+			StreamName:    "Events",
+			Handler:       _RangeDB_Events_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "EventsByStream",
+			Handler:       _RangeDB_EventsByStream_Handler,
 			ServerStreams: true,
 		},
 	},

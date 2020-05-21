@@ -50,12 +50,12 @@ func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 		// Given
 		rangeDBClient := getClient(t, store)
 		ctx := context.Background()
-		startingWith := &rangedbpb.StartingWith{
-			EventNumber: 0,
+		startingWith := &rangedbpb.EventsRequest{
+			StartingWithEventNumber: 0,
 		}
 
 		// When
-		events, err := rangeDBClient.EventsStartingWith(ctx, startingWith)
+		events, err := rangeDBClient.Events(ctx, startingWith)
 
 		// Then
 		require.NoError(t, err)

@@ -27,11 +27,11 @@ func main() {
 
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
 	ctx := context.Background()
-	startingWith := &rangedbpb.StartingWith{
-		EventNumber: 0,
+	startingWith := &rangedbpb.EventsRequest{
+		StartingWithEventNumber: 0,
 	}
 
-	events, err := rangeDBClient.EventsStartingWith(ctx, startingWith)
+	events, err := rangeDBClient.Events(ctx, startingWith)
 	if err != nil {
 		log.Fatalf("unable to get events: %v", err)
 	}

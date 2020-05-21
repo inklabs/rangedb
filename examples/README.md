@@ -21,3 +21,4 @@ https://godoc.org/github.com/inklabs/rangedb/pkg/rangedbws
 ## gRPC Examples
 
 * [Get All Events](../pkg/grpc/rangedbserver/get_all_events_test.go)
+* [Get Events by Stream](../pkg/grpc/rangedbserver/get_events_by_stream_test.go)

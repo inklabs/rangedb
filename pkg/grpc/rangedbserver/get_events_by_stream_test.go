@@ -19,7 +19,7 @@ import (
 	"github.com/inklabs/rangedb/rangedbtest"
 )
 
-func ExampleRangeDBServer_Events() {
+func ExampleRangeDBServer_EventsByStream() {
 	// Given
 	shortuuid.SetRand(100)
 	inMemoryStore := inmemorystore.New(
@@ -56,12 +56,13 @@ func ExampleRangeDBServer_Events() {
 	// Setup gRPC client
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
 	ctx := context.Background()
-	startingWith := &rangedbpb.EventsRequest{
+	request := &rangedbpb.EventsByStreamRequest{
+		StreamName:              "thing!605f20348fb940e386c171d51c877bf1",
 		StartingWithEventNumber: 0,
 	}
 
 	// When
-	events, err := rangeDBClient.Events(ctx, startingWith)
+	events, err := rangeDBClient.EventsByStream(ctx, request)
 	PrintError(err)
 
 	for {
@@ -95,16 +96,6 @@ func ExampleRangeDBServer_Events() {
 	//   "EventID": "99cbd88bbcaf482ba1cc96ed12541707",
 	//   "EventType": "ThingWasDone",
 	//   "Data": "{\"id\":\"605f20348fb940e386c171d51c877bf1\",\"number\":200}",
-	//   "Metadata": "null"
-	// }
-	// {
-	//   "AggregateType": "another",
-	//   "AggregateID": "a095086e52bc4617a1763a62398cd645",
-	//   "GlobalSequenceNumber": 2,
-	//   "InsertTimestamp": 2,
-	//   "EventID": "2e9e6918af10498cb7349c89a351fdb7",
-	//   "EventType": "AnotherWasComplete",
-	//   "Data": "{\"id\":\"a095086e52bc4617a1763a62398cd645\"}",
 	//   "Metadata": "null"
 	// }
 }

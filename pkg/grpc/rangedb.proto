@@ -3,11 +3,17 @@ syntax = "proto3";
 package rangedbpb;
 
 service RangeDB {
-  rpc EventsStartingWith(StartingWith) returns (stream Record) {}
+  rpc Events(EventsRequest) returns (stream Record) {}
+  rpc EventsByStream(EventsByStreamRequest) returns (stream Record) {}
 }
 
-message StartingWith {
-  uint64 eventNumber = 1;
+message EventsRequest {
+  uint64 startingWithEventNumber = 1;
+}
+
+message EventsByStreamRequest {
+  string streamName = 1;
+  uint64 startingWithEventNumber = 2;
 }
 
 message Record {
