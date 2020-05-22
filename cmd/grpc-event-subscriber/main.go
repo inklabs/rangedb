@@ -17,8 +17,10 @@ func main() {
 	host := flag.String("host", "127.0.0.1:8081", "RangeDB gRPC host address")
 	flag.Parse()
 
-	// TODO: support subscribing to aggregate types
-	_ = aggregateTypes
+	// TODO
+	if *aggregateTypes != "" {
+		log.Fatalf("not yet supported")
+	}
 
 	conn, err := grpc.Dial(*host, grpc.WithInsecure())
 	if err != nil {
@@ -27,11 +29,11 @@ func main() {
 
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
 	ctx := context.Background()
-	startingWith := &rangedbpb.EventsRequest{
+	eventsRequest := &rangedbpb.EventsRequest{
 		StartingWithEventNumber: 0,
 	}
 
-	events, err := rangeDBClient.Events(ctx, startingWith)
+	events, err := rangeDBClient.SubscribeToEvents(ctx, eventsRequest)
 	if err != nil {
 		log.Fatalf("unable to get events: %v", err)
 	}

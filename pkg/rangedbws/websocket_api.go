@@ -77,7 +77,7 @@ func (a *websocketAPI) initRoutes() {
 }
 
 func (a *websocketAPI) initProjections() {
-	a.store.Subscribe(NewRecordBroadcaster(a.broadcastRecord))
+	a.store.Subscribe(rangedb.RecordSubscriberFunc(a.broadcastRecord))
 }
 
 func (a *websocketAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {

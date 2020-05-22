@@ -50,12 +50,12 @@ func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 		// Given
 		rangeDBClient := getClient(t, store)
 		ctx := context.Background()
-		startingWith := &rangedbpb.EventsRequest{
+		eventsRequest := &rangedbpb.EventsRequest{
 			StartingWithEventNumber: 0,
 		}
 
 		// When
-		events, err := rangeDBClient.Events(ctx, startingWith)
+		events, err := rangeDBClient.Events(ctx, eventsRequest)
 
 		// Then
 		require.NoError(t, err)
@@ -106,6 +106,89 @@ func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 		endRecord, err := events.Recv()
 		assert.Equal(t, io.EOF, err)
 		assert.Equal(t, (*rangedbpb.Record)(nil), endRecord)
+	})
+}
+
+func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
+	t.Run("subscribes to all events starting from the 2nd event", func(t *testing.T) {
+		// Given
+		shortuuid.SetRand(100)
+		const aggregateID1 = "f187760f4d8c4d1c9d9cf17b66766abd"
+		const aggregateID2 = "5b36ae984b724685917b69ae47968be1"
+		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+		saveEvents(t, store,
+			rangedbtest.ThingWasDone{
+				ID:     aggregateID1,
+				Number: 100,
+			},
+			rangedbtest.ThingWasDone{
+				ID:     aggregateID1,
+				Number: 200,
+			},
+		)
+		rangeDBClient := getClient(t, store)
+		ctx, done := context.WithCancel(context.Background())
+		eventsRequest := &rangedbpb.EventsRequest{
+			StartingWithEventNumber: 1,
+		}
+		events, err := rangeDBClient.SubscribeToEvents(ctx, eventsRequest)
+		require.NoError(t, err)
+		var actualRecords []*rangedbpb.Record
+
+		// When
+		go func() {
+			for i := 0; i < 3; i++ {
+				record, err := events.Recv()
+				require.NoError(t, err)
+				actualRecords = append(actualRecords, record)
+			}
+			done()
+		}()
+
+		saveEvents(t, store,
+			rangedbtest.ThingWasDone{
+				ID:     aggregateID1,
+				Number: 300,
+			},
+			rangedbtest.AnotherWasComplete{
+				ID: aggregateID2,
+			},
+		)
+
+		<-ctx.Done()
+
+		// Then
+		require.Equal(t, 3, len(actualRecords))
+		record1 := actualRecords[0]
+		assert.Equal(t, "thing", record1.AggregateType)
+		assert.Equal(t, "f187760f4d8c4d1c9d9cf17b66766abd", record1.AggregateID)
+		assert.Equal(t, 1, int(record1.GlobalSequenceNumber))
+		assert.Equal(t, 1, int(record1.StreamSequenceNumber))
+		assert.Equal(t, 1, int(record1.InsertTimestamp))
+		assert.Equal(t, "99cbd88bbcaf482ba1cc96ed12541707", record1.EventID)
+		assert.Equal(t, "ThingWasDone", record1.EventType)
+		assert.Equal(t, `{"id":"f187760f4d8c4d1c9d9cf17b66766abd","number":200}`, record1.Data)
+		assert.Equal(t, "null", record1.Metadata)
+		record2 := actualRecords[1]
+		assert.Equal(t, "thing", record2.AggregateType)
+		assert.Equal(t, "f187760f4d8c4d1c9d9cf17b66766abd", record2.AggregateID)
+		assert.Equal(t, 2, int(record2.GlobalSequenceNumber))
+		assert.Equal(t, 2, int(record2.StreamSequenceNumber))
+		assert.Equal(t, 2, int(record2.InsertTimestamp))
+		assert.Equal(t, "2e9e6918af10498cb7349c89a351fdb7", record2.EventID)
+		assert.Equal(t, "ThingWasDone", record2.EventType)
+		assert.Equal(t, `{"id":"f187760f4d8c4d1c9d9cf17b66766abd","number":300}`, record2.Data)
+		assert.Equal(t, "null", record2.Metadata)
+		record3 := actualRecords[2]
+		assert.Equal(t, "another", record3.AggregateType)
+		assert.Equal(t, "5b36ae984b724685917b69ae47968be1", record3.AggregateID)
+		assert.Equal(t, 3, int(record3.GlobalSequenceNumber))
+		assert.Equal(t, 0, int(record3.StreamSequenceNumber))
+		assert.Equal(t, 3, int(record3.InsertTimestamp))
+		assert.Equal(t, "5042958739514c948f776fc9f820bca0", record3.EventID)
+		assert.Equal(t, "AnotherWasComplete", record3.EventType)
+		assert.Equal(t, `{"id":"5b36ae984b724685917b69ae47968be1"}`, record3.Data)
+		assert.Equal(t, "null", record3.Metadata)
 	})
 }
 

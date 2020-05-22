@@ -99,7 +99,7 @@ func main() {
 	<-stop
 
 	fmt.Println("Shutting down gRPC server")
-	gRPCServer.GracefulStop()
+	gRPCServer.Stop()
 
 	fmt.Println("Shutting down HTTP server")
 	err = httpServer.Shutdown(context.Background())

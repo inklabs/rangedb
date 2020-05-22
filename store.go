@@ -61,6 +61,16 @@ type AggregateMessage interface {
 	AggregateType() string
 }
 
+// The RecordSubscriberFunc type is an adapter to allow the use of
+// ordinary functions as record subscribers. If f is a function
+// with the appropriate signature, RecordSubscriberFunc(f) is a
+// Handler that calls f.
+type RecordSubscriberFunc func(*Record)
+
+func (f RecordSubscriberFunc) Accept(record *Record) {
+	f(record)
+}
+
 // RecordSubscriber is the interface that defines how a projection receives Records.
 type RecordSubscriber interface {
 	Accept(record *Record)

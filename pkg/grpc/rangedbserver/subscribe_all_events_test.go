@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 
 	"google.golang.org/grpc"
@@ -19,16 +18,11 @@ import (
 	"github.com/inklabs/rangedb/rangedbtest"
 )
 
-func ExampleRangeDBServer_Events() {
+func ExampleRangeDBServer_SubscribeToEvents() {
 	// Given
 	shortuuid.SetRand(100)
 	inMemoryStore := inmemorystore.New(
 		inmemorystore.WithClock(sequentialclock.New()),
-	)
-	PrintError(
-		inMemoryStore.Save(rangedbtest.ThingWasDone{ID: "605f20348fb940e386c171d51c877bf1", Number: 100}, nil),
-		inMemoryStore.Save(rangedbtest.ThingWasDone{ID: "605f20348fb940e386c171d51c877bf1", Number: 200}, nil),
-		inMemoryStore.Save(rangedbtest.AnotherWasComplete{ID: "a095086e52bc4617a1763a62398cd645"}, nil),
 	)
 
 	// Setup gRPC server
@@ -55,56 +49,52 @@ func ExampleRangeDBServer_Events() {
 
 	// Setup gRPC client
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
-	ctx := context.Background()
-	eventsRequest := &rangedbpb.EventsRequest{
+	ctx, done := context.WithCancel(context.Background())
+	request := &rangedbpb.EventsRequest{
 		StartingWithEventNumber: 0,
 	}
 
-	// When
-	events, err := rangeDBClient.Events(ctx, eventsRequest)
+	events, err := rangeDBClient.SubscribeToEvents(ctx, request)
 	PrintError(err)
 
-	for {
-		record, err := events.Recv()
-		if err == io.EOF {
-			break
+	go func() {
+		for i := 0; i < 2; i++ {
+			record, err := events.Recv()
+			PrintError(err)
+
+			body, err := json.Marshal(record)
+			PrintError(err)
+
+			fmt.Println(jsontools.PrettyJSON(body))
 		}
-		PrintError(err)
+		done()
+	}()
 
-		body, err := json.Marshal(record)
-		PrintError(err)
+	// When
+	PrintError(
+		inMemoryStore.Save(rangedbtest.ThingWasDone{ID: "52e247a7c0a54a65906e006dac9be108", Number: 100}, nil),
+		inMemoryStore.Save(rangedbtest.AnotherWasComplete{ID: "a3d9faa7614a46b388c6dce9984b6620"}, nil),
+	)
 
-		fmt.Println(jsontools.PrettyJSON(body))
-	}
+	<-ctx.Done()
 
 	// Output:
 	// {
 	//   "AggregateType": "thing",
-	//   "AggregateID": "605f20348fb940e386c171d51c877bf1",
+	//   "AggregateID": "52e247a7c0a54a65906e006dac9be108",
 	//   "EventID": "d2ba8e70072943388203c438d4e94bf3",
 	//   "EventType": "ThingWasDone",
-	//   "Data": "{\"id\":\"605f20348fb940e386c171d51c877bf1\",\"number\":100}",
-	//   "Metadata": "null"
-	// }
-	// {
-	//   "AggregateType": "thing",
-	//   "AggregateID": "605f20348fb940e386c171d51c877bf1",
-	//   "GlobalSequenceNumber": 1,
-	//   "StreamSequenceNumber": 1,
-	//   "InsertTimestamp": 1,
-	//   "EventID": "99cbd88bbcaf482ba1cc96ed12541707",
-	//   "EventType": "ThingWasDone",
-	//   "Data": "{\"id\":\"605f20348fb940e386c171d51c877bf1\",\"number\":200}",
+	//   "Data": "{\"id\":\"52e247a7c0a54a65906e006dac9be108\",\"number\":100}",
 	//   "Metadata": "null"
 	// }
 	// {
 	//   "AggregateType": "another",
-	//   "AggregateID": "a095086e52bc4617a1763a62398cd645",
-	//   "GlobalSequenceNumber": 2,
-	//   "InsertTimestamp": 2,
-	//   "EventID": "2e9e6918af10498cb7349c89a351fdb7",
+	//   "AggregateID": "a3d9faa7614a46b388c6dce9984b6620",
+	//   "GlobalSequenceNumber": 1,
+	//   "InsertTimestamp": 1,
+	//   "EventID": "99cbd88bbcaf482ba1cc96ed12541707",
 	//   "EventType": "AnotherWasComplete",
-	//   "Data": "{\"id\":\"a095086e52bc4617a1763a62398cd645\"}",
+	//   "Data": "{\"id\":\"a3d9faa7614a46b388c6dce9984b6620\"}",
 	//   "Metadata": "null"
 	// }
 }
