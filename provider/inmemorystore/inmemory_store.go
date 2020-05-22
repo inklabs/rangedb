@@ -73,10 +73,12 @@ func (s *inMemoryStore) Bind(events ...rangedb.Event) {
 }
 
 func (s *inMemoryStore) AllEventsByAggregateType(aggregateType string) <-chan *rangedb.Record {
+	s.mux.RLock()
 	return s.recordsStartingWith(s.recordsByAggregateType[aggregateType], 0)
 }
 
 func (s *inMemoryStore) EventsStartingWith(eventNumber uint64) <-chan *rangedb.Record {
+	s.mux.RLock()
 	return s.recordsStartingWith(s.allRecords, eventNumber)
 }
 
@@ -98,12 +100,11 @@ func (s *inMemoryStore) EventsByStream(pagination paging.Pagination, streamName 
 }
 
 func (s *inMemoryStore) EventsByStreamStartingWith(stream string, eventNumber uint64) <-chan *rangedb.Record {
+	s.mux.RLock()
 	return s.recordsStartingWith(s.recordsByStream[stream], eventNumber)
 }
 
 func (s *inMemoryStore) recordsStartingWith(serializedRecords [][]byte, eventNumber uint64) <-chan *rangedb.Record {
-	s.mux.RLock()
-
 	records := make(chan *rangedb.Record)
 
 	go func() {

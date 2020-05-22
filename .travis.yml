@@ -16,7 +16,7 @@ before_script:
   - ./cc-test-reporter before-build
 
 script:
-  - go test -coverprofile c.out.tmp ./...
+  - go test -race -coverprofile c.out.tmp ./...
   - cat c.out.tmp | grep -v "_vfsdata.go" | grep -v "_gen.go" | grep -v ".pb.go" > c.out
   - go tool cover -func c.out
 
