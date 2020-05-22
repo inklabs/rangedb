@@ -15,14 +15,6 @@ func NewFailingEventStore() *failingEventStore {
 
 func (f failingEventStore) Bind(_ ...rangedb.Event) {}
 
-func (f failingEventStore) AllEventsByAggregateType(_ string) <-chan *rangedb.Record {
-	return getClosedChannel()
-}
-
-func (f failingEventStore) AllEventsByStream(_ string) <-chan *rangedb.Record {
-	return getClosedChannel()
-}
-
 func (f failingEventStore) EventsStartingWith(_ uint64) <-chan *rangedb.Record {
 	return getClosedChannel()
 }

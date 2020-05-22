@@ -35,7 +35,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		require.NoError(t, store.Save(eventB, nil))
 
 		// When
-		eventsChannel := store.AllEventsByStream(rangedb.GetEventStream(eventA1))
+		eventsChannel := store.EventsByStreamStartingWith(rangedb.GetEventStream(eventA1), 0)
 
 		// Then
 		expectedRecords := []*rangedb.Record{
@@ -82,7 +82,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		}
 
 		// When
-		eventsChannel := store.AllEventsByStream("thing!A")
+		eventsChannel := store.EventsByStreamStartingWith("thing!A", 0)
 
 		// Then
 		actualRecords := recordChannelToRecordsSlice(eventsChannel)
@@ -321,7 +321,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		require.NoError(t, store.Save(eventB, nil))
 
 		// When
-		eventsChannel := store.AllEventsByAggregateType(eventA1.AggregateType())
+		eventsChannel := store.EventsByAggregateTypesStartingWith(0, eventA1.AggregateType())
 
 		// Then
 		expectedRecords := []*rangedb.Record{
@@ -522,7 +522,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		// Then
 		require.NoError(t, err)
-		eventsChannel := store.AllEventsByStream(rangedb.GetEventStream(event))
+		eventsChannel := store.EventsByStreamStartingWith(rangedb.GetEventStream(event), 0)
 		expectedRecords := []*rangedb.Record{
 			{
 				AggregateType:        aggregateType,

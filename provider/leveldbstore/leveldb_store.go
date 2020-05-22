@@ -86,14 +86,6 @@ func (s *levelDbStore) Bind(events ...rangedb.Event) {
 	s.serializer.Bind(events...)
 }
 
-func (s *levelDbStore) AllEventsByAggregateType(aggregateType string) <-chan *rangedb.Record {
-	return s.getEventsByLookup(getAggregateTypeKeyPrefix(aggregateType), 0)
-}
-
-func (s *levelDbStore) AllEventsByStream(stream string) <-chan *rangedb.Record {
-	return s.getEventsByPrefixStartingWith(stream, 0)
-}
-
 func (s *levelDbStore) EventsStartingWith(eventNumber uint64) <-chan *rangedb.Record {
 	return s.getEventsByLookup(allEventsPrefix, eventNumber)
 }
@@ -107,7 +99,11 @@ func (s *levelDbStore) EventsByAggregateTypesStartingWith(eventNumber uint64, ag
 		return s.getEventsByLookup(getAggregateTypeKeyPrefix(aggregateTypes[0]), eventNumber)
 	}
 
-	channels := rangedb.GetAllEventsByAggregateTypes(s, aggregateTypes...)
+	var channels []<-chan *rangedb.Record
+	for _, aggregateType := range aggregateTypes {
+		channels = append(channels, s.getEventsByLookup(getAggregateTypeKeyPrefix(aggregateType), 0))
+	}
+
 	return rangedb.MergeRecordChannelsInOrder(channels, eventNumber)
 }
 

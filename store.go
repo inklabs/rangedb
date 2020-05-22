@@ -28,8 +28,6 @@ type EventBinder interface {
 // Store is the interface that stores and retrieves event records.
 type Store interface {
 	EventBinder
-	AllEventsByAggregateType(aggregateType string) <-chan *Record
-	AllEventsByStream(stream string) <-chan *Record
 	EventsStartingWith(eventNumber uint64) <-chan *Record
 	EventsByAggregateType(pagination paging.Pagination, aggregateType string) <-chan *Record
 	EventsByAggregateTypesStartingWith(eventNumber uint64, aggregateTypes ...string) <-chan *Record
@@ -77,15 +75,6 @@ func GetEventStream(message AggregateMessage) string {
 // GetStream returns the stream name for an aggregateType and aggregateID.
 func GetStream(aggregateType, aggregateID string) string {
 	return fmt.Sprintf("%s!%s", aggregateType, aggregateID)
-}
-
-// GetAllEventsByAggregateTypes returns a slice of Record channels by aggregateType.
-func GetAllEventsByAggregateTypes(store Store, aggregateTypes ...string) []<-chan *Record {
-	var channels []<-chan *Record
-	for _, aggregateType := range aggregateTypes {
-		channels = append(channels, store.AllEventsByAggregateType(aggregateType))
-	}
-	return channels
 }
 
 // ReplayEvents applies all events to each subscriber.

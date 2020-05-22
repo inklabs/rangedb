@@ -107,7 +107,7 @@ func (a *api) eventsByStream(w http.ResponseWriter, r *http.Request) {
 	extension := mux.Vars(r)["extension"]
 
 	streamName := rangedb.GetStream(aggregateType, aggregateID)
-	events := a.store.AllEventsByStream(streamName)
+	events := a.store.EventsByStreamStartingWith(streamName, 0)
 	a.writeEvents(w, events, extension)
 }
 
@@ -116,12 +116,7 @@ func (a *api) eventsByAggregateType(w http.ResponseWriter, r *http.Request) {
 	aggregateTypes := strings.Split(aggregateTypeInput, ",")
 	extension := mux.Vars(r)["extension"]
 
-	var events <-chan *rangedb.Record
-	if len(aggregateTypes) > 1 {
-		events = a.store.EventsByAggregateTypesStartingWith(0, aggregateTypes...)
-	} else {
-		events = a.store.AllEventsByAggregateType(aggregateTypes[0])
-	}
+	events := a.store.EventsByAggregateTypesStartingWith(0, aggregateTypes...)
 
 	a.writeEvents(w, events, extension)
 }

@@ -72,18 +72,9 @@ func (s *inMemoryStore) Bind(events ...rangedb.Event) {
 	s.serializer.Bind(events...)
 }
 
-func (s *inMemoryStore) AllEventsByAggregateType(aggregateType string) <-chan *rangedb.Record {
-	s.mux.RLock()
-	return s.recordsStartingWith(s.recordsByAggregateType[aggregateType], 0)
-}
-
 func (s *inMemoryStore) EventsStartingWith(eventNumber uint64) <-chan *rangedb.Record {
 	s.mux.RLock()
 	return s.recordsStartingWith(s.allRecords, eventNumber)
-}
-
-func (s *inMemoryStore) AllEventsByStream(stream string) <-chan *rangedb.Record {
-	return s.EventsByStreamStartingWith(stream, 0)
 }
 
 func (s *inMemoryStore) EventsByAggregateType(pagination paging.Pagination, aggregateType string) <-chan *rangedb.Record {
@@ -91,7 +82,17 @@ func (s *inMemoryStore) EventsByAggregateType(pagination paging.Pagination, aggr
 }
 
 func (s *inMemoryStore) EventsByAggregateTypesStartingWith(eventNumber uint64, aggregateTypes ...string) <-chan *rangedb.Record {
-	channels := rangedb.GetAllEventsByAggregateTypes(s, aggregateTypes...)
+	if len(aggregateTypes) == 1 {
+		s.mux.RLock()
+		return s.recordsStartingWith(s.recordsByAggregateType[aggregateTypes[0]], eventNumber)
+	}
+
+	var channels []<-chan *rangedb.Record
+	for _, aggregateType := range aggregateTypes {
+		s.mux.RLock()
+		channels = append(channels, s.recordsStartingWith(s.recordsByAggregateType[aggregateType], 0))
+	}
+
 	return rangedb.MergeRecordChannelsInOrder(channels, eventNumber)
 }
 
