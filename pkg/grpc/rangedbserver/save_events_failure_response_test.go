@@ -18,7 +18,7 @@ import (
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 )
 
-func ExampleRangeDBServer_SaveEvents_FailureResponse() {
+func ExampleRangeDBServer_SaveEvents_failureResponse() {
 	// Given
 	shortuuid.SetRand(100)
 	inMemoryStore := inmemorystore.New(
