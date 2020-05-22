@@ -37,7 +37,7 @@ func Test_Private_AllEvents_FailsWhenLookupRecordIsMissing(t *testing.T) {
 	require.NoError(t, err)
 
 	// When
-	events := store.AllEvents()
+	events := store.EventsStartingWith(0)
 
 	// Then
 	require.Nil(t, <-events)
@@ -49,7 +49,7 @@ func Test_Private_AllEvents_FailsWhenLookupRecordIsCorrupt(t *testing.T) {
 	logBuffer, store, _ := getStoreWithCorruptRecord(t)
 
 	// When
-	events := store.AllEvents()
+	events := store.EventsStartingWith(0)
 
 	// Then
 	require.Nil(t, <-events)

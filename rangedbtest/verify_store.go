@@ -92,74 +92,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		}
 	})
 
-	t.Run("get all events by two aggregate types ordered by global sequence number", func(t *testing.T) {
-		// Given
-		shortuuid.SetRand(100)
-		store := newStore(t, sequentialclock.New())
-		store.Bind(ThingWasDone{}, AnotherWasComplete{})
-		thingWasDoneA0 := &ThingWasDone{ID: "A", Number: 100}
-		thingWasDoneA1 := &ThingWasDone{ID: "A", Number: 200}
-		thingWasDoneB0 := &ThingWasDone{ID: "B", Number: 300}
-		AnotherWasCompleteX0 := &AnotherWasComplete{ID: "X"}
-		require.NoError(t, store.Save(thingWasDoneA0, nil))
-		require.NoError(t, store.Save(thingWasDoneB0, nil))
-		require.NoError(t, store.Save(thingWasDoneA1, nil))
-		require.NoError(t, store.Save(AnotherWasCompleteX0, nil))
-
-		// When
-		eventsChannel := store.AllEventsByAggregateTypes("thing", "another", "missing")
-
-		// Then
-		expectedRecords := []*rangedb.Record{
-			{
-				AggregateType:        "thing",
-				AggregateID:          "A",
-				GlobalSequenceNumber: 0,
-				StreamSequenceNumber: 0,
-				EventType:            "ThingWasDone",
-				EventID:              "d2ba8e70072943388203c438d4e94bf3",
-				InsertTimestamp:      0,
-				Data:                 thingWasDoneA0,
-				Metadata:             nil,
-			},
-			{
-				AggregateType:        "thing",
-				AggregateID:          "B",
-				GlobalSequenceNumber: 1,
-				StreamSequenceNumber: 0,
-				EventType:            "ThingWasDone",
-				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
-				InsertTimestamp:      1,
-				Data:                 thingWasDoneB0,
-				Metadata:             nil,
-			},
-			{
-				AggregateType:        "thing",
-				AggregateID:          "A",
-				GlobalSequenceNumber: 2,
-				StreamSequenceNumber: 1,
-				EventType:            "ThingWasDone",
-				EventID:              "2e9e6918af10498cb7349c89a351fdb7",
-				InsertTimestamp:      2,
-				Data:                 thingWasDoneA1,
-				Metadata:             nil,
-			},
-			{
-				AggregateType:        "another",
-				AggregateID:          "X",
-				GlobalSequenceNumber: 3,
-				StreamSequenceNumber: 0,
-				EventType:            "AnotherWasComplete",
-				EventID:              "5042958739514c948f776fc9f820bca0",
-				InsertTimestamp:      3,
-				Data:                 AnotherWasCompleteX0,
-				Metadata:             nil,
-			},
-		}
-		actualRecords := recordChannelToRecordsSlice(eventsChannel)
-		require.Equal(t, expectedRecords, actualRecords)
-	})
-
 	t.Run("get all events ordered by global sequence number", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
@@ -175,7 +107,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		require.NoError(t, store.Save(AnotherWasCompleteX0, nil))
 
 		// When
-		eventsChannel := store.AllEvents()
+		eventsChannel := store.EventsStartingWith(0)
 
 		// Then
 		expectedRecords := []*rangedb.Record{
@@ -375,7 +307,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		assert.Equal(t, expectedRecords, actualRecords)
 	})
 
-	t.Run("get all events by aggregate type", func(t *testing.T) {
+	t.Run("get all events by aggregate types", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
 		uuid.SetRand(rand.New(rand.NewSource(100)))
@@ -522,20 +454,24 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		assert.Equal(t, expectedRecords, recordChannelToRecordsSlice(eventsChannel))
 	})
 
-	t.Run("get events by aggregate type starting with second entry", func(t *testing.T) {
+	t.Run("get events by aggregate types starting with second entry", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
 		store := newStore(t, sequentialclock.New())
-		store.Bind(ThingWasDone{})
+		store.Bind(ThingWasDone{}, AnotherWasComplete{})
 		eventA1 := &ThingWasDone{ID: "A", Number: 1}
 		eventA2 := &ThingWasDone{ID: "A", Number: 2}
-		eventB := &ThingWasDone{ID: "B", Number: 3}
+		eventB := &AnotherWasComplete{ID: "B"}
 		require.NoError(t, store.Save(eventA1, nil))
 		require.NoError(t, store.Save(eventA2, nil))
 		require.NoError(t, store.Save(eventB, nil))
 
 		// When
-		eventsChannel := store.EventsByAggregateTypeStartingWith(eventA1.AggregateType(), 1)
+		eventsChannel := store.EventsByAggregateTypesStartingWith(
+			1,
+			eventA1.AggregateType(),
+			eventB.AggregateType(),
+		)
 
 		// Then
 		expectedRecords := []*rangedb.Record{
@@ -551,11 +487,11 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				Metadata:             nil,
 			},
 			{
-				AggregateType:        "thing",
+				AggregateType:        "another",
 				AggregateID:          "B",
 				GlobalSequenceNumber: 2,
 				StreamSequenceNumber: 0,
-				EventType:            "ThingWasDone",
+				EventType:            "AnotherWasComplete",
 				EventID:              "2e9e6918af10498cb7349c89a351fdb7",
 				InsertTimestamp:      2,
 				Data:                 eventB,
@@ -710,7 +646,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		// Then
 		require.NoError(t, err)
-		eventsChannel := store.AllEvents()
+		eventsChannel := store.EventsStartingWith(0)
 		actualRecords := recordChannelToRecordsSlice(eventsChannel)
 		expectedRecords := []*rangedb.Record{
 			{
@@ -752,7 +688,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		require.NoError(t, store.Save(event, nil))
 
 		// When
-		eventsChannel := store.AllEvents()
+		eventsChannel := store.EventsStartingWith(0)
 
 		// Then
 		expectedRecords := []*rangedb.Record{

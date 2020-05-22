@@ -86,17 +86,8 @@ func (s *levelDbStore) Bind(events ...rangedb.Event) {
 	s.serializer.Bind(events...)
 }
 
-func (s *levelDbStore) AllEvents() <-chan *rangedb.Record {
-	return s.getEventsByLookup(allEventsPrefix, 0)
-}
-
 func (s *levelDbStore) AllEventsByAggregateType(aggregateType string) <-chan *rangedb.Record {
 	return s.getEventsByLookup(getAggregateTypeKeyPrefix(aggregateType), 0)
-}
-
-func (s *levelDbStore) AllEventsByAggregateTypes(aggregateTypes ...string) <-chan *rangedb.Record {
-	channels := rangedb.GetAllEventsByAggregateTypes(s, aggregateTypes...)
-	return rangedb.MergeRecordChannelsInOrder(channels)
 }
 
 func (s *levelDbStore) AllEventsByStream(stream string) <-chan *rangedb.Record {
@@ -111,8 +102,13 @@ func (s *levelDbStore) EventsByAggregateType(pagination paging.Pagination, aggre
 	return s.paginateEventsByLookup(pagination, getAggregateTypeKeyPrefix(aggregateType))
 }
 
-func (s *levelDbStore) EventsByAggregateTypeStartingWith(aggregateType string, eventNumber uint64) <-chan *rangedb.Record {
-	return s.getEventsByPrefixStartingWith(aggregateType, eventNumber)
+func (s *levelDbStore) EventsByAggregateTypesStartingWith(eventNumber uint64, aggregateTypes ...string) <-chan *rangedb.Record {
+	if len(aggregateTypes) == 1 {
+		return s.getEventsByLookup(getAggregateTypeKeyPrefix(aggregateTypes[0]), eventNumber)
+	}
+
+	channels := rangedb.GetAllEventsByAggregateTypes(s, aggregateTypes...)
+	return rangedb.MergeRecordChannelsInOrder(channels, eventNumber)
 }
 
 func (s *levelDbStore) EventsByStream(pagination paging.Pagination, streamName string) <-chan *rangedb.Record {

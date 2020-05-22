@@ -97,7 +97,7 @@ func (a *api) healthCheck(w http.ResponseWriter, _ *http.Request) {
 func (a *api) allEvents(w http.ResponseWriter, r *http.Request) {
 	extension := mux.Vars(r)["extension"]
 
-	events := a.store.AllEvents()
+	events := a.store.EventsStartingWith(0)
 	a.writeEvents(w, events, extension)
 }
 
@@ -118,7 +118,7 @@ func (a *api) eventsByAggregateType(w http.ResponseWriter, r *http.Request) {
 
 	var events <-chan *rangedb.Record
 	if len(aggregateTypes) > 1 {
-		events = a.store.AllEventsByAggregateTypes(aggregateTypes...)
+		events = a.store.EventsByAggregateTypesStartingWith(0, aggregateTypes...)
 	} else {
 		events = a.store.AllEventsByAggregateType(aggregateTypes[0])
 	}

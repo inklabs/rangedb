@@ -79,6 +79,22 @@ func (s *rangeDBServer) EventsByStream(req *rangedbpb.EventsByStreamRequest, str
 	return nil
 }
 
+func (s *rangeDBServer) EventsByAggregateType(req *rangedbpb.EventsByAggregateTypeRequest, stream rangedbpb.RangeDB_EventsByAggregateTypeServer) error {
+	for record := range s.store.EventsByAggregateTypesStartingWith(req.StartingWithEventNumber, req.AggregateTypes...) {
+		pbRecord, err := rangedbpb.ToPbRecord(record)
+		if err != nil {
+			return err
+		}
+
+		err = stream.Send(pbRecord)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (s *rangeDBServer) SubscribeToEvents(req *rangedbpb.EventsRequest, stream rangedbpb.RangeDB_SubscribeToEventsServer) error {
 	for record := range s.store.EventsStartingWith(req.StartingWithEventNumber) {
 		pbRecord, err := rangedbpb.ToPbRecord(record)

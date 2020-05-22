@@ -15,15 +15,7 @@ func NewFailingEventStore() *failingEventStore {
 
 func (f failingEventStore) Bind(_ ...rangedb.Event) {}
 
-func (f failingEventStore) AllEvents() <-chan *rangedb.Record {
-	return getClosedChannel()
-}
-
 func (f failingEventStore) AllEventsByAggregateType(_ string) <-chan *rangedb.Record {
-	return getClosedChannel()
-}
-
-func (f failingEventStore) AllEventsByAggregateTypes(_ ...string) <-chan *rangedb.Record {
 	return getClosedChannel()
 }
 
@@ -39,7 +31,7 @@ func (f failingEventStore) EventsByAggregateType(_ paging.Pagination, _ string) 
 	return getClosedChannel()
 }
 
-func (f failingEventStore) EventsByAggregateTypeStartingWith(_ string, _ uint64) <-chan *rangedb.Record {
+func (f failingEventStore) EventsByAggregateTypesStartingWith(_ uint64, _ ...string) <-chan *rangedb.Record {
 	return getClosedChannel()
 }
 

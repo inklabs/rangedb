@@ -92,7 +92,7 @@ func (a *websocketAPI) SubscribeToAllEvents(w http.ResponseWriter, r *http.Reque
 	}
 	defer ignoreClose(conn)
 
-	a.writeEventsToConnection(conn, a.store.AllEvents())
+	a.writeEventsToConnection(conn, a.store.EventsStartingWith(0))
 
 	a.subscribeToAllEvents(conn)
 
@@ -123,7 +123,7 @@ func (a *websocketAPI) SubscribeToEventsByAggregateTypes(w http.ResponseWriter, 
 	}
 	defer ignoreClose(conn)
 
-	a.writeEventsToConnection(conn, a.store.AllEventsByAggregateTypes(aggregateTypes...))
+	a.writeEventsToConnection(conn, a.store.EventsByAggregateTypesStartingWith(0, aggregateTypes...))
 
 	a.subscribeToAggregateTypes(conn, aggregateTypes...)
 
