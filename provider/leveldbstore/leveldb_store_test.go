@@ -23,10 +23,7 @@ func Test_LevelDB_VerifyStoreInterface(t *testing.T) {
 		dbPath := filepath.Join(os.TempDir(), fmt.Sprintf("testevents-%d", os.Getuid()))
 
 		t.Cleanup(func() {
-			err := os.RemoveAll(dbPath)
-			if err != nil {
-				log.Fatalf("unable to teardown db: %v", err)
-			}
+			require.NoError(t, os.RemoveAll(dbPath))
 		})
 
 		serializer := jsonrecordserializer.New()

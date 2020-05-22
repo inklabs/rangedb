@@ -1,7 +1,13 @@
 package rangedbserver
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"sync"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/grpc/rangedbpb"
@@ -93,6 +99,56 @@ func (s *rangeDBServer) EventsByAggregateType(req *rangedbpb.EventsByAggregateTy
 	}
 
 	return nil
+}
+
+func (s *rangeDBServer) SaveEvents(_ context.Context, req *rangedbpb.SaveEventsRequest) (*rangedbpb.SaveEventResponse, error) {
+	eventsSaved := uint32(0)
+
+	for _, event := range req.Events {
+		var data interface{}
+		err := json.Unmarshal([]byte(event.Data), &data)
+		if err != nil {
+			st := status.New(codes.InvalidArgument, fmt.Sprintf("unable to read event data: %v", err))
+			st, _ = st.WithDetails(&rangedbpb.SaveEventFailureResponse{
+				EventsSaved: eventsSaved,
+			})
+			return nil, st.Err()
+		}
+
+		var metadata interface{}
+		if event.Metadata != "" {
+			err = json.Unmarshal([]byte(event.Metadata), &metadata)
+			if err != nil {
+				st := status.New(codes.InvalidArgument, fmt.Sprintf("unable to read event metadata: %v", err))
+				st, _ = st.WithDetails(&rangedbpb.SaveEventFailureResponse{
+					EventsSaved: eventsSaved,
+				})
+				return nil, st.Err()
+			}
+		}
+
+		err = s.store.SaveEvent(
+			req.AggregateType,
+			req.AggregateID,
+			event.Type,
+			event.ID,
+			data,
+			metadata,
+		)
+		if err != nil {
+			st := status.New(codes.Internal, fmt.Sprintf("unable to save to store: %v", err))
+			st, _ = st.WithDetails(&rangedbpb.SaveEventFailureResponse{
+				EventsSaved: eventsSaved,
+			})
+			return nil, st.Err()
+		}
+
+		eventsSaved++
+	}
+
+	return &rangedbpb.SaveEventResponse{
+		EventsSaved: eventsSaved,
+	}, nil
 }
 
 func (s *rangeDBServer) SubscribeToEvents(req *rangedbpb.EventsRequest, stream rangedbpb.RangeDB_SubscribeToEventsServer) error {

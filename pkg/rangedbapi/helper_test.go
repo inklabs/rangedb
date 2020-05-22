@@ -1,21 +1,21 @@
 package rangedbapi_test
 
 import (
+	"fmt"
 	"io"
-	"log"
 )
 
 func Close(c io.Closer) {
 	err := c.Close()
 	if err != nil {
-		log.Fatalf("failed closing: %v", err)
+		fmt.Printf("failed closing: %v", err)
 	}
 }
 
 func PrintError(errors ...error) {
 	for _, err := range errors {
 		if err != nil {
-			log.Fatalln(err)
+			fmt.Println(err)
 		}
 	}
 }

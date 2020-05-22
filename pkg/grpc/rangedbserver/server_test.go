@@ -2,13 +2,16 @@ package rangedbserver_test
 
 import (
 	"context"
+	"encoding/json"
 	"io"
+	"log"
 	"net"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/inklabs/rangedb"
@@ -189,6 +192,180 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 		assert.Equal(t, "AnotherWasComplete", record3.EventType)
 		assert.Equal(t, `{"id":"5b36ae984b724685917b69ae47968be1"}`, record3.Data)
 		assert.Equal(t, "null", record3.Metadata)
+	})
+}
+
+func TestRangeDBServer_SaveEvents(t *testing.T) {
+	t.Run("saves 2 events", func(t *testing.T) {
+		// Given
+		shortuuid.SetRand(100)
+		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+		rangeDBClient := getClient(t, store)
+		ctx := context.Background()
+		request := &rangedbpb.SaveEventsRequest{
+			AggregateType: "thing",
+			AggregateID:   "b5ef2296339d4ad1887f1deb486f7821",
+			Events: []*rangedbpb.Event{
+				{
+					ID:       "dea776d1a9104e389d0153e391717f26",
+					Type:     "ThingWasDone",
+					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
+					Metadata: "",
+				},
+				{
+					ID:   "96489f712adf44f3bd6ee4509d19d46c",
+					Type: "ThingWasDone",
+					Data: `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":200}`,
+				},
+			},
+		}
+
+		// When
+		response, err := rangeDBClient.SaveEvents(ctx, request)
+
+		// Then
+		require.NoError(t, err)
+		assert.Equal(t, uint32(2), response.EventsSaved)
+
+		records := rangedb.RecordChannelToSlice(store.EventsStartingWith(0))
+		require.Equal(t, 2, len(records))
+		assert.Equal(t, "thing", records[0].AggregateType)
+		assert.Equal(t, "b5ef2296339d4ad1887f1deb486f7821", records[0].AggregateID)
+		assert.Equal(t, uint64(0), records[0].GlobalSequenceNumber)
+		assert.Equal(t, uint64(0), records[0].StreamSequenceNumber)
+		assert.Equal(t, uint64(0), records[0].InsertTimestamp)
+		assert.Equal(t, "dea776d1a9104e389d0153e391717f26", records[0].EventID)
+		assert.Equal(t, "ThingWasDone", records[0].EventType)
+		assert.Equal(t,
+			map[string]interface{}{
+				"id":     "141b39d2b9854f8093ef79dc47dae6af",
+				"number": json.Number("100"),
+			},
+			records[0].Data,
+		)
+		assert.Equal(t, nil, records[0].Metadata)
+		assert.Equal(t, "thing", records[1].AggregateType)
+		assert.Equal(t, "b5ef2296339d4ad1887f1deb486f7821", records[1].AggregateID)
+		assert.Equal(t, uint64(1), records[1].GlobalSequenceNumber)
+		assert.Equal(t, uint64(1), records[1].StreamSequenceNumber)
+		assert.Equal(t, uint64(1), records[1].InsertTimestamp)
+		assert.Equal(t, "96489f712adf44f3bd6ee4509d19d46c", records[1].EventID)
+		assert.Equal(t, "ThingWasDone", records[1].EventType)
+		assert.Equal(t,
+			map[string]interface{}{
+				"id":     "141b39d2b9854f8093ef79dc47dae6af",
+				"number": json.Number("200"),
+			},
+			records[1].Data,
+		)
+		assert.Equal(t, nil, records[1].Metadata)
+	})
+
+	t.Run("saves 1 event and fails on 2nd from invalid event data", func(t *testing.T) {
+		// Given
+		shortuuid.SetRand(100)
+		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+		rangeDBClient := getClient(t, store)
+		ctx := context.Background()
+		request := &rangedbpb.SaveEventsRequest{
+			AggregateType: "thing",
+			AggregateID:   "b5ef2296339d4ad1887f1deb486f7821",
+			Events: []*rangedbpb.Event{
+				{
+					ID:       "dea776d1a9104e389d0153e391717f26",
+					Type:     "ThingWasDone",
+					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
+					Metadata: "",
+				},
+				{
+					ID:   "96489f712adf44f3bd6ee4509d19d46c",
+					Type: "ThingWasDone",
+					Data: `{invalid-json`,
+				},
+			},
+		}
+
+		// When
+		response, err := rangeDBClient.SaveEvents(ctx, request)
+
+		// Then
+		require.EqualError(t, err, "rpc error: code = InvalidArgument desc = unable to read event data: invalid character 'i' looking for beginning of object key string")
+		log.Println(response)
+		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveEventFailureResponse)
+		require.True(t, ok)
+		assert.Equal(t, uint32(1), errorResponse.EventsSaved)
+	})
+
+	t.Run("saves 1 event and fails on 2nd from invalid event metadata", func(t *testing.T) {
+		// Given
+		shortuuid.SetRand(100)
+		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+		rangeDBClient := getClient(t, store)
+		ctx := context.Background()
+		request := &rangedbpb.SaveEventsRequest{
+			AggregateType: "thing",
+			AggregateID:   "b5ef2296339d4ad1887f1deb486f7821",
+			Events: []*rangedbpb.Event{
+				{
+					ID:       "dea776d1a9104e389d0153e391717f26",
+					Type:     "ThingWasDone",
+					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
+					Metadata: "",
+				},
+				{
+					ID:       "96489f712adf44f3bd6ee4509d19d46c",
+					Type:     "ThingWasDone",
+					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
+					Metadata: `{invalid-json`,
+				},
+			},
+		}
+
+		// When
+		response, err := rangeDBClient.SaveEvents(ctx, request)
+
+		// Then
+		require.EqualError(t, err, "rpc error: code = InvalidArgument desc = unable to read event metadata: invalid character 'i' looking for beginning of object key string")
+		log.Println(response)
+		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveEventFailureResponse)
+		require.True(t, ok)
+		assert.Equal(t, uint32(1), errorResponse.EventsSaved)
+	})
+
+	t.Run("fails from failing store", func(t *testing.T) {
+		// Given
+		shortuuid.SetRand(100)
+		store := rangedbtest.NewFailingEventStore()
+		rangeDBClient := getClient(t, store)
+		ctx := context.Background()
+		request := &rangedbpb.SaveEventsRequest{
+			AggregateType: "thing",
+			AggregateID:   "b5ef2296339d4ad1887f1deb486f7821",
+			Events: []*rangedbpb.Event{
+				{
+					ID:       "dea776d1a9104e389d0153e391717f26",
+					Type:     "ThingWasDone",
+					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
+					Metadata: "",
+				},
+				{
+					ID:       "96489f712adf44f3bd6ee4509d19d46c",
+					Type:     "ThingWasDone",
+					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
+					Metadata: `{invalid-json`,
+				},
+			},
+		}
+
+		// When
+		response, err := rangeDBClient.SaveEvents(ctx, request)
+
+		// Then
+		require.EqualError(t, err, "rpc error: code = Internal desc = unable to save to store: failingEventStore.SaveEvent")
+		log.Println(response)
+		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveEventFailureResponse)
+		require.True(t, ok)
+		assert.Equal(t, uint32(0), errorResponse.EventsSaved)
 	})
 }
 
