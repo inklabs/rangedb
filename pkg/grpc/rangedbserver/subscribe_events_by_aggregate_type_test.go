@@ -18,7 +18,7 @@ import (
 	"github.com/inklabs/rangedb/rangedbtest"
 )
 
-func ExampleRangeDBServer_SubscribeToEvents() {
+func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 	// Given
 	shortuuid.SetRand(100)
 	inMemoryStore := inmemorystore.New(
@@ -50,11 +50,12 @@ func ExampleRangeDBServer_SubscribeToEvents() {
 	// Setup gRPC client
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
 	ctx, done := context.WithCancel(context.Background())
-	request := &rangedbpb.SubscribeToEventsRequest{
+	request := &rangedbpb.SubscribeToEventsByAggregateTypeRequest{
 		StartingWithEventNumber: 0,
+		AggregateTypes:          []string{"thing", "another"},
 	}
 
-	events, err := rangeDBClient.SubscribeToEvents(ctx, request)
+	events, err := rangeDBClient.SubscribeToEventsByAggregateType(ctx, request)
 	PrintError(err)
 
 	go func() {
@@ -73,6 +74,7 @@ func ExampleRangeDBServer_SubscribeToEvents() {
 	// When
 	PrintError(
 		inMemoryStore.Save(rangedbtest.ThingWasDone{ID: "52e247a7c0a54a65906e006dac9be108", Number: 100}, nil),
+		inMemoryStore.Save(rangedbtest.ThatWasDone{ID: "de33dd02222f443b86861a9fb4574ce9"}, nil),
 		inMemoryStore.Save(rangedbtest.AnotherWasComplete{ID: "a3d9faa7614a46b388c6dce9984b6620"}, nil),
 	)
 
@@ -90,9 +92,9 @@ func ExampleRangeDBServer_SubscribeToEvents() {
 	// {
 	//   "AggregateType": "another",
 	//   "AggregateID": "a3d9faa7614a46b388c6dce9984b6620",
-	//   "GlobalSequenceNumber": 1,
-	//   "InsertTimestamp": 1,
-	//   "EventID": "99cbd88bbcaf482ba1cc96ed12541707",
+	//   "GlobalSequenceNumber": 2,
+	//   "InsertTimestamp": 2,
+	//   "EventID": "2e9e6918af10498cb7349c89a351fdb7",
 	//   "EventType": "AnotherWasComplete",
 	//   "Data": "{\"id\":\"a3d9faa7614a46b388c6dce9984b6620\"}",
 	//   "Metadata": "null"

@@ -17,8 +17,9 @@ import (
 type rangeDBServer struct {
 	store rangedb.Store
 
-	sync                sync.RWMutex
-	allEventConnections map[PbRecordSender]struct{}
+	sync                     sync.RWMutex
+	allEventConnections      map[PbRecordSender]struct{}
+	aggregateTypeConnections map[string]map[PbRecordSender]struct{}
 
 	broadcastMutex sync.Mutex
 }
@@ -36,8 +37,9 @@ func WithStore(store rangedb.Store) Option {
 // New constructs a new rangeDBServer.
 func New(options ...Option) *rangeDBServer {
 	server := &rangeDBServer{
-		store:               inmemorystore.New(),
-		allEventConnections: make(map[PbRecordSender]struct{}),
+		store:                    inmemorystore.New(),
+		allEventConnections:      make(map[PbRecordSender]struct{}),
+		aggregateTypeConnections: make(map[string]map[PbRecordSender]struct{}),
 	}
 
 	for _, option := range options {
@@ -151,7 +153,7 @@ func (s *rangeDBServer) SaveEvents(_ context.Context, req *rangedbpb.SaveEventsR
 	}, nil
 }
 
-func (s *rangeDBServer) SubscribeToEvents(req *rangedbpb.EventsRequest, stream rangedbpb.RangeDB_SubscribeToEventsServer) error {
+func (s *rangeDBServer) SubscribeToEvents(req *rangedbpb.SubscribeToEventsRequest, stream rangedbpb.RangeDB_SubscribeToEventsServer) error {
 	for record := range s.store.EventsStartingWith(req.StartingWithEventNumber) {
 		pbRecord, err := rangedbpb.ToPbRecord(record)
 		if err != nil {
@@ -164,17 +166,67 @@ func (s *rangeDBServer) SubscribeToEvents(req *rangedbpb.EventsRequest, stream r
 		}
 	}
 
+	s.subscribeToAllEvents(stream)
+	<-stream.Context().Done()
+	s.unsubscribeFromAllEvents(stream)
+
+	return nil
+}
+
+func (s *rangeDBServer) subscribeToAllEvents(stream rangedbpb.RangeDB_SubscribeToEventsServer) {
 	s.sync.Lock()
 	s.allEventConnections[stream] = struct{}{}
 	s.sync.Unlock()
+}
 
-	<-stream.Context().Done()
-
+func (s *rangeDBServer) unsubscribeFromAllEvents(stream rangedbpb.RangeDB_SubscribeToEventsServer) {
 	s.sync.Lock()
 	delete(s.allEventConnections, stream)
 	s.sync.Unlock()
+}
+
+func (s *rangeDBServer) SubscribeToEventsByAggregateType(req *rangedbpb.SubscribeToEventsByAggregateTypeRequest, stream rangedbpb.RangeDB_SubscribeToEventsByAggregateTypeServer) error {
+	for record := range s.store.EventsByAggregateTypesStartingWith(req.StartingWithEventNumber, req.AggregateTypes...) {
+		pbRecord, err := rangedbpb.ToPbRecord(record)
+		if err != nil {
+			return err
+		}
+
+		err = stream.Send(pbRecord)
+		if err != nil {
+			return err
+		}
+	}
+
+	s.subscribeToAggregateTypes(stream, req.AggregateTypes)
+	<-stream.Context().Done()
+	s.unsubscribeFromAggregateTypes(stream, req.AggregateTypes)
 
 	return nil
+}
+
+func (s *rangeDBServer) subscribeToAggregateTypes(stream rangedbpb.RangeDB_SubscribeToEventsByAggregateTypeServer, aggregateTypes []string) {
+	s.sync.Lock()
+
+	for _, aggregateType := range aggregateTypes {
+		if _, ok := s.aggregateTypeConnections[aggregateType]; !ok {
+			s.aggregateTypeConnections[aggregateType] = make(map[PbRecordSender]struct{})
+		}
+
+		s.aggregateTypeConnections[aggregateType][stream] = struct{}{}
+	}
+
+	s.sync.Unlock()
+}
+
+func (s *rangeDBServer) unsubscribeFromAggregateTypes(stream rangedbpb.RangeDB_SubscribeToEventsByAggregateTypeServer, aggregateTypes []string) {
+	s.sync.Lock()
+
+	for _, aggregateType := range aggregateTypes {
+		delete(s.aggregateTypeConnections[aggregateType], stream)
+	}
+
+	s.sync.Unlock()
 }
 
 func (s *rangeDBServer) broadcastRecord(record *rangedb.Record) {
@@ -195,6 +247,19 @@ func (s *rangeDBServer) broadcastRecord(record *rangedb.Record) {
 			err := connection.Send(pbRecord)
 			if err != nil {
 				//s.logger.Printf("unable to send record to gRPC client: %v", err)
+			}
+		}
+
+		for aggregateType, connections := range s.aggregateTypeConnections {
+			if record.AggregateType != aggregateType {
+				continue
+			}
+
+			for connection := range connections {
+				err := connection.Send(pbRecord)
+				if err != nil {
+					//s.logger.Printf("unable to send record to gRPC client: %v", err)
+				}
 			}
 		}
 	}()

@@ -26,5 +26,6 @@ https://pkg.go.dev/github.com/inklabs/rangedb/pkg/grpc/rangedbserver
 * [Get Events by Stream](../pkg/grpc/rangedbserver/get_events_by_stream_test.go)
 * [Get Events by Aggregate Type(s)](../pkg/grpc/rangedbserver/get_events_by_aggregate_types_test.go)
 * [Subscribe to All Events](../pkg/grpc/rangedbserver/subscribe_all_events_test.go)
+* [Subscribe to Events By Aggregate Type(s)](../pkg/grpc/rangedbserver/subscribe_events_by_aggregate_type_test.go)
 * [Save Events](../pkg/grpc/rangedbserver/save_events_test.go)
   * [Save Events Failure Response](../pkg/grpc/rangedbserver/save_events_failure_response_test.go)

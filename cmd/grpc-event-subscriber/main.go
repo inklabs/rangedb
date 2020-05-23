@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
 
 	"google.golang.org/grpc"
 
@@ -13,13 +14,13 @@ import (
 )
 
 func main() {
-	aggregateTypes := flag.String("aggregateTypes", "", "aggregateTypes separated by comma")
+	aggregateTypesCSV := flag.String("aggregateTypes", "", "aggregateTypes separated by comma")
 	host := flag.String("host", "127.0.0.1:8081", "RangeDB gRPC host address")
 	flag.Parse()
 
-	// TODO
-	if *aggregateTypes != "" {
-		log.Fatalf("not yet supported")
+	aggregateTypes := strings.Split(*aggregateTypesCSV, ",")
+	if *aggregateTypesCSV == "" || len(aggregateTypes) < 1 {
+		log.Fatalf("Error: must supply aggregate types!")
 	}
 
 	conn, err := grpc.Dial(*host, grpc.WithInsecure())
@@ -29,11 +30,12 @@ func main() {
 
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
 	ctx := context.Background()
-	eventsRequest := &rangedbpb.EventsRequest{
+	request := &rangedbpb.SubscribeToEventsByAggregateTypeRequest{
 		StartingWithEventNumber: 0,
+		AggregateTypes:          aggregateTypes,
 	}
 
-	events, err := rangeDBClient.SubscribeToEvents(ctx, eventsRequest)
+	events, err := rangeDBClient.SubscribeToEventsByAggregateType(ctx, request)
 	if err != nil {
 		log.Fatalf("unable to get events: %v", err)
 	}

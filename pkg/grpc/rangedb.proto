@@ -6,7 +6,8 @@ service RangeDB {
   rpc Events(EventsRequest) returns (stream Record) {}
   rpc EventsByStream(EventsByStreamRequest) returns (stream Record) {}
   rpc EventsByAggregateType(EventsByAggregateTypeRequest) returns (stream Record) {}
-  rpc SubscribeToEvents(EventsRequest) returns (stream Record) {}
+  rpc SubscribeToEvents(SubscribeToEventsRequest) returns (stream Record) {}
+  rpc SubscribeToEventsByAggregateType(SubscribeToEventsByAggregateTypeRequest) returns (stream Record) {}
   rpc SaveEvents(SaveEventsRequest) returns (SaveEventResponse) {}
 }
 
@@ -20,6 +21,15 @@ message EventsByStreamRequest {
 }
 
 message EventsByAggregateTypeRequest {
+  repeated string aggregateTypes = 1;
+  uint64 startingWithEventNumber = 2;
+}
+
+message SubscribeToEventsRequest {
+  uint64 startingWithEventNumber = 1;
+}
+
+message SubscribeToEventsByAggregateTypeRequest {
   repeated string aggregateTypes = 1;
   uint64 startingWithEventNumber = 2;
 }

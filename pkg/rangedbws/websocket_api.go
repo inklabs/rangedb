@@ -95,9 +95,8 @@ func (a *websocketAPI) SubscribeToAllEvents(w http.ResponseWriter, r *http.Reque
 	a.writeEventsToConnection(conn, a.store.EventsStartingWith(0))
 
 	a.subscribeToAllEvents(conn)
-
 	_, _, _ = conn.ReadMessage()
-	a.unRegisterFromAllEvents(conn)
+	a.unsubscribeFromAllEvents(conn)
 }
 
 func (a *websocketAPI) writeEventsToConnection(conn MessageWriter, events <-chan *rangedb.Record) {
@@ -125,23 +124,28 @@ func (a *websocketAPI) SubscribeToEventsByAggregateTypes(w http.ResponseWriter, 
 
 	a.writeEventsToConnection(conn, a.store.EventsByAggregateTypesStartingWith(0, aggregateTypes...))
 
-	a.subscribeToAggregateTypes(conn, aggregateTypes...)
-
+	a.subscribeToAggregateTypes(conn, aggregateTypes)
 	_, _, _ = conn.ReadMessage()
-	a.unRegisterFromAggregateTypes(conn, aggregateTypes...)
+	a.unsubscribeFromAggregateTypes(conn, aggregateTypes)
 }
 
 func (a *websocketAPI) subscribeToAllEvents(conn *websocket.Conn) {
 	a.sync.Lock()
-	defer a.sync.Unlock()
-
 	a.allEventConnections[conn] = struct{}{}
-	a.logger.Printf("client registered (all)\n")
+	a.sync.Unlock()
 }
 
-func (a *websocketAPI) subscribeToAggregateTypes(conn *websocket.Conn, aggregateTypes ...string) {
+func (a *websocketAPI) unsubscribeFromAllEvents(conn *websocket.Conn) {
 	a.sync.Lock()
-	defer a.sync.Unlock()
+
+	delete(a.allEventConnections, conn)
+	_ = conn.Close()
+
+	a.sync.Unlock()
+}
+
+func (a *websocketAPI) subscribeToAggregateTypes(conn *websocket.Conn, aggregateTypes []string) {
+	a.sync.Lock()
 
 	for _, aggregateType := range aggregateTypes {
 		if _, ok := a.aggregateTypeConnections[aggregateType]; !ok {
@@ -151,7 +155,19 @@ func (a *websocketAPI) subscribeToAggregateTypes(conn *websocket.Conn, aggregate
 		a.aggregateTypeConnections[aggregateType][conn] = struct{}{}
 	}
 
-	a.logger.Printf("client registered (%v)\n", aggregateTypes)
+	a.sync.Unlock()
+}
+
+func (a *websocketAPI) unsubscribeFromAggregateTypes(conn *websocket.Conn, aggregateTypes []string) {
+	a.sync.Lock()
+
+	for _, aggregateType := range aggregateTypes {
+		delete(a.aggregateTypeConnections[aggregateType], conn)
+	}
+
+	_ = conn.Close()
+
+	a.sync.Unlock()
 }
 
 func (a *websocketAPI) broadcastRecord(record *rangedb.Record) {
@@ -182,27 +198,6 @@ func (a *websocketAPI) broadcastRecord(record *rangedb.Record) {
 			}
 		}
 	}()
-}
-
-func (a *websocketAPI) unRegisterFromAllEvents(conn *websocket.Conn) {
-	a.sync.Lock()
-	defer a.sync.Unlock()
-
-	delete(a.allEventConnections, conn)
-	_ = conn.Close()
-	a.logger.Printf("client unregistered (all)")
-}
-
-func (a *websocketAPI) unRegisterFromAggregateTypes(conn *websocket.Conn, aggregateTypes ...string) {
-	a.sync.Lock()
-	defer a.sync.Unlock()
-
-	for _, aggregateType := range aggregateTypes {
-		delete(a.aggregateTypeConnections[aggregateType], conn)
-	}
-
-	_ = conn.Close()
-	a.logger.Printf("client unregistered (%v)\n", aggregateTypes)
 }
 
 // MessageWriter is the interface for writing a message to a connection
