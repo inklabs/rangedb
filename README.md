@@ -8,6 +8,7 @@
 [![GoDoc](https://godoc.org/github.com/inklabs/rangedb?status.svg)](https://godoc.org/github.com/inklabs/rangedb)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/inklabs/rangedb.svg)](https://github.com/inklabs/rangedb/blob/master/go.mod)
 [![Release](https://img.shields.io/github/release/inklabs/rangedb.svg?include_prereleases&sort=semver)](https://github.com/inklabs/rangedb/releases/latest)
+[![Sourcegraph](https://sourcegraph.com/github.com/inklabs/rangedb/-/badge.svg)](https://sourcegraph.com/github.com/inklabs/rangedb?badge)
 [![License](https://img.shields.io/github/license/inklabs/rangedb.svg)](https://github.com/inklabs/rangedb/blob/master/LICENSE)
 
 An event store database in Go. This package includes a stand-alone database
