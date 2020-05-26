@@ -90,12 +90,12 @@ func ReadNRecords(totalEvents uint64, f func(context.Context) <-chan *Record) []
 	for record := range f(ctx) {
 		cnt++
 		if cnt > totalEvents {
-			done()
 			break
 		}
 
 		records = append(records, record)
 	}
+	done()
 
 	return records
 }

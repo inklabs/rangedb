@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -139,9 +138,6 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 		require.NoError(t, err)
 		var actualRecords []*rangedbpb.Record
 
-		var wg sync.WaitGroup
-		wg.Add(1)
-
 		// When
 		go func() {
 			for i := 0; i < 3; i++ {
@@ -150,7 +146,6 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 				actualRecords = append(actualRecords, record)
 			}
 			done()
-			wg.Done()
 		}()
 
 		saveEvents(t, store,
@@ -163,7 +158,7 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 			},
 		)
 
-		wg.Wait()
+		<-ctx.Done()
 
 		// Then
 		require.Equal(t, 3, len(actualRecords))
@@ -226,8 +221,6 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 		events, err := rangeDBClient.SubscribeToEventsByAggregateType(ctx, request)
 		require.NoError(t, err)
 		var actualRecords []*rangedbpb.Record
-		var wg sync.WaitGroup
-		wg.Add(1)
 
 		// When
 		go func() {
@@ -237,7 +230,6 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 				actualRecords = append(actualRecords, record)
 			}
 			done()
-			wg.Done()
 		}()
 
 		saveEvents(t, store,
@@ -253,7 +245,7 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 			},
 		)
 
-		wg.Wait()
+		<-ctx.Done()
 
 		// Then
 		require.Equal(t, 3, len(actualRecords))
