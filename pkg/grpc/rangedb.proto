@@ -9,6 +9,7 @@ service RangeDB {
   rpc SubscribeToEvents(SubscribeToEventsRequest) returns (stream Record) {}
   rpc SubscribeToEventsByAggregateType(SubscribeToEventsByAggregateTypeRequest) returns (stream Record) {}
   rpc SaveEvents(SaveEventsRequest) returns (SaveEventResponse) {}
+  rpc TotalEventsInStream(TotalEventsInStreamRequest) returns (TotalEventsInStreamResponse) {}
 }
 
 message EventsRequest {
@@ -46,6 +47,14 @@ message SaveEventResponse {
 
 message SaveEventFailureResponse {
   uint32 EventsSaved = 1;
+}
+
+message TotalEventsInStreamRequest {
+  string StreamName = 1;
+}
+
+message TotalEventsInStreamResponse {
+  uint64 TotalEvents = 1;
 }
 
 message Event {

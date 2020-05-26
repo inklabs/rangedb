@@ -1,9 +1,8 @@
 package rangedb
 
 import (
+	"context"
 	"fmt"
-
-	"github.com/inklabs/rangedb/pkg/paging"
 )
 
 const Version = "0.3.0-dev"
@@ -28,15 +27,12 @@ type EventBinder interface {
 // Store is the interface that stores and retrieves event records.
 type Store interface {
 	EventBinder
-	EventsStartingWith(eventNumber uint64) <-chan *Record
-	EventsByAggregateType(pagination paging.Pagination, aggregateType string) <-chan *Record
-	EventsByAggregateTypesStartingWith(eventNumber uint64, aggregateTypes ...string) <-chan *Record
-	EventsByStream(pagination paging.Pagination, streamName string) <-chan *Record
-	EventsByStreamStartingWith(streamName string, eventNumber uint64) <-chan *Record
+	EventsStartingWith(ctx context.Context, eventNumber uint64) <-chan *Record
+	EventsByAggregateTypesStartingWith(ctx context.Context, eventNumber uint64, aggregateTypes ...string) <-chan *Record
+	EventsByStreamStartingWith(ctx context.Context, eventNumber uint64, streamName string) <-chan *Record
 	Save(event Event, metadata interface{}) error
 	SaveEvent(aggregateType, aggregateID, eventType, eventID string, event, metadata interface{}) error
-	Subscribe(subscribers ...RecordSubscriber)
-	SubscribeAndReplay(subscribers ...RecordSubscriber)
+	SubscribeStartingWith(eventNumber uint64, subscribers ...RecordSubscriber)
 	TotalEventsInStream(streamName string) uint64
 }
 
@@ -78,21 +74,28 @@ func GetStream(aggregateType, aggregateID string) string {
 }
 
 // ReplayEvents applies all events to each subscriber.
-func ReplayEvents(store Store, subscribers ...RecordSubscriber) {
-	for record := range store.EventsStartingWith(0) {
+func ReplayEvents(store Store, eventNumber uint64, subscribers ...RecordSubscriber) {
+	for record := range store.EventsStartingWith(context.Background(), eventNumber) {
 		for _, subscriber := range subscribers {
 			subscriber.Accept(record)
 		}
 	}
 }
 
-// RecordChannelToSlice reads all records from the channel into a slice
-func RecordChannelToSlice(records <-chan *Record) []*Record {
-	var events []*Record
+// ReadNRecords reads up to N records from the channel returned by f into a slice
+func ReadNRecords(totalEvents uint64, f func(context.Context) <-chan *Record) []*Record {
+	var records []*Record
+	ctx, done := context.WithCancel(context.Background())
+	cnt := uint64(0)
+	for record := range f(ctx) {
+		cnt++
+		if cnt > totalEvents {
+			done()
+			break
+		}
 
-	for record := range records {
-		events = append(events, record)
+		records = append(records, record)
 	}
 
-	return events
+	return records
 }

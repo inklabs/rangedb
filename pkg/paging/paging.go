@@ -81,3 +81,7 @@ func (p Pagination) Links(baseURI string, totalRecords uint64) Links {
 		Next:     next,
 	}
 }
+
+func (p Pagination) FirstRecordPosition() int {
+	return (p.Page - 1) * p.ItemsPerPage
+}

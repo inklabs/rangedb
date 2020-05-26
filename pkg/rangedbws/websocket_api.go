@@ -77,7 +77,7 @@ func (a *websocketAPI) initRoutes() {
 }
 
 func (a *websocketAPI) initProjections() {
-	a.store.Subscribe(rangedb.RecordSubscriberFunc(a.broadcastRecord))
+	a.store.SubscribeStartingWith(0, rangedb.RecordSubscriberFunc(a.broadcastRecord))
 }
 
 func (a *websocketAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -92,9 +92,11 @@ func (a *websocketAPI) SubscribeToAllEvents(w http.ResponseWriter, r *http.Reque
 	}
 	defer ignoreClose(conn)
 
-	a.writeEventsToConnection(conn, a.store.EventsStartingWith(0))
-
+	a.broadcastMutex.Lock()
+	a.writeEventsToConnection(conn, a.store.EventsStartingWith(r.Context(), 0))
 	a.subscribeToAllEvents(conn)
+	a.broadcastMutex.Unlock()
+
 	_, _, _ = conn.ReadMessage()
 	a.unsubscribeFromAllEvents(conn)
 }
@@ -122,9 +124,11 @@ func (a *websocketAPI) SubscribeToEventsByAggregateTypes(w http.ResponseWriter, 
 	}
 	defer ignoreClose(conn)
 
-	a.writeEventsToConnection(conn, a.store.EventsByAggregateTypesStartingWith(0, aggregateTypes...))
-
+	a.broadcastMutex.Lock()
+	a.writeEventsToConnection(conn, a.store.EventsByAggregateTypesStartingWith(r.Context(), 0, aggregateTypes...))
 	a.subscribeToAggregateTypes(conn, aggregateTypes)
+	a.broadcastMutex.Unlock()
+
 	_, _, _ = conn.ReadMessage()
 	a.unsubscribeFromAggregateTypes(conn, aggregateTypes)
 }

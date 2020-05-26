@@ -1,6 +1,7 @@
 package rangedbui
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -91,7 +92,13 @@ func (a *webUI) aggregateType(w http.ResponseWriter, r *http.Request) {
 	aggregateTypeName := mux.Vars(r)["aggregateType"]
 	pagination := paging.NewPaginationFromQuery(r.URL.Query())
 
-	records := rangedb.RecordChannelToSlice(a.store.EventsByAggregateType(pagination, aggregateTypeName))
+	eventNumber := uint64(pagination.FirstRecordPosition())
+	records := rangedb.ReadNRecords(
+		uint64(pagination.ItemsPerPage),
+		func(ctx context.Context) <-chan *rangedb.Record {
+			return a.store.EventsByAggregateTypesStartingWith(ctx, eventNumber, aggregateTypeName)
+		},
+	)
 
 	baseURI := fmt.Sprintf("/e/%s", aggregateTypeName)
 	totalRecords := a.aggregateTypeStats.TotalEventsByAggregateType[aggregateTypeName]
@@ -120,7 +127,13 @@ func (a *webUI) stream(w http.ResponseWriter, r *http.Request) {
 	pagination := paging.NewPaginationFromQuery(r.URL.Query())
 
 	streamName := rangedb.GetStream(aggregateTypeName, aggregateID)
-	records := rangedb.RecordChannelToSlice(a.store.EventsByStream(pagination, streamName))
+	eventNumber := uint64(pagination.FirstRecordPosition())
+	records := rangedb.ReadNRecords(
+		uint64(pagination.ItemsPerPage),
+		func(ctx context.Context) <-chan *rangedb.Record {
+			return a.store.EventsByStreamStartingWith(ctx, eventNumber, streamName)
+		},
+	)
 
 	baseURI := fmt.Sprintf("/e/%s/%s", aggregateTypeName, aggregateID)
 	totalRecords := a.store.TotalEventsInStream(streamName)

@@ -82,7 +82,7 @@ func (a *api) initRoutes() {
 
 func (a *api) initProjections() {
 	a.projections.aggregateTypeStats = projection.NewAggregateTypeStats()
-	a.store.SubscribeAndReplay(a.projections.aggregateTypeStats)
+	a.store.SubscribeStartingWith(0, a.projections.aggregateTypeStats)
 }
 
 func (a *api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -97,7 +97,7 @@ func (a *api) healthCheck(w http.ResponseWriter, _ *http.Request) {
 func (a *api) allEvents(w http.ResponseWriter, r *http.Request) {
 	extension := mux.Vars(r)["extension"]
 
-	events := a.store.EventsStartingWith(0)
+	events := a.store.EventsStartingWith(r.Context(), 0)
 	a.writeEvents(w, events, extension)
 }
 
@@ -107,7 +107,7 @@ func (a *api) eventsByStream(w http.ResponseWriter, r *http.Request) {
 	extension := mux.Vars(r)["extension"]
 
 	streamName := rangedb.GetStream(aggregateType, aggregateID)
-	events := a.store.EventsByStreamStartingWith(streamName, 0)
+	events := a.store.EventsByStreamStartingWith(r.Context(), 0, streamName)
 	a.writeEvents(w, events, extension)
 }
 
@@ -116,7 +116,7 @@ func (a *api) eventsByAggregateType(w http.ResponseWriter, r *http.Request) {
 	aggregateTypes := strings.Split(aggregateTypeInput, ",")
 	extension := mux.Vars(r)["extension"]
 
-	events := a.store.EventsByAggregateTypesStartingWith(0, aggregateTypes...)
+	events := a.store.EventsByAggregateTypesStartingWith(r.Context(), 0, aggregateTypes...)
 
 	a.writeEvents(w, events, extension)
 }

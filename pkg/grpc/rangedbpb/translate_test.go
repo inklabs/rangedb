@@ -9,6 +9,7 @@ import (
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/grpc/rangedbpb"
+	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 	"github.com/inklabs/rangedb/rangedbtest"
 )
 
@@ -39,6 +40,31 @@ func TestToPbRecord(t *testing.T) {
 		assert.Equal(t, uint64(2), actual.InsertTimestamp)
 		assert.Equal(t, `{"id":"A","number":1}`, actual.Data)
 		assert.Equal(t, "null", actual.Metadata)
+	})
+
+	t.Run("translates rangedb.Record to rangedbpb.Record and back", func(t *testing.T) {
+		// Given
+		serializer := jsonrecordserializer.New()
+		serializer.Bind(rangedbtest.ThingWasDone{})
+		input := &rangedb.Record{
+			AggregateType:        "thing",
+			AggregateID:          "60f01cc527844cde9953c998a2c077a7",
+			GlobalSequenceNumber: 0,
+			StreamSequenceNumber: 1,
+			EventType:            "ThingWasDone",
+			InsertTimestamp:      2,
+			Data:                 &rangedbtest.ThingWasDone{ID: "A", Number: 1},
+			Metadata:             nil,
+		}
+		pbRecord, err := rangedbpb.ToPbRecord(input)
+		require.NoError(t, err)
+
+		// When
+		actual, err := rangedbpb.ToRecord(pbRecord, serializer)
+
+		// Then
+		require.NoError(t, err)
+		assert.Equal(t, input, actual)
 	})
 
 	t.Run("fails with invalid data", func(t *testing.T) {

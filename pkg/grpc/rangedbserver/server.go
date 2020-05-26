@@ -52,11 +52,11 @@ func New(options ...Option) *rangeDBServer {
 }
 
 func (s *rangeDBServer) initProjections() {
-	s.store.Subscribe(rangedb.RecordSubscriberFunc(s.broadcastRecord))
+	s.store.SubscribeStartingWith(0, rangedb.RecordSubscriberFunc(s.broadcastRecord))
 }
 
 func (s *rangeDBServer) Events(req *rangedbpb.EventsRequest, stream rangedbpb.RangeDB_EventsServer) error {
-	for record := range s.store.EventsStartingWith(req.StartingWithEventNumber) {
+	for record := range s.store.EventsStartingWith(stream.Context(), req.StartingWithEventNumber) {
 		pbRecord, err := rangedbpb.ToPbRecord(record)
 		if err != nil {
 			return err
@@ -72,7 +72,7 @@ func (s *rangeDBServer) Events(req *rangedbpb.EventsRequest, stream rangedbpb.Ra
 }
 
 func (s *rangeDBServer) EventsByStream(req *rangedbpb.EventsByStreamRequest, stream rangedbpb.RangeDB_EventsByStreamServer) error {
-	for record := range s.store.EventsByStreamStartingWith(req.StreamName, req.StartingWithEventNumber) {
+	for record := range s.store.EventsByStreamStartingWith(stream.Context(), req.StartingWithEventNumber, req.StreamName) {
 		pbRecord, err := rangedbpb.ToPbRecord(record)
 		if err != nil {
 			return err
@@ -88,7 +88,7 @@ func (s *rangeDBServer) EventsByStream(req *rangedbpb.EventsByStreamRequest, str
 }
 
 func (s *rangeDBServer) EventsByAggregateType(req *rangedbpb.EventsByAggregateTypeRequest, stream rangedbpb.RangeDB_EventsByAggregateTypeServer) error {
-	for record := range s.store.EventsByAggregateTypesStartingWith(req.StartingWithEventNumber, req.AggregateTypes...) {
+	for record := range s.store.EventsByAggregateTypesStartingWith(stream.Context(), req.StartingWithEventNumber, req.AggregateTypes...) {
 		pbRecord, err := rangedbpb.ToPbRecord(record)
 		if err != nil {
 			return err
@@ -154,7 +154,8 @@ func (s *rangeDBServer) SaveEvents(_ context.Context, req *rangedbpb.SaveEventsR
 }
 
 func (s *rangeDBServer) SubscribeToEvents(req *rangedbpb.SubscribeToEventsRequest, stream rangedbpb.RangeDB_SubscribeToEventsServer) error {
-	for record := range s.store.EventsStartingWith(req.StartingWithEventNumber) {
+	s.broadcastMutex.Lock()
+	for record := range s.store.EventsStartingWith(stream.Context(), req.StartingWithEventNumber) {
 		pbRecord, err := rangedbpb.ToPbRecord(record)
 		if err != nil {
 			return err
@@ -167,6 +168,8 @@ func (s *rangeDBServer) SubscribeToEvents(req *rangedbpb.SubscribeToEventsReques
 	}
 
 	s.subscribeToAllEvents(stream)
+	s.broadcastMutex.Unlock()
+
 	<-stream.Context().Done()
 	s.unsubscribeFromAllEvents(stream)
 
@@ -186,7 +189,8 @@ func (s *rangeDBServer) unsubscribeFromAllEvents(stream rangedbpb.RangeDB_Subscr
 }
 
 func (s *rangeDBServer) SubscribeToEventsByAggregateType(req *rangedbpb.SubscribeToEventsByAggregateTypeRequest, stream rangedbpb.RangeDB_SubscribeToEventsByAggregateTypeServer) error {
-	for record := range s.store.EventsByAggregateTypesStartingWith(req.StartingWithEventNumber, req.AggregateTypes...) {
+	s.broadcastMutex.Lock()
+	for record := range s.store.EventsByAggregateTypesStartingWith(stream.Context(), req.StartingWithEventNumber, req.AggregateTypes...) {
 		pbRecord, err := rangedbpb.ToPbRecord(record)
 		if err != nil {
 			return err
@@ -199,10 +203,19 @@ func (s *rangeDBServer) SubscribeToEventsByAggregateType(req *rangedbpb.Subscrib
 	}
 
 	s.subscribeToAggregateTypes(stream, req.AggregateTypes)
+	s.broadcastMutex.Unlock()
+
 	<-stream.Context().Done()
 	s.unsubscribeFromAggregateTypes(stream, req.AggregateTypes)
 
 	return nil
+}
+
+func (s *rangeDBServer) TotalEventsInStream(_ context.Context, request *rangedbpb.TotalEventsInStreamRequest) (*rangedbpb.TotalEventsInStreamResponse, error) {
+	totalEvents := s.store.TotalEventsInStream(request.StreamName)
+	return &rangedbpb.TotalEventsInStreamResponse{
+		TotalEvents: totalEvents,
+	}, nil
 }
 
 func (s *rangeDBServer) subscribeToAggregateTypes(stream rangedbpb.RangeDB_SubscribeToEventsByAggregateTypeServer, aggregateTypes []string) {

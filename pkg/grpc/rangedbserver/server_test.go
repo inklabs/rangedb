@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -138,6 +139,9 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 		require.NoError(t, err)
 		var actualRecords []*rangedbpb.Record
 
+		var wg sync.WaitGroup
+		wg.Add(1)
+
 		// When
 		go func() {
 			for i := 0; i < 3; i++ {
@@ -146,6 +150,7 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 				actualRecords = append(actualRecords, record)
 			}
 			done()
+			wg.Done()
 		}()
 
 		saveEvents(t, store,
@@ -158,7 +163,7 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 			},
 		)
 
-		<-ctx.Done()
+		wg.Wait()
 
 		// Then
 		require.Equal(t, 3, len(actualRecords))
@@ -221,6 +226,8 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 		events, err := rangeDBClient.SubscribeToEventsByAggregateType(ctx, request)
 		require.NoError(t, err)
 		var actualRecords []*rangedbpb.Record
+		var wg sync.WaitGroup
+		wg.Add(1)
 
 		// When
 		go func() {
@@ -230,6 +237,7 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 				actualRecords = append(actualRecords, record)
 			}
 			done()
+			wg.Done()
 		}()
 
 		saveEvents(t, store,
@@ -245,7 +253,7 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 			},
 		)
 
-		<-ctx.Done()
+		wg.Wait()
 
 		// Then
 		require.Equal(t, 3, len(actualRecords))
@@ -313,8 +321,9 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 		// Then
 		require.NoError(t, err)
 		assert.Equal(t, uint32(2), response.EventsSaved)
-
-		records := rangedb.RecordChannelToSlice(store.EventsStartingWith(0))
+		records := rangedb.ReadNRecords(10, func(ctx context.Context) <-chan *rangedb.Record {
+			return store.EventsStartingWith(ctx, 0)
+		})
 		require.Equal(t, 2, len(records))
 		assert.Equal(t, "thing", records[0].AggregateType)
 		assert.Equal(t, "b5ef2296339d4ad1887f1deb486f7821", records[0].AggregateID)
@@ -474,14 +483,14 @@ func getClient(t *testing.T, store rangedb.Store) rangedbpb.RangeDBClient {
 	conn, err := grpc.DialContext(ctx, "", dialer, grpc.WithInsecure())
 	require.NoError(t, err)
 
-	go func() {
-		require.NoError(t, server.Serve(bufListener))
-	}()
-
 	t.Cleanup(func() {
 		server.Stop()
 		require.NoError(t, conn.Close())
 	})
+
+	go func() {
+		require.NoError(t, server.Serve(bufListener))
+	}()
 
 	return rangedbpb.NewRangeDBClient(conn)
 }

@@ -67,7 +67,7 @@ func (s *jsonRecordIoStream) Read(reader io.Reader) (<-chan *rangedb.Record, <-c
 		}
 
 		for decoder.More() {
-			record, err := jsonrecordserializer.UnmarshalRecord(decoder, s.eventTypeLookup)
+			record, err := jsonrecordserializer.UnmarshalRecord(decoder, s)
 			if err != nil {
 				errors <- err
 				return
@@ -86,7 +86,7 @@ func (s *jsonRecordIoStream) Bind(events ...rangedb.Event) {
 	}
 }
 
-func (s *jsonRecordIoStream) eventTypeLookup(eventTypeName string) (r reflect.Type, b bool) {
+func (s *jsonRecordIoStream) EventTypeLookup(eventTypeName string) (r reflect.Type, b bool) {
 	eventType, ok := s.eventTypes[eventTypeName]
 	return eventType, ok
 }

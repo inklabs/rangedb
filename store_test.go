@@ -37,15 +37,35 @@ func Test_GetEventStream_ReturnsStreamFromMessage(t *testing.T) {
 }
 
 func Test_ReplayEvents(t *testing.T) {
-	// Given
-	inMemoryStore := inmemorystore.New()
-	event := rangedbtest.ThingWasDone{ID: "A", Number: 2}
-	require.NoError(t, inMemoryStore.Save(event, nil))
-	subscriber := rangedbtest.NewCountSubscriber()
+	t.Run("replays from the first event", func(t *testing.T) {
+		// Given
+		inMemoryStore := inmemorystore.New()
+		event1 := rangedbtest.ThingWasDone{ID: "A", Number: 1}
+		event2 := rangedbtest.ThingWasDone{ID: "A", Number: 2}
+		require.NoError(t, inMemoryStore.Save(event1, nil))
+		require.NoError(t, inMemoryStore.Save(event2, nil))
+		subscriber := rangedbtest.NewCountSubscriber()
 
-	// When
-	rangedb.ReplayEvents(inMemoryStore, subscriber)
+		// When
+		rangedb.ReplayEvents(inMemoryStore, 0, subscriber)
 
-	// Then
-	assert.Equal(t, 1, subscriber.TotalEvents)
+		// Then
+		assert.Equal(t, 2, subscriber.TotalEvents())
+	})
+
+	t.Run("replays from the second event", func(t *testing.T) {
+		// Given
+		inMemoryStore := inmemorystore.New()
+		event1 := rangedbtest.ThingWasDone{ID: "A", Number: 1}
+		event2 := rangedbtest.ThingWasDone{ID: "A", Number: 2}
+		require.NoError(t, inMemoryStore.Save(event1, nil))
+		require.NoError(t, inMemoryStore.Save(event2, nil))
+		subscriber := rangedbtest.NewCountSubscriber()
+
+		// When
+		rangedb.ReplayEvents(inMemoryStore, 1, subscriber)
+
+		// Then
+		assert.Equal(t, 1, subscriber.TotalEvents())
+	})
 }

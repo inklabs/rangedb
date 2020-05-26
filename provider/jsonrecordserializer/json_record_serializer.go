@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"reflect"
 
 	"github.com/inklabs/rangedb"
@@ -39,10 +40,10 @@ func (s *jsonSerializer) Deserialize(serializedData []byte) (*rangedb.Record, er
 	decoder := json.NewDecoder(bytes.NewReader(serializedData))
 	decoder.UseNumber()
 
-	return UnmarshalRecord(decoder, s.eventTypeLookup)
+	return UnmarshalRecord(decoder, s)
 }
 
-func (s *jsonSerializer) eventTypeLookup(eventTypeName string) (r reflect.Type, b bool) {
+func (s *jsonSerializer) EventTypeLookup(eventTypeName string) (reflect.Type, bool) {
 	eventType, ok := s.eventTypes[eventTypeName]
 	return eventType, ok
 }
@@ -50,7 +51,7 @@ func (s *jsonSerializer) eventTypeLookup(eventTypeName string) (r reflect.Type, 
 // UnmarshalRecord decodes a Record using the supplied JSON decoder.
 //
 // Event data will be parsed into a struct if supplied by getEventType.
-func UnmarshalRecord(decoder *json.Decoder, getEventType func(eventTypeName string) (reflect.Type, bool)) (*rangedb.Record, error) {
+func UnmarshalRecord(decoder *json.Decoder, eventTypeIdentifier rangedb.EventTypeIdentifier) (*rangedb.Record, error) {
 	var rawEvent json.RawMessage
 	record := rangedb.Record{
 		Data: &rawEvent,
@@ -60,30 +61,41 @@ func UnmarshalRecord(decoder *json.Decoder, getEventType func(eventTypeName stri
 		return nil, fmt.Errorf("failed unmarshalling record: %v", err)
 	}
 
-	dataDecoder := json.NewDecoder(bytes.NewReader(rawEvent))
-	dataDecoder.UseNumber()
-
-	eventType, ok := getEventType(record.EventType)
-	if ok {
-
-		data := reflect.New(eventType).Interface()
-		err = dataDecoder.Decode(&data)
-		if err != nil {
-			return nil, fmt.Errorf("failed unmarshalling event within record: %v", err)
-		}
-
-		record.Data = data
-	} else {
-		var data interface{}
-		err = dataDecoder.Decode(&data)
-		if err != nil {
-			return nil, fmt.Errorf("failed unmarshalling event within record: %v", err)
-		}
-
-		record.Data = data
+	data, err := DecodeJsonData(record.EventType, bytes.NewReader(rawEvent), eventTypeIdentifier)
+	if err != nil {
+		return nil, fmt.Errorf("failed unmarshalling event within record: %v", err)
 	}
 
+	record.Data = data
+
 	return &record, nil
+}
+
+// DecodeJsonData decodes raw json into a struct or interface{}.
+//
+// Event data will be parsed into a struct if supplied by getEventType.
+func DecodeJsonData(eventTypeName string, rawJsonData io.Reader, eventTypeIdentifier rangedb.EventTypeIdentifier) (interface{}, error) {
+	dataDecoder := json.NewDecoder(rawJsonData)
+	dataDecoder.UseNumber()
+
+	eventType, ok := eventTypeIdentifier.EventTypeLookup(eventTypeName)
+	if !ok {
+		var data interface{}
+		err := dataDecoder.Decode(&data)
+		if err != nil {
+			return nil, err
+		}
+
+		return data, nil
+	}
+
+	data := reflect.New(eventType).Interface()
+	err := dataDecoder.Decode(&data)
+	if err != nil {
+		return nil, err
+	}
+
+	return data, nil
 }
 
 func getType(object interface{}) reflect.Type {

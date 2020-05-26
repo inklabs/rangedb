@@ -2,6 +2,7 @@ package leveldbstore
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -12,7 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/inklabs/rangedb"
-	"github.com/inklabs/rangedb/pkg/paging"
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 	"github.com/inklabs/rangedb/rangedbtest"
 )
@@ -35,9 +35,10 @@ func Test_Private_AllEvents_FailsWhenLookupRecordIsMissing(t *testing.T) {
 	require.NoError(t, store.Save(event, nil))
 	err = store.db.Delete(getKeyWithNumber("thing!A!", 0), nil)
 	require.NoError(t, err)
+	ctx := context.Background()
 
 	// When
-	events := store.EventsStartingWith(0)
+	events := store.EventsStartingWith(ctx, 0)
 
 	// Then
 	require.Nil(t, <-events)
@@ -47,35 +48,10 @@ func Test_Private_AllEvents_FailsWhenLookupRecordIsMissing(t *testing.T) {
 func Test_Private_AllEvents_FailsWhenLookupRecordIsCorrupt(t *testing.T) {
 	// Given
 	logBuffer, store, _ := getStoreWithCorruptRecord(t)
+	ctx := context.Background()
 
 	// When
-	events := store.EventsStartingWith(0)
-
-	// Then
-	require.Nil(t, <-events)
-	assert.Equal(t, "failed to deserialize record: failed unmarshalling record: invalid character 'x' looking for beginning of value\n", logBuffer.String())
-}
-
-func Test_Private_EventsByStream_FailsWhenLookupRecordIsCorrupt(t *testing.T) {
-	// Given
-	logBuffer, store, event := getStoreWithCorruptRecord(t)
-	pagination := paging.NewPagination(1, 1)
-
-	// When
-	events := store.EventsByStream(pagination, rangedb.GetEventStream(event))
-
-	// Then
-	require.Nil(t, <-events)
-	assert.Equal(t, "failed to deserialize record: failed unmarshalling record: invalid character 'x' looking for beginning of value\n", logBuffer.String())
-}
-
-func Test_Private_EventsByAggregateType_FailsWhenLookupRecordIsCorrupt(t *testing.T) {
-	// Given
-	logBuffer, store, event := getStoreWithCorruptRecord(t)
-	pagination := paging.NewPagination(1, 1)
-
-	// When
-	events := store.EventsByAggregateType(pagination, event.AggregateType())
+	events := store.EventsStartingWith(ctx, 0)
 
 	// Then
 	require.Nil(t, <-events)

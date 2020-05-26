@@ -2,6 +2,7 @@ package leveldbstore
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
@@ -15,7 +16,6 @@ import (
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
 	"github.com/inklabs/rangedb/pkg/clock/provider/systemclock"
-	"github.com/inklabs/rangedb/pkg/paging"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
@@ -33,7 +33,7 @@ type levelDbStore struct {
 	subscriberMux sync.RWMutex
 	subscribers   []rangedb.RecordSubscriber
 
-	mux sync.Mutex
+	mux sync.RWMutex
 	db  *leveldb.DB
 }
 
@@ -86,33 +86,25 @@ func (s *levelDbStore) Bind(events ...rangedb.Event) {
 	s.serializer.Bind(events...)
 }
 
-func (s *levelDbStore) EventsStartingWith(eventNumber uint64) <-chan *rangedb.Record {
-	return s.getEventsByLookup(allEventsPrefix, eventNumber)
+func (s *levelDbStore) EventsStartingWith(ctx context.Context, eventNumber uint64) <-chan *rangedb.Record {
+	return s.getEventsByLookup(ctx, allEventsPrefix, eventNumber)
 }
 
-func (s *levelDbStore) EventsByAggregateType(pagination paging.Pagination, aggregateType string) <-chan *rangedb.Record {
-	return s.paginateEventsByLookup(pagination, getAggregateTypeKeyPrefix(aggregateType))
-}
-
-func (s *levelDbStore) EventsByAggregateTypesStartingWith(eventNumber uint64, aggregateTypes ...string) <-chan *rangedb.Record {
+func (s *levelDbStore) EventsByAggregateTypesStartingWith(ctx context.Context, eventNumber uint64, aggregateTypes ...string) <-chan *rangedb.Record {
 	if len(aggregateTypes) == 1 {
-		return s.getEventsByLookup(getAggregateTypeKeyPrefix(aggregateTypes[0]), eventNumber)
+		return s.getEventsByLookup(ctx, getAggregateTypeKeyPrefix(aggregateTypes[0]), eventNumber)
 	}
 
 	var channels []<-chan *rangedb.Record
 	for _, aggregateType := range aggregateTypes {
-		channels = append(channels, s.getEventsByLookup(getAggregateTypeKeyPrefix(aggregateType), 0))
+		channels = append(channels, s.getEventsByLookup(ctx, getAggregateTypeKeyPrefix(aggregateType), 0))
 	}
 
 	return rangedb.MergeRecordChannelsInOrder(channels, eventNumber)
 }
 
-func (s *levelDbStore) EventsByStream(pagination paging.Pagination, streamName string) <-chan *rangedb.Record {
-	return s.paginateEventsByPrefix(pagination, streamName)
-}
-
-func (s *levelDbStore) EventsByStreamStartingWith(stream string, eventNumber uint64) <-chan *rangedb.Record {
-	return s.getEventsByPrefixStartingWith(stream, eventNumber)
+func (s *levelDbStore) EventsByStreamStartingWith(ctx context.Context, eventNumber uint64, stream string) <-chan *rangedb.Record {
+	return s.getEventsByPrefixStartingWith(ctx, stream, eventNumber)
 }
 
 func (s *levelDbStore) Save(event rangedb.Event, metadata interface{}) error {
@@ -173,8 +165,8 @@ func (s *levelDbStore) SaveEvent(aggregateType, aggregateID, eventType, eventID 
 	return err
 }
 
-func (s *levelDbStore) SubscribeAndReplay(subscribers ...rangedb.RecordSubscriber) {
-	rangedb.ReplayEvents(s, subscribers...)
+func (s *levelDbStore) SubscribeStartingWith(eventNumber uint64, subscribers ...rangedb.RecordSubscriber) {
+	rangedb.ReplayEvents(s, eventNumber, subscribers...)
 
 	s.mux.Lock()
 	s.Subscribe(subscribers...)
@@ -201,10 +193,13 @@ func (s *levelDbStore) notifySubscribers(record *rangedb.Record) {
 	}
 }
 
-func (s *levelDbStore) getEventsByPrefixStartingWith(prefix string, eventNumber uint64) <-chan *rangedb.Record {
+func (s *levelDbStore) getEventsByPrefixStartingWith(ctx context.Context, prefix string, eventNumber uint64) <-chan *rangedb.Record {
 	records := make(chan *rangedb.Record)
+	s.mux.RLock()
 
 	go func() {
+		defer s.mux.RUnlock()
+
 		iter := s.db.NewIterator(util.BytesPrefix([]byte(prefix)), nil)
 		count := uint64(0)
 		for iter.Next() {
@@ -214,7 +209,11 @@ func (s *levelDbStore) getEventsByPrefixStartingWith(prefix string, eventNumber 
 					continue
 				}
 
-				records <- record
+				select {
+				case <-ctx.Done():
+					break
+				case records <- record:
+				}
 			}
 			count++
 		}
@@ -227,44 +226,13 @@ func (s *levelDbStore) getEventsByPrefixStartingWith(prefix string, eventNumber 
 	return records
 }
 
-func (s *levelDbStore) paginateEventsByPrefix(pagination paging.Pagination, prefix string) <-chan *rangedb.Record {
+func (s *levelDbStore) getEventsByLookup(ctx context.Context, key string, eventNumber uint64) <-chan *rangedb.Record {
 	records := make(chan *rangedb.Record)
+	s.mux.RLock()
 
 	go func() {
-		firstEventNumber := (pagination.Page - 1) * pagination.ItemsPerPage
-		count := 0
+		defer s.mux.RUnlock()
 
-		iter := s.db.NewIterator(util.BytesPrefix([]byte(prefix)), nil)
-		for iter.Next() {
-			count++
-			if count <= firstEventNumber {
-				continue
-			}
-
-			record, err := s.getRecordByValue(iter.Value())
-			if err != nil {
-				continue
-			}
-
-			records <- record
-
-			if count-firstEventNumber >= pagination.ItemsPerPage {
-				break
-			}
-		}
-		iter.Release()
-
-		_ = iter.Error()
-		close(records)
-	}()
-
-	return records
-}
-
-func (s *levelDbStore) getEventsByLookup(key string, eventNumber uint64) <-chan *rangedb.Record {
-	records := make(chan *rangedb.Record)
-
-	go func() {
 		iter := s.db.NewIterator(util.BytesPrefix([]byte(key)), nil)
 		count := uint64(0)
 		for iter.Next() {
@@ -276,13 +244,15 @@ func (s *levelDbStore) getEventsByLookup(key string, eventNumber uint64) <-chan 
 					continue
 				}
 
-				records <- record
+				select {
+				case <-ctx.Done():
+					break
+				case records <- record:
+				}
 			}
 			count++
 		}
 		iter.Release()
-
-		_ = iter.Error()
 		close(records)
 	}()
 
@@ -307,42 +277,6 @@ func (s *levelDbStore) getRecordByValue(value []byte) (*rangedb.Record, error) {
 	}
 
 	return record, nil
-}
-
-func (s *levelDbStore) paginateEventsByLookup(pagination paging.Pagination, key string) <-chan *rangedb.Record {
-	records := make(chan *rangedb.Record)
-
-	go func() {
-		firstEventNumber := (pagination.Page - 1) * pagination.ItemsPerPage
-		count := 0
-
-		iter := s.db.NewIterator(util.BytesPrefix([]byte(key)), nil)
-		for iter.Next() {
-			count++
-			if count <= firstEventNumber {
-				continue
-			}
-
-			targetKey := iter.Value()
-
-			record, err := s.getRecordByLookup(targetKey, iter)
-			if err != nil {
-				continue
-			}
-
-			records <- record
-
-			if count-firstEventNumber >= pagination.ItemsPerPage {
-				break
-			}
-		}
-		iter.Release()
-
-		_ = iter.Error()
-		close(records)
-	}()
-
-	return records
 }
 
 func getAggregateTypeKeyPrefix(aggregateType string) string {

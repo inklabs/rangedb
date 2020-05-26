@@ -1,6 +1,7 @@
 package inmemorystore
 
 import (
+	"context"
 	"io/ioutil"
 	"log"
 	"sync"
@@ -8,7 +9,6 @@ import (
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
 	"github.com/inklabs/rangedb/pkg/clock/provider/systemclock"
-	"github.com/inklabs/rangedb/pkg/paging"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
@@ -72,40 +72,32 @@ func (s *inMemoryStore) Bind(events ...rangedb.Event) {
 	s.serializer.Bind(events...)
 }
 
-func (s *inMemoryStore) EventsStartingWith(eventNumber uint64) <-chan *rangedb.Record {
+func (s *inMemoryStore) EventsStartingWith(ctx context.Context, eventNumber uint64) <-chan *rangedb.Record {
 	s.mux.RLock()
-	return s.recordsStartingWith(s.allRecords, eventNumber)
+	return s.recordsStartingWith(ctx, eventNumber, s.allRecords)
 }
 
-func (s *inMemoryStore) EventsByAggregateType(pagination paging.Pagination, aggregateType string) <-chan *rangedb.Record {
-	return s.paginateRecords(pagination, s.recordsByAggregateType[aggregateType])
-}
-
-func (s *inMemoryStore) EventsByAggregateTypesStartingWith(eventNumber uint64, aggregateTypes ...string) <-chan *rangedb.Record {
+func (s *inMemoryStore) EventsByAggregateTypesStartingWith(ctx context.Context, eventNumber uint64, aggregateTypes ...string) <-chan *rangedb.Record {
 	if len(aggregateTypes) == 1 {
 		s.mux.RLock()
-		return s.recordsStartingWith(s.recordsByAggregateType[aggregateTypes[0]], eventNumber)
+		return s.recordsStartingWith(ctx, eventNumber, s.recordsByAggregateType[aggregateTypes[0]])
 	}
 
 	var channels []<-chan *rangedb.Record
 	for _, aggregateType := range aggregateTypes {
 		s.mux.RLock()
-		channels = append(channels, s.recordsStartingWith(s.recordsByAggregateType[aggregateType], 0))
+		channels = append(channels, s.recordsStartingWith(ctx, 0, s.recordsByAggregateType[aggregateType]))
 	}
 
 	return rangedb.MergeRecordChannelsInOrder(channels, eventNumber)
 }
 
-func (s *inMemoryStore) EventsByStream(pagination paging.Pagination, streamName string) <-chan *rangedb.Record {
-	return s.paginateRecords(pagination, s.recordsByStream[streamName])
-}
-
-func (s *inMemoryStore) EventsByStreamStartingWith(stream string, eventNumber uint64) <-chan *rangedb.Record {
+func (s *inMemoryStore) EventsByStreamStartingWith(ctx context.Context, eventNumber uint64, stream string) <-chan *rangedb.Record {
 	s.mux.RLock()
-	return s.recordsStartingWith(s.recordsByStream[stream], eventNumber)
+	return s.recordsStartingWith(ctx, eventNumber, s.recordsByStream[stream])
 }
 
-func (s *inMemoryStore) recordsStartingWith(serializedRecords [][]byte, eventNumber uint64) <-chan *rangedb.Record {
+func (s *inMemoryStore) recordsStartingWith(ctx context.Context, eventNumber uint64, serializedRecords [][]byte) <-chan *rangedb.Record {
 	records := make(chan *rangedb.Record)
 
 	go func() {
@@ -120,43 +112,13 @@ func (s *inMemoryStore) recordsStartingWith(serializedRecords [][]byte, eventNum
 					continue
 				}
 
-				records <- record
+				select {
+				case <-ctx.Done():
+					break
+				case records <- record:
+				}
 			}
 			count++
-		}
-		close(records)
-	}()
-
-	return records
-}
-
-func (s *inMemoryStore) paginateRecords(pagination paging.Pagination, serializedRecords [][]byte) <-chan *rangedb.Record {
-	s.mux.RLock()
-
-	records := make(chan *rangedb.Record)
-
-	go func() {
-		defer s.mux.RUnlock()
-
-		firstEventNumber := (pagination.Page - 1) * pagination.ItemsPerPage
-		count := 0
-		for _, data := range serializedRecords {
-			count++
-			if count <= firstEventNumber {
-				continue
-			}
-
-			record, err := s.serializer.Deserialize(data)
-			if err != nil {
-				s.logger.Printf("failed to deserialize record: %v", err)
-				continue
-			}
-
-			records <- record
-
-			if count-firstEventNumber >= pagination.ItemsPerPage {
-				break
-			}
 		}
 		close(records)
 	}()
@@ -213,8 +175,8 @@ func (s *inMemoryStore) SaveEvent(aggregateType, aggregateID, eventType, eventID
 	return nil
 }
 
-func (s *inMemoryStore) SubscribeAndReplay(subscribers ...rangedb.RecordSubscriber) {
-	rangedb.ReplayEvents(s, subscribers...)
+func (s *inMemoryStore) SubscribeStartingWith(eventNumber uint64, subscribers ...rangedb.RecordSubscriber) {
+	rangedb.ReplayEvents(s, eventNumber, subscribers...)
 
 	s.mux.Lock()
 	s.Subscribe(subscribers...)

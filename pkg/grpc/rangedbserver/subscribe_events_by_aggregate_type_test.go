@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"sync"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
@@ -58,6 +59,9 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 	events, err := rangeDBClient.SubscribeToEventsByAggregateType(ctx, request)
 	PrintError(err)
 
+	var wg sync.WaitGroup
+	wg.Add(1)
+
 	go func() {
 		for i := 0; i < 2; i++ {
 			record, err := events.Recv()
@@ -69,6 +73,7 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 			fmt.Println(jsontools.PrettyJSON(body))
 		}
 		done()
+		wg.Done()
 	}()
 
 	// When
@@ -78,7 +83,7 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 		inMemoryStore.Save(rangedbtest.AnotherWasComplete{ID: "a3d9faa7614a46b388c6dce9984b6620"}, nil),
 	)
 
-	<-ctx.Done()
+	wg.Wait()
 
 	// Output:
 	// {

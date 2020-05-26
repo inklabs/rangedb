@@ -2,6 +2,7 @@ package leveldbstore_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log"
 	"os"
@@ -13,7 +14,6 @@ import (
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
-	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 	"github.com/inklabs/rangedb/provider/leveldbstore"
 	"github.com/inklabs/rangedb/rangedbtest"
 )
@@ -26,15 +26,13 @@ func Test_LevelDB_VerifyStoreInterface(t *testing.T) {
 			require.NoError(t, os.RemoveAll(dbPath))
 		})
 
-		serializer := jsonrecordserializer.New()
 		store, err := leveldbstore.New(dbPath,
 			leveldbstore.WithClock(clk),
-			leveldbstore.WithSerializer(serializer),
 		)
 		require.NoError(t, err)
 
 		return store
-	})
+	}, func() {})
 }
 
 func Test_Failures(t *testing.T) {
@@ -89,9 +87,10 @@ func Test_Failures(t *testing.T) {
 		event := rangedbtest.ThingWasDone{}
 		err = store.Save(event, nil)
 		require.NoError(t, err)
+		ctx := context.Background()
 
 		// When
-		events := store.EventsByStreamStartingWith(rangedb.GetEventStream(event), 0)
+		events := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event))
 
 		// Then
 		require.Nil(t, <-events)
