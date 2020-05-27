@@ -454,13 +454,11 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		<-countSubscriber2.ReceivedRecords
 
 		// When
-		var saveErr error
 		go func() {
-			saveErr = store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event2, nil)
+			_ = store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event2, nil)
 		}()
 		<-countSubscriber1.ReceivedRecords
 		<-countSubscriber2.ReceivedRecords
-		require.NoError(t, saveErr)
 
 		// Then
 		assert.Equal(t, 2, countSubscriber1.TotalEvents())
@@ -486,13 +484,11 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		<-countSubscriber2.ReceivedRecords
 
 		// When
-		var saveErr error
 		go func() {
-			saveErr = store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event2, nil)
+			_ = store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event2, nil)
 		}()
 		<-countSubscriber1.ReceivedRecords
 		<-countSubscriber2.ReceivedRecords
-		require.NoError(t, saveErr)
 
 		// Then
 		assert.Equal(t, 2, countSubscriber1.TotalEvents())
