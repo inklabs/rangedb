@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package rangedbpb;
 
+option go_package = ".;rangedbpb";
+
 service RangeDB {
   rpc Events(EventsRequest) returns (stream Record) {}
   rpc EventsByStream(EventsByStreamRequest) returns (stream Record) {}

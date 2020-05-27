@@ -114,10 +114,10 @@ func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 			Data:                 `{"id":"9bc181144cef4fd19da1f32a17363997"}`,
 			Metadata:             "null",
 		}
-		assert.Equal(t, expectedRecord1, <-actualRecords)
-		assert.Equal(t, expectedRecord2, <-actualRecords)
-		assert.Equal(t, expectedRecord3, <-actualRecords)
-		assert.Equal(t, expectedRecord4, <-actualRecords)
+		assertPbRecordsEqual(t, expectedRecord1, <-actualRecords)
+		assertPbRecordsEqual(t, expectedRecord2, <-actualRecords)
+		assertPbRecordsEqual(t, expectedRecord3, <-actualRecords)
+		assertPbRecordsEqual(t, expectedRecord4, <-actualRecords)
 		assert.Equal(t, (*rangedbpb.Record)(nil), <-actualRecords)
 	})
 }
@@ -191,8 +191,8 @@ func TestRangeDBServer_SubscribeToLiveEvents(t *testing.T) {
 			Data:                 `{"id":"5b36ae984b724685917b69ae47968be1"}`,
 			Metadata:             "null",
 		}
-		assert.Equal(t, expectedRecord1, <-actualRecords)
-		assert.Equal(t, expectedRecord2, <-actualRecords)
+		assertPbRecordsEqual(t, expectedRecord1, <-actualRecords)
+		assertPbRecordsEqual(t, expectedRecord2, <-actualRecords)
 		assert.Equal(t, (*rangedbpb.Record)(nil), <-actualRecords)
 	})
 }
@@ -282,9 +282,9 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 			Data:                 `{"id":"5b36ae984b724685917b69ae47968be1"}`,
 			Metadata:             "null",
 		}
-		assert.Equal(t, expectedRecord1, <-actualRecords)
-		assert.Equal(t, expectedRecord2, <-actualRecords)
-		assert.Equal(t, expectedRecord3, <-actualRecords)
+		assertPbRecordsEqual(t, expectedRecord1, <-actualRecords)
+		assertPbRecordsEqual(t, expectedRecord2, <-actualRecords)
+		assertPbRecordsEqual(t, expectedRecord3, <-actualRecords)
 		assert.Equal(t, (*rangedbpb.Record)(nil), <-actualRecords)
 	})
 }
@@ -378,9 +378,9 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 			Data:                 `{"id":"5b36ae984b724685917b69ae47968be1"}`,
 			Metadata:             "null",
 		}
-		assert.Equal(t, expectedRecord1, <-actualRecords)
-		assert.Equal(t, expectedRecord2, <-actualRecords)
-		assert.Equal(t, expectedRecord3, <-actualRecords)
+		assertPbRecordsEqual(t, expectedRecord1, <-actualRecords)
+		assertPbRecordsEqual(t, expectedRecord2, <-actualRecords)
+		assertPbRecordsEqual(t, expectedRecord3, <-actualRecords)
 		assert.Equal(t, (*rangedbpb.Record)(nil), <-actualRecords)
 	})
 }
@@ -586,4 +586,14 @@ func getClient(t *testing.T, store rangedb.Store) rangedbpb.RangeDBClient {
 	}()
 
 	return rangedbpb.NewRangeDBClient(conn)
+}
+
+func assertPbRecordsEqual(t *testing.T, expected, actual *rangedbpb.Record) {
+	expectedJson, err := json.Marshal(expected)
+	require.NoError(t, err)
+
+	actualJson, err := json.Marshal(actual)
+	require.NoError(t, err)
+
+	assert.JSONEq(t, string(expectedJson), string(actualJson))
 }
