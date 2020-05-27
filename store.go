@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-const Version = "0.3.0-dev"
+const Version = "0.3.0"
 
 // Record contains event data and metadata.
 type Record struct {
