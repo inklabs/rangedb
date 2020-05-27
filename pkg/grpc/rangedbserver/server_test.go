@@ -3,10 +3,10 @@ package rangedbserver_test
 import (
 	"context"
 	"encoding/json"
-	"io"
 	"log"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -59,56 +59,141 @@ func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 
 		// When
 		events, err := rangeDBClient.Events(ctx, eventsRequest)
+		require.NoError(t, err)
 
 		// Then
+		actualRecords := make(chan *rangedbpb.Record, 10)
+		for i := 0; i < 4; i++ {
+			record, err := events.Recv()
+			require.NoError(t, err)
+			actualRecords <- record
+		}
+		close(actualRecords)
+
+		expectedRecord1 := &rangedbpb.Record{
+			AggregateType:        "thing",
+			AggregateID:          "f187760f4d8c4d1c9d9cf17b66766abd",
+			GlobalSequenceNumber: 0,
+			StreamSequenceNumber: 0,
+			InsertTimestamp:      0,
+			EventID:              "d2ba8e70072943388203c438d4e94bf3",
+			EventType:            "ThingWasDone",
+			Data:                 `{"id":"f187760f4d8c4d1c9d9cf17b66766abd","number":100}`,
+			Metadata:             "null",
+		}
+		expectedRecord2 := &rangedbpb.Record{
+			AggregateType:        "thing",
+			AggregateID:          "f187760f4d8c4d1c9d9cf17b66766abd",
+			GlobalSequenceNumber: 1,
+			StreamSequenceNumber: 1,
+			InsertTimestamp:      1,
+			EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+			EventType:            "ThingWasDone",
+			Data:                 `{"id":"f187760f4d8c4d1c9d9cf17b66766abd","number":200}`,
+			Metadata:             "null",
+		}
+		expectedRecord3 := &rangedbpb.Record{
+			AggregateType:        "thing",
+			AggregateID:          "5b36ae984b724685917b69ae47968be1",
+			GlobalSequenceNumber: 2,
+			StreamSequenceNumber: 0,
+			InsertTimestamp:      2,
+			EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+			EventType:            "ThingWasDone",
+			Data:                 `{"id":"5b36ae984b724685917b69ae47968be1","number":300}`,
+			Metadata:             "null",
+		}
+		expectedRecord4 := &rangedbpb.Record{
+			AggregateType:        "another",
+			AggregateID:          "9bc181144cef4fd19da1f32a17363997",
+			GlobalSequenceNumber: 3,
+			StreamSequenceNumber: 0,
+			InsertTimestamp:      3,
+			EventID:              "5042958739514c948f776fc9f820bca0",
+			EventType:            "AnotherWasComplete",
+			Data:                 `{"id":"9bc181144cef4fd19da1f32a17363997"}`,
+			Metadata:             "null",
+		}
+		assert.Equal(t, expectedRecord1, <-actualRecords)
+		assert.Equal(t, expectedRecord2, <-actualRecords)
+		assert.Equal(t, expectedRecord3, <-actualRecords)
+		assert.Equal(t, expectedRecord4, <-actualRecords)
+		assert.Equal(t, (*rangedbpb.Record)(nil), <-actualRecords)
+	})
+}
+
+func TestRangeDBServer_SubscribeToLiveEvents(t *testing.T) {
+	t.Run("subscribes to real time events, ignoring previous events", func(t *testing.T) {
+		// Given
+		shortuuid.SetRand(100)
+		const aggregateID1 = "f187760f4d8c4d1c9d9cf17b66766abd"
+		const aggregateID2 = "5b36ae984b724685917b69ae47968be1"
+		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+		saveEvents(t, store,
+			rangedbtest.ThingWasDone{
+				ID:     aggregateID1,
+				Number: 100,
+			},
+			rangedbtest.ThingWasDone{
+				ID:     aggregateID1,
+				Number: 200,
+			},
+		)
+		rangeDBClient := getClient(t, store)
+		ctx, done := context.WithCancel(context.Background())
+		request := &rangedbpb.SubscribeToLiveEventsRequest{}
+
+		// When
+		events, err := rangeDBClient.SubscribeToLiveEvents(ctx, request)
 		require.NoError(t, err)
-		record1, err := events.Recv()
-		require.NoError(t, err)
-		assert.Equal(t, "thing", record1.AggregateType)
-		assert.Equal(t, "f187760f4d8c4d1c9d9cf17b66766abd", record1.AggregateID)
-		assert.Equal(t, 0, int(record1.GlobalSequenceNumber))
-		assert.Equal(t, 0, int(record1.StreamSequenceNumber))
-		assert.Equal(t, 0, int(record1.InsertTimestamp))
-		assert.Equal(t, "d2ba8e70072943388203c438d4e94bf3", record1.EventID)
-		assert.Equal(t, "ThingWasDone", record1.EventType)
-		assert.Equal(t, `{"id":"f187760f4d8c4d1c9d9cf17b66766abd","number":100}`, record1.Data)
-		assert.Equal(t, "null", record1.Metadata)
-		record2, err := events.Recv()
-		require.NoError(t, err)
-		assert.Equal(t, "thing", record2.AggregateType)
-		assert.Equal(t, "f187760f4d8c4d1c9d9cf17b66766abd", record2.AggregateID)
-		assert.Equal(t, 1, int(record2.GlobalSequenceNumber))
-		assert.Equal(t, 1, int(record2.StreamSequenceNumber))
-		assert.Equal(t, 1, int(record2.InsertTimestamp))
-		assert.Equal(t, "99cbd88bbcaf482ba1cc96ed12541707", record2.EventID)
-		assert.Equal(t, "ThingWasDone", record2.EventType)
-		assert.Equal(t, `{"id":"f187760f4d8c4d1c9d9cf17b66766abd","number":200}`, record2.Data)
-		assert.Equal(t, "null", record2.Metadata)
-		record3, err := events.Recv()
-		require.NoError(t, err)
-		assert.Equal(t, "thing", record3.AggregateType)
-		assert.Equal(t, "5b36ae984b724685917b69ae47968be1", record3.AggregateID)
-		assert.Equal(t, 2, int(record3.GlobalSequenceNumber))
-		assert.Equal(t, 0, int(record3.StreamSequenceNumber))
-		assert.Equal(t, 2, int(record3.InsertTimestamp))
-		assert.Equal(t, "2e9e6918af10498cb7349c89a351fdb7", record3.EventID)
-		assert.Equal(t, "ThingWasDone", record3.EventType)
-		assert.Equal(t, `{"id":"5b36ae984b724685917b69ae47968be1","number":300}`, record3.Data)
-		assert.Equal(t, "null", record3.Metadata)
-		record4, err := events.Recv()
-		require.NoError(t, err)
-		assert.Equal(t, "another", record4.AggregateType)
-		assert.Equal(t, "9bc181144cef4fd19da1f32a17363997", record4.AggregateID)
-		assert.Equal(t, 3, int(record4.GlobalSequenceNumber))
-		assert.Equal(t, 0, int(record4.StreamSequenceNumber))
-		assert.Equal(t, 3, int(record4.InsertTimestamp))
-		assert.Equal(t, "5042958739514c948f776fc9f820bca0", record4.EventID)
-		assert.Equal(t, "AnotherWasComplete", record4.EventType)
-		assert.Equal(t, `{"id":"9bc181144cef4fd19da1f32a17363997"}`, record4.Data)
-		assert.Equal(t, "null", record4.Metadata)
-		endRecord, err := events.Recv()
-		assert.Equal(t, io.EOF, err)
-		assert.Equal(t, (*rangedbpb.Record)(nil), endRecord)
+
+		// Then
+		time.Sleep(time.Millisecond * 5)
+		actualRecords := make(chan *rangedbpb.Record, 10)
+
+		saveEvents(t, store,
+			rangedbtest.ThingWasDone{
+				ID:     aggregateID1,
+				Number: 300,
+			},
+			rangedbtest.AnotherWasComplete{
+				ID: aggregateID2,
+			},
+		)
+
+		for i := 0; i < 2; i++ {
+			record, err := events.Recv()
+			require.NoError(t, err)
+			actualRecords <- record
+		}
+		done()
+		close(actualRecords)
+
+		expectedRecord1 := &rangedbpb.Record{
+			AggregateType:        "thing",
+			AggregateID:          "f187760f4d8c4d1c9d9cf17b66766abd",
+			GlobalSequenceNumber: 2,
+			StreamSequenceNumber: 2,
+			InsertTimestamp:      2,
+			EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+			EventType:            "ThingWasDone",
+			Data:                 `{"id":"f187760f4d8c4d1c9d9cf17b66766abd","number":300}`,
+			Metadata:             "null",
+		}
+		expectedRecord2 := &rangedbpb.Record{
+			AggregateType:        "another",
+			AggregateID:          "5b36ae984b724685917b69ae47968be1",
+			GlobalSequenceNumber: 3,
+			StreamSequenceNumber: 0,
+			InsertTimestamp:      3,
+			EventID:              "5042958739514c948f776fc9f820bca0",
+			EventType:            "AnotherWasComplete",
+			Data:                 `{"id":"5b36ae984b724685917b69ae47968be1"}`,
+			Metadata:             "null",
+		}
+		assert.Equal(t, expectedRecord1, <-actualRecords)
+		assert.Equal(t, expectedRecord2, <-actualRecords)
+		assert.Equal(t, (*rangedbpb.Record)(nil), <-actualRecords)
 	})
 }
 
@@ -134,19 +219,17 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 		request := &rangedbpb.SubscribeToEventsRequest{
 			StartingWithEventNumber: 1,
 		}
-		events, err := rangeDBClient.SubscribeToEvents(ctx, request)
-		require.NoError(t, err)
-		var actualRecords []*rangedbpb.Record
 
 		// When
-		go func() {
-			for i := 0; i < 3; i++ {
-				record, err := events.Recv()
-				require.NoError(t, err)
-				actualRecords = append(actualRecords, record)
-			}
-			done()
-		}()
+		events, err := rangeDBClient.SubscribeToEvents(ctx, request)
+		require.NoError(t, err)
+
+		// Then
+		actualRecords := make(chan *rangedbpb.Record, 10)
+
+		record, err := events.Recv()
+		require.NoError(t, err)
+		actualRecords <- record
 
 		saveEvents(t, store,
 			rangedbtest.ThingWasDone{
@@ -158,40 +241,51 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 			},
 		)
 
-		<-ctx.Done()
+		for i := 0; i < 2; i++ {
+			record, err := events.Recv()
+			require.NoError(t, err)
+			actualRecords <- record
+		}
+		done()
+		close(actualRecords)
 
-		// Then
-		require.Equal(t, 3, len(actualRecords))
-		record1 := actualRecords[0]
-		assert.Equal(t, "thing", record1.AggregateType)
-		assert.Equal(t, "f187760f4d8c4d1c9d9cf17b66766abd", record1.AggregateID)
-		assert.Equal(t, 1, int(record1.GlobalSequenceNumber))
-		assert.Equal(t, 1, int(record1.StreamSequenceNumber))
-		assert.Equal(t, 1, int(record1.InsertTimestamp))
-		assert.Equal(t, "99cbd88bbcaf482ba1cc96ed12541707", record1.EventID)
-		assert.Equal(t, "ThingWasDone", record1.EventType)
-		assert.Equal(t, `{"id":"f187760f4d8c4d1c9d9cf17b66766abd","number":200}`, record1.Data)
-		assert.Equal(t, "null", record1.Metadata)
-		record2 := actualRecords[1]
-		assert.Equal(t, "thing", record2.AggregateType)
-		assert.Equal(t, "f187760f4d8c4d1c9d9cf17b66766abd", record2.AggregateID)
-		assert.Equal(t, 2, int(record2.GlobalSequenceNumber))
-		assert.Equal(t, 2, int(record2.StreamSequenceNumber))
-		assert.Equal(t, 2, int(record2.InsertTimestamp))
-		assert.Equal(t, "2e9e6918af10498cb7349c89a351fdb7", record2.EventID)
-		assert.Equal(t, "ThingWasDone", record2.EventType)
-		assert.Equal(t, `{"id":"f187760f4d8c4d1c9d9cf17b66766abd","number":300}`, record2.Data)
-		assert.Equal(t, "null", record2.Metadata)
-		record3 := actualRecords[2]
-		assert.Equal(t, "another", record3.AggregateType)
-		assert.Equal(t, "5b36ae984b724685917b69ae47968be1", record3.AggregateID)
-		assert.Equal(t, 3, int(record3.GlobalSequenceNumber))
-		assert.Equal(t, 0, int(record3.StreamSequenceNumber))
-		assert.Equal(t, 3, int(record3.InsertTimestamp))
-		assert.Equal(t, "5042958739514c948f776fc9f820bca0", record3.EventID)
-		assert.Equal(t, "AnotherWasComplete", record3.EventType)
-		assert.Equal(t, `{"id":"5b36ae984b724685917b69ae47968be1"}`, record3.Data)
-		assert.Equal(t, "null", record3.Metadata)
+		expectedRecord1 := &rangedbpb.Record{
+			AggregateType:        "thing",
+			AggregateID:          "f187760f4d8c4d1c9d9cf17b66766abd",
+			GlobalSequenceNumber: 1,
+			StreamSequenceNumber: 1,
+			InsertTimestamp:      1,
+			EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+			EventType:            "ThingWasDone",
+			Data:                 `{"id":"f187760f4d8c4d1c9d9cf17b66766abd","number":200}`,
+			Metadata:             "null",
+		}
+		expectedRecord2 := &rangedbpb.Record{
+			AggregateType:        "thing",
+			AggregateID:          "f187760f4d8c4d1c9d9cf17b66766abd",
+			GlobalSequenceNumber: 2,
+			StreamSequenceNumber: 2,
+			InsertTimestamp:      2,
+			EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+			EventType:            "ThingWasDone",
+			Data:                 `{"id":"f187760f4d8c4d1c9d9cf17b66766abd","number":300}`,
+			Metadata:             "null",
+		}
+		expectedRecord3 := &rangedbpb.Record{
+			AggregateType:        "another",
+			AggregateID:          "5b36ae984b724685917b69ae47968be1",
+			GlobalSequenceNumber: 3,
+			StreamSequenceNumber: 0,
+			InsertTimestamp:      3,
+			EventID:              "5042958739514c948f776fc9f820bca0",
+			EventType:            "AnotherWasComplete",
+			Data:                 `{"id":"5b36ae984b724685917b69ae47968be1"}`,
+			Metadata:             "null",
+		}
+		assert.Equal(t, expectedRecord1, <-actualRecords)
+		assert.Equal(t, expectedRecord2, <-actualRecords)
+		assert.Equal(t, expectedRecord3, <-actualRecords)
+		assert.Equal(t, (*rangedbpb.Record)(nil), <-actualRecords)
 	})
 }
 
@@ -218,19 +312,17 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 			StartingWithEventNumber: 1,
 			AggregateTypes:          []string{"thing", "another"},
 		}
-		events, err := rangeDBClient.SubscribeToEventsByAggregateType(ctx, request)
-		require.NoError(t, err)
-		var actualRecords []*rangedbpb.Record
 
 		// When
-		go func() {
-			for i := 0; i < 3; i++ {
-				record, err := events.Recv()
-				require.NoError(t, err)
-				actualRecords = append(actualRecords, record)
-			}
-			done()
-		}()
+		events, err := rangeDBClient.SubscribeToEventsByAggregateType(ctx, request)
+		require.NoError(t, err)
+
+		// Then
+		actualRecords := make(chan *rangedbpb.Record, 10)
+
+		record, err := events.Recv()
+		require.NoError(t, err)
+		actualRecords <- record
 
 		saveEvents(t, store,
 			rangedbtest.ThingWasDone{
@@ -245,40 +337,51 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 			},
 		)
 
-		<-ctx.Done()
+		for i := 0; i < 2; i++ {
+			record, err := events.Recv()
+			require.NoError(t, err)
+			actualRecords <- record
+		}
+		done()
+		close(actualRecords)
 
-		// Then
-		require.Equal(t, 3, len(actualRecords))
-		record1 := actualRecords[0]
-		assert.Equal(t, "thing", record1.AggregateType)
-		assert.Equal(t, "f187760f4d8c4d1c9d9cf17b66766abd", record1.AggregateID)
-		assert.Equal(t, 1, int(record1.GlobalSequenceNumber))
-		assert.Equal(t, 1, int(record1.StreamSequenceNumber))
-		assert.Equal(t, 1, int(record1.InsertTimestamp))
-		assert.Equal(t, "99cbd88bbcaf482ba1cc96ed12541707", record1.EventID)
-		assert.Equal(t, "ThingWasDone", record1.EventType)
-		assert.Equal(t, `{"id":"f187760f4d8c4d1c9d9cf17b66766abd","number":200}`, record1.Data)
-		assert.Equal(t, "null", record1.Metadata)
-		record2 := actualRecords[1]
-		assert.Equal(t, "thing", record2.AggregateType)
-		assert.Equal(t, "f187760f4d8c4d1c9d9cf17b66766abd", record2.AggregateID)
-		assert.Equal(t, 2, int(record2.GlobalSequenceNumber))
-		assert.Equal(t, 2, int(record2.StreamSequenceNumber))
-		assert.Equal(t, 2, int(record2.InsertTimestamp))
-		assert.Equal(t, "2e9e6918af10498cb7349c89a351fdb7", record2.EventID)
-		assert.Equal(t, "ThingWasDone", record2.EventType)
-		assert.Equal(t, `{"id":"f187760f4d8c4d1c9d9cf17b66766abd","number":300}`, record2.Data)
-		assert.Equal(t, "null", record2.Metadata)
-		record3 := actualRecords[2]
-		assert.Equal(t, "another", record3.AggregateType)
-		assert.Equal(t, "5b36ae984b724685917b69ae47968be1", record3.AggregateID)
-		assert.Equal(t, 4, int(record3.GlobalSequenceNumber))
-		assert.Equal(t, 0, int(record3.StreamSequenceNumber))
-		assert.Equal(t, 4, int(record3.InsertTimestamp))
-		assert.Equal(t, "4059365d39ce4f0082f419ba1350d9c0", record3.EventID)
-		assert.Equal(t, "AnotherWasComplete", record3.EventType)
-		assert.Equal(t, `{"id":"5b36ae984b724685917b69ae47968be1"}`, record3.Data)
-		assert.Equal(t, "null", record3.Metadata)
+		expectedRecord1 := &rangedbpb.Record{
+			AggregateType:        "thing",
+			AggregateID:          "f187760f4d8c4d1c9d9cf17b66766abd",
+			GlobalSequenceNumber: 1,
+			StreamSequenceNumber: 1,
+			InsertTimestamp:      1,
+			EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+			EventType:            "ThingWasDone",
+			Data:                 `{"id":"f187760f4d8c4d1c9d9cf17b66766abd","number":200}`,
+			Metadata:             "null",
+		}
+		expectedRecord2 := &rangedbpb.Record{
+			AggregateType:        "thing",
+			AggregateID:          "f187760f4d8c4d1c9d9cf17b66766abd",
+			GlobalSequenceNumber: 2,
+			StreamSequenceNumber: 2,
+			InsertTimestamp:      2,
+			EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+			EventType:            "ThingWasDone",
+			Data:                 `{"id":"f187760f4d8c4d1c9d9cf17b66766abd","number":300}`,
+			Metadata:             "null",
+		}
+		expectedRecord3 := &rangedbpb.Record{
+			AggregateType:        "another",
+			AggregateID:          "5b36ae984b724685917b69ae47968be1",
+			GlobalSequenceNumber: 4,
+			StreamSequenceNumber: 0,
+			InsertTimestamp:      4,
+			EventID:              "4059365d39ce4f0082f419ba1350d9c0",
+			EventType:            "AnotherWasComplete",
+			Data:                 `{"id":"5b36ae984b724685917b69ae47968be1"}`,
+			Metadata:             "null",
+		}
+		assert.Equal(t, expectedRecord1, <-actualRecords)
+		assert.Equal(t, expectedRecord2, <-actualRecords)
+		assert.Equal(t, expectedRecord3, <-actualRecords)
+		assert.Equal(t, (*rangedbpb.Record)(nil), <-actualRecords)
 	})
 }
 
@@ -309,44 +412,42 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 
 		// When
 		response, err := rangeDBClient.SaveEvents(ctx, request)
+		require.NoError(t, err)
 
 		// Then
-		require.NoError(t, err)
 		assert.Equal(t, uint32(2), response.EventsSaved)
-		records := rangedb.ReadNRecords(10, func(ctx context.Context) <-chan *rangedb.Record {
-			return store.EventsStartingWith(ctx, 0)
-		})
-		require.Equal(t, 2, len(records))
-		assert.Equal(t, "thing", records[0].AggregateType)
-		assert.Equal(t, "b5ef2296339d4ad1887f1deb486f7821", records[0].AggregateID)
-		assert.Equal(t, uint64(0), records[0].GlobalSequenceNumber)
-		assert.Equal(t, uint64(0), records[0].StreamSequenceNumber)
-		assert.Equal(t, uint64(0), records[0].InsertTimestamp)
-		assert.Equal(t, "dea776d1a9104e389d0153e391717f26", records[0].EventID)
-		assert.Equal(t, "ThingWasDone", records[0].EventType)
-		assert.Equal(t,
-			map[string]interface{}{
+		actualRecords := store.EventsStartingWith(ctx, 0)
+		expectedRecord1 := &rangedb.Record{
+			AggregateType:        "thing",
+			AggregateID:          "b5ef2296339d4ad1887f1deb486f7821",
+			GlobalSequenceNumber: 0,
+			StreamSequenceNumber: 0,
+			InsertTimestamp:      0,
+			EventID:              "dea776d1a9104e389d0153e391717f26",
+			EventType:            "ThingWasDone",
+			Data: map[string]interface{}{
 				"id":     "141b39d2b9854f8093ef79dc47dae6af",
 				"number": json.Number("100"),
 			},
-			records[0].Data,
-		)
-		assert.Equal(t, nil, records[0].Metadata)
-		assert.Equal(t, "thing", records[1].AggregateType)
-		assert.Equal(t, "b5ef2296339d4ad1887f1deb486f7821", records[1].AggregateID)
-		assert.Equal(t, uint64(1), records[1].GlobalSequenceNumber)
-		assert.Equal(t, uint64(1), records[1].StreamSequenceNumber)
-		assert.Equal(t, uint64(1), records[1].InsertTimestamp)
-		assert.Equal(t, "96489f712adf44f3bd6ee4509d19d46c", records[1].EventID)
-		assert.Equal(t, "ThingWasDone", records[1].EventType)
-		assert.Equal(t,
-			map[string]interface{}{
+			Metadata: nil,
+		}
+		expectedRecord2 := &rangedb.Record{
+			AggregateType:        "thing",
+			AggregateID:          "b5ef2296339d4ad1887f1deb486f7821",
+			GlobalSequenceNumber: 1,
+			StreamSequenceNumber: 1,
+			InsertTimestamp:      1,
+			EventID:              "96489f712adf44f3bd6ee4509d19d46c",
+			EventType:            "ThingWasDone",
+			Data: map[string]interface{}{
 				"id":     "141b39d2b9854f8093ef79dc47dae6af",
 				"number": json.Number("200"),
 			},
-			records[1].Data,
-		)
-		assert.Equal(t, nil, records[1].Metadata)
+			Metadata: nil,
+		}
+		assert.Equal(t, expectedRecord1, <-actualRecords)
+		assert.Equal(t, expectedRecord2, <-actualRecords)
+		assert.Equal(t, (*rangedb.Record)(nil), <-actualRecords)
 	})
 
 	t.Run("saves 1 event and fails on 2nd from invalid event data", func(t *testing.T) {

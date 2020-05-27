@@ -165,10 +165,15 @@ func (s *levelDbStore) SaveEvent(aggregateType, aggregateID, eventType, eventID 
 	return err
 }
 
-func (s *levelDbStore) SubscribeStartingWith(eventNumber uint64, subscribers ...rangedb.RecordSubscriber) {
+func (s *levelDbStore) SubscribeStartingWith(ctx context.Context, eventNumber uint64, subscribers ...rangedb.RecordSubscriber) {
 	rangedb.ReplayEvents(s, eventNumber, subscribers...)
 
-	s.Subscribe(subscribers...)
+	select {
+	case <-ctx.Done():
+		return
+	default:
+		s.Subscribe(subscribers...)
+	}
 }
 
 func (s *levelDbStore) Subscribe(subscribers ...rangedb.RecordSubscriber) {

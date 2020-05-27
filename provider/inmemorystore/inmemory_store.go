@@ -175,10 +175,15 @@ func (s *inMemoryStore) SaveEvent(aggregateType, aggregateID, eventType, eventID
 	return nil
 }
 
-func (s *inMemoryStore) SubscribeStartingWith(eventNumber uint64, subscribers ...rangedb.RecordSubscriber) {
+func (s *inMemoryStore) SubscribeStartingWith(ctx context.Context, eventNumber uint64, subscribers ...rangedb.RecordSubscriber) {
 	rangedb.ReplayEvents(s, eventNumber, subscribers...)
 
-	s.Subscribe(subscribers...)
+	select {
+	case <-ctx.Done():
+		return
+	default:
+		s.Subscribe(subscribers...)
+	}
 }
 
 func (s *inMemoryStore) Subscribe(subscribers ...rangedb.RecordSubscriber) {

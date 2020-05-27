@@ -53,7 +53,11 @@ func New(options ...Option) *rangeDBServer {
 }
 
 func (s *rangeDBServer) initProjections() {
-	s.store.SubscribeStartingWith(0, rangedb.RecordSubscriberFunc(s.broadcastRecord))
+	s.store.SubscribeStartingWith(
+		context.Background(),
+		0,
+		rangedb.RecordSubscriberFunc(s.broadcastRecord),
+	)
 }
 
 func (s *rangeDBServer) Events(req *rangedbpb.EventsRequest, stream rangedbpb.RangeDB_EventsServer) error {
@@ -152,6 +156,14 @@ func (s *rangeDBServer) SaveEvents(_ context.Context, req *rangedbpb.SaveEventsR
 	return &rangedbpb.SaveEventResponse{
 		EventsSaved: eventsSaved,
 	}, nil
+}
+
+func (s *rangeDBServer) SubscribeToLiveEvents(_ *rangedbpb.SubscribeToLiveEventsRequest, stream rangedbpb.RangeDB_SubscribeToLiveEventsServer) error {
+	s.subscribeToAllEvents(stream, nil)
+	<-stream.Context().Done()
+	s.unsubscribeFromAllEvents(stream)
+
+	return nil
 }
 
 func (s *rangeDBServer) SubscribeToEvents(req *rangedbpb.SubscribeToEventsRequest, stream rangedbpb.RangeDB_SubscribeToEventsServer) error {

@@ -1,6 +1,7 @@
 package rangedbapi
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -82,7 +83,11 @@ func (a *api) initRoutes() {
 
 func (a *api) initProjections() {
 	a.projections.aggregateTypeStats = projection.NewAggregateTypeStats()
-	a.store.SubscribeStartingWith(0, a.projections.aggregateTypeStats)
+	a.store.SubscribeStartingWith(
+		context.Background(),
+		0,
+		a.projections.aggregateTypeStats,
+	)
 }
 
 func (a *api) ServeHTTP(w http.ResponseWriter, r *http.Request) {

@@ -449,18 +449,18 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		event2 := &ThingWasDone{ID: aggregateID, Number: 3}
 		countSubscriber1 := NewCountSubscriber()
 		countSubscriber2 := NewCountSubscriber()
-		go store.SubscribeStartingWith(0, countSubscriber1, countSubscriber2)
+		ctx := context.Background()
+		store.SubscribeStartingWith(ctx, 0, countSubscriber1, countSubscriber2)
 		<-countSubscriber1.ReceivedRecords
 		<-countSubscriber2.ReceivedRecords
 
 		// When
-		go func() {
-			_ = store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event2, nil)
-		}()
-		<-countSubscriber1.ReceivedRecords
-		<-countSubscriber2.ReceivedRecords
+		err := store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event2, nil)
+		require.NoError(t, err)
 
 		// Then
+		<-countSubscriber1.ReceivedRecords
+		<-countSubscriber2.ReceivedRecords
 		assert.Equal(t, 2, countSubscriber1.TotalEvents())
 		assert.Equal(t, 5, countSubscriber1.TotalThingWasDone())
 		assert.Equal(t, 2, countSubscriber2.TotalEvents())
@@ -479,22 +479,51 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		event2 := ThingWasDone{ID: aggregateID, Number: 3}
 		countSubscriber1 := NewCountSubscriber()
 		countSubscriber2 := NewCountSubscriber()
-		go store.SubscribeStartingWith(0, countSubscriber1, countSubscriber2)
+		ctx := context.Background()
+		store.SubscribeStartingWith(ctx, 0, countSubscriber1, countSubscriber2)
 		<-countSubscriber1.ReceivedRecords
 		<-countSubscriber2.ReceivedRecords
 
 		// When
-		go func() {
-			_ = store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event2, nil)
-		}()
-		<-countSubscriber1.ReceivedRecords
-		<-countSubscriber2.ReceivedRecords
+		err := store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event2, nil)
+		require.NoError(t, err)
 
 		// Then
+		<-countSubscriber1.ReceivedRecords
+		<-countSubscriber2.ReceivedRecords
 		assert.Equal(t, 2, countSubscriber1.TotalEvents())
 		assert.Equal(t, 5, countSubscriber1.TotalThingWasDone())
 		assert.Equal(t, 2, countSubscriber2.TotalEvents())
 		assert.Equal(t, 5, countSubscriber2.TotalThingWasDone())
+	})
+
+	t.Run("SubscribeStartingWith stops before subscribing", func(t *testing.T) {
+		// Given
+		shortuuid.SetRand(100)
+		const aggregateType = "thing"
+		const aggregateID = "95eb3409cf6e4d909d41cca0c70ec812"
+		store := newStore(t, sequentialclock.New())
+		store.Bind(ThingWasDone{})
+		event1 := ThingWasDone{ID: aggregateID, Number: 2}
+		require.NoError(t, store.Save(event1, nil))
+		event2 := ThingWasDone{ID: aggregateID, Number: 3}
+		countSubscriber1 := NewCountSubscriber()
+		countSubscriber2 := NewCountSubscriber()
+		ctx, done := context.WithCancel(context.Background())
+		done()
+		store.SubscribeStartingWith(ctx, 0, countSubscriber1, countSubscriber2)
+
+		// When
+		err := store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event2, nil)
+		require.NoError(t, err)
+
+		// Then
+		<-countSubscriber1.ReceivedRecords
+		<-countSubscriber2.ReceivedRecords
+		assert.Equal(t, 1, countSubscriber1.TotalEvents())
+		assert.Equal(t, 2, countSubscriber1.TotalThingWasDone())
+		assert.Equal(t, 1, countSubscriber2.TotalEvents())
+		assert.Equal(t, 2, countSubscriber2.TotalThingWasDone())
 	})
 
 	t.Run("Subscriber dispatches command that results in saving another event", func(t *testing.T) {
@@ -505,18 +534,16 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		store.Bind(ThingWasDone{}, AnotherWasComplete{})
 		event := ThingWasDone{ID: aggregateID, Number: 2}
 		triggerProcessManager := newTriggerProcessManager(store.Save)
-		store.SubscribeStartingWith(0, triggerProcessManager)
+		ctx := context.Background()
+		store.SubscribeStartingWith(ctx, 0, triggerProcessManager)
 
 		// When
-		go func() {
-			err := store.Save(event, nil)
-			require.NoError(t, err)
-		}()
-		<-triggerProcessManager.ReceivedRecords
+		err := store.Save(event, nil)
+		require.NoError(t, err)
 
 		// Then
-		ctx := context.Background()
-		actualRecords := store.EventsStartingWith(ctx, 0)
+		<-triggerProcessManager.ReceivedRecords
+		actualRecords := store.EventsStartingWith(context.Background(), 0)
 		expectedRecord1 := &rangedb.Record{
 			AggregateType:        "thing",
 			AggregateID:          aggregateID,
@@ -608,7 +635,7 @@ type countSubscriber struct {
 
 func NewCountSubscriber() *countSubscriber {
 	return &countSubscriber{
-		ReceivedRecords: make(chan *rangedb.Record),
+		ReceivedRecords: make(chan *rangedb.Record, 10),
 	}
 }
 
@@ -648,7 +675,7 @@ type triggerProcessManager struct {
 func newTriggerProcessManager(eventSaver EventSaver) *triggerProcessManager {
 	return &triggerProcessManager{
 		eventSaver:      eventSaver,
-		ReceivedRecords: make(chan *rangedb.Record),
+		ReceivedRecords: make(chan *rangedb.Record, 10),
 	}
 }
 

@@ -32,7 +32,7 @@ type Store interface {
 	EventsByStreamStartingWith(ctx context.Context, eventNumber uint64, streamName string) <-chan *Record
 	Save(event Event, metadata interface{}) error
 	SaveEvent(aggregateType, aggregateID, eventType, eventID string, event, metadata interface{}) error
-	SubscribeStartingWith(eventNumber uint64, subscribers ...RecordSubscriber)
+	SubscribeStartingWith(ctx context.Context, eventNumber uint64, subscribers ...RecordSubscriber)
 	TotalEventsInStream(streamName string) uint64
 }
 

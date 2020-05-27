@@ -55,30 +55,26 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 		AggregateTypes:          []string{"thing", "another"},
 	}
 
+	// When
 	events, err := rangeDBClient.SubscribeToEventsByAggregateType(ctx, request)
 	PrintError(err)
 
-	go func() {
-		for i := 0; i < 2; i++ {
-			record, err := events.Recv()
-			PrintError(err)
-
-			body, err := json.Marshal(record)
-			PrintError(err)
-
-			fmt.Println(jsontools.PrettyJSON(body))
-		}
-		done()
-	}()
-
-	// When
 	PrintError(
 		inMemoryStore.Save(rangedbtest.ThingWasDone{ID: "52e247a7c0a54a65906e006dac9be108", Number: 100}, nil),
 		inMemoryStore.Save(rangedbtest.ThatWasDone{ID: "de33dd02222f443b86861a9fb4574ce9"}, nil),
 		inMemoryStore.Save(rangedbtest.AnotherWasComplete{ID: "a3d9faa7614a46b388c6dce9984b6620"}, nil),
 	)
 
-	<-ctx.Done()
+	for i := 0; i < 2; i++ {
+		record, err := events.Recv()
+		PrintError(err)
+
+		body, err := json.Marshal(record)
+		PrintError(err)
+
+		fmt.Println(jsontools.PrettyJSON(body))
+	}
+	done()
 
 	// Output:
 	// {

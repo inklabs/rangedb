@@ -40,54 +40,54 @@ func New(conn *grpc.ClientConn) *remoteStore {
 	}
 }
 
-func (r *remoteStore) Bind(events ...rangedb.Event) {
-	r.serializer.Bind(events...)
+func (s *remoteStore) Bind(events ...rangedb.Event) {
+	s.serializer.Bind(events...)
 }
 
-func (r *remoteStore) EventsStartingWith(ctx context.Context, eventNumber uint64) <-chan *rangedb.Record {
+func (s *remoteStore) EventsStartingWith(ctx context.Context, eventNumber uint64) <-chan *rangedb.Record {
 	request := &rangedbpb.EventsRequest{
 		StartingWithEventNumber: eventNumber,
 	}
 
-	events, err := r.client.Events(context.Background(), request)
+	events, err := s.client.Events(ctx, request)
 	if err != nil {
 		return closedChannel()
 	}
 
-	return r.readRecords(ctx, events)
+	return s.readRecords(ctx, events)
 }
 
-func (r *remoteStore) EventsByAggregateTypesStartingWith(ctx context.Context, eventNumber uint64, aggregateTypes ...string) <-chan *rangedb.Record {
+func (s *remoteStore) EventsByAggregateTypesStartingWith(ctx context.Context, eventNumber uint64, aggregateTypes ...string) <-chan *rangedb.Record {
 	request := &rangedbpb.EventsByAggregateTypeRequest{
 		AggregateTypes:          aggregateTypes,
 		StartingWithEventNumber: eventNumber,
 	}
 
-	events, err := r.client.EventsByAggregateType(ctx, request)
+	events, err := s.client.EventsByAggregateType(ctx, request)
 	if err != nil {
 		return closedChannel()
 	}
 
-	return r.readRecords(ctx, events)
+	return s.readRecords(ctx, events)
 
 }
 
-func (r *remoteStore) EventsByStreamStartingWith(ctx context.Context, eventNumber uint64, streamName string) <-chan *rangedb.Record {
+func (s *remoteStore) EventsByStreamStartingWith(ctx context.Context, eventNumber uint64, streamName string) <-chan *rangedb.Record {
 	request := &rangedbpb.EventsByStreamRequest{
 		StreamName:              streamName,
 		StartingWithEventNumber: eventNumber,
 	}
 
-	events, err := r.client.EventsByStream(ctx, request)
+	events, err := s.client.EventsByStream(ctx, request)
 	if err != nil {
 		return closedChannel()
 	}
 
-	return r.readRecords(ctx, events)
+	return s.readRecords(ctx, events)
 }
 
-func (r *remoteStore) Save(event rangedb.Event, metadata interface{}) error {
-	return r.SaveEvent(
+func (s *remoteStore) Save(event rangedb.Event, metadata interface{}) error {
+	return s.SaveEvent(
 		event.AggregateType(),
 		event.AggregateID(),
 		event.EventType(),
@@ -97,7 +97,7 @@ func (r *remoteStore) Save(event rangedb.Event, metadata interface{}) error {
 	)
 }
 
-func (r *remoteStore) SaveEvent(aggregateType, aggregateID, eventType, eventID string, event, metadata interface{}) error {
+func (s *remoteStore) SaveEvent(aggregateType, aggregateID, eventType, eventID string, event, metadata interface{}) error {
 	jsonData, err := json.Marshal(event)
 	if err != nil {
 		return err
@@ -121,7 +121,7 @@ func (r *remoteStore) SaveEvent(aggregateType, aggregateID, eventType, eventID s
 		},
 	}
 
-	_, err = r.client.SaveEvents(context.Background(), request)
+	_, err = s.client.SaveEvents(context.Background(), request)
 	if err != nil {
 		return err
 	}
@@ -129,47 +129,23 @@ func (r *remoteStore) SaveEvent(aggregateType, aggregateID, eventType, eventID s
 	return nil
 }
 
-func (r *remoteStore) SubscribeStartingWith(eventNumber uint64, subscribers ...rangedb.RecordSubscriber) {
-	r.subscriberMux.Lock()
-	startSubscription := false
-	if len(r.subscribers) == 0 {
-		startSubscription = true
-	}
+func (s *remoteStore) SubscribeStartingWith(ctx context.Context, eventNumber uint64, subscribers ...rangedb.RecordSubscriber) {
+	rangedb.ReplayEvents(s, eventNumber, subscribers...)
 
-	for _, subscriber := range subscribers {
-		r.subscribers = append(r.subscribers, subscriber)
-	}
-	r.subscriberMux.Unlock()
-
-	if startSubscription {
-		go func() {
-			request := &rangedbpb.SubscribeToEventsRequest{
-				StartingWithEventNumber: eventNumber,
-			}
-
-			events, err := r.client.SubscribeToEvents(context.Background(), request)
-			if err != nil {
-				log.Printf("failed to subscribe: %v", err)
-				return
-			}
-
-			for record := range r.readRecords(context.Background(), events) {
-				r.subscriberMux.RLock()
-				for _, subscriber := range r.subscribers {
-					subscriber.Accept(record)
-				}
-				r.subscriberMux.RUnlock()
-			}
-		}()
+	select {
+	case <-ctx.Done():
+		return
+	default:
+		s.Subscribe(subscribers...)
 	}
 }
 
-func (r *remoteStore) TotalEventsInStream(streamName string) uint64 {
+func (s *remoteStore) TotalEventsInStream(streamName string) uint64 {
 	request := &rangedbpb.TotalEventsInStreamRequest{
 		StreamName: streamName,
 	}
 
-	response, err := r.client.TotalEventsInStream(context.Background(), request)
+	response, err := s.client.TotalEventsInStream(context.Background(), request)
 	if err != nil {
 		return 0
 	}
@@ -177,7 +153,7 @@ func (r *remoteStore) TotalEventsInStream(streamName string) uint64 {
 	return response.TotalEvents
 }
 
-func (r *remoteStore) readRecords(ctx context.Context, events PbRecordReceiver) <-chan *rangedb.Record {
+func (s *remoteStore) readRecords(ctx context.Context, events PbRecordReceiver) <-chan *rangedb.Record {
 	records := make(chan *rangedb.Record)
 
 	go func() {
@@ -191,7 +167,7 @@ func (r *remoteStore) readRecords(ctx context.Context, events PbRecordReceiver) 
 				break
 			}
 
-			record, err := rangedbpb.ToRecord(pbRecord, r.serializer)
+			record, err := rangedbpb.ToRecord(pbRecord, s.serializer)
 			if err != nil {
 				log.Printf("failed converting to record: %v", err)
 				continue
@@ -208,6 +184,36 @@ func (r *remoteStore) readRecords(ctx context.Context, events PbRecordReceiver) 
 	}()
 
 	return records
+}
+
+func (s *remoteStore) Subscribe(subscribers ...rangedb.RecordSubscriber) {
+	s.subscriberMux.Lock()
+	if len(s.subscribers) == 0 {
+		s.listenForEvents()
+	}
+	s.subscribers = append(s.subscribers, subscribers...)
+	s.subscriberMux.Unlock()
+}
+
+func (s *remoteStore) listenForEvents() {
+	request := &rangedbpb.SubscribeToLiveEventsRequest{}
+
+	ctx := context.Background()
+	events, err := s.client.SubscribeToLiveEvents(ctx, request)
+	if err != nil {
+		log.Printf("failed to subscribe: %v", err)
+		return
+	}
+
+	go func() {
+		for record := range s.readRecords(ctx, events) {
+			s.subscriberMux.RLock()
+			for _, subscriber := range s.subscribers {
+				subscriber.Accept(record)
+			}
+			s.subscriberMux.RUnlock()
+		}
+	}()
 }
 
 func closedChannel() <-chan *rangedb.Record {

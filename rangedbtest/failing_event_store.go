@@ -37,7 +37,8 @@ func (f failingEventStore) SaveEvent(_, _, _, _ string, _, _ interface{}) error 
 
 func (f failingEventStore) Subscribe(_ ...rangedb.RecordSubscriber) {}
 
-func (f failingEventStore) SubscribeStartingWith(_ uint64, _ ...rangedb.RecordSubscriber) {}
+func (f failingEventStore) SubscribeStartingWith(_ context.Context, _ uint64, _ ...rangedb.RecordSubscriber) {
+}
 
 func (f failingEventStore) TotalEventsInStream(_ string) uint64 {
 	return 0
