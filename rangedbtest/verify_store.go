@@ -3,7 +3,6 @@ package rangedbtest
 import (
 	"context"
 	"fmt"
-	"log"
 	"math/rand"
 	"sync"
 	"testing"
@@ -455,14 +454,13 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		<-countSubscriber2.ReceivedRecords
 
 		// When
+		var saveErr error
 		go func() {
-			log.Println("saving")
-			err := store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event2, nil)
-			require.NoError(t, err)
-			log.Println("save done")
+			saveErr = store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event2, nil)
 		}()
 		<-countSubscriber1.ReceivedRecords
 		<-countSubscriber2.ReceivedRecords
+		require.NoError(t, saveErr)
 
 		// Then
 		assert.Equal(t, 2, countSubscriber1.TotalEvents())
@@ -488,12 +486,13 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		<-countSubscriber2.ReceivedRecords
 
 		// When
+		var saveErr error
 		go func() {
-			err := store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event2, nil)
-			require.NoError(t, err)
+			saveErr = store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event2, nil)
 		}()
 		<-countSubscriber1.ReceivedRecords
 		<-countSubscriber2.ReceivedRecords
+		require.NoError(t, saveErr)
 
 		// Then
 		assert.Equal(t, 2, countSubscriber1.TotalEvents())
