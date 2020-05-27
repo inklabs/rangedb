@@ -178,16 +178,13 @@ func (s *inMemoryStore) SaveEvent(aggregateType, aggregateID, eventType, eventID
 func (s *inMemoryStore) SubscribeStartingWith(eventNumber uint64, subscribers ...rangedb.RecordSubscriber) {
 	rangedb.ReplayEvents(s, eventNumber, subscribers...)
 
-	s.mux.Lock()
 	s.Subscribe(subscribers...)
-	defer s.mux.Unlock()
 }
 
 func (s *inMemoryStore) Subscribe(subscribers ...rangedb.RecordSubscriber) {
 	s.subscriberMux.Lock()
-	defer s.subscriberMux.Unlock()
-
 	s.subscribers = append(s.subscribers, subscribers...)
+	s.subscriberMux.Unlock()
 }
 
 func (s *inMemoryStore) TotalEventsInStream(streamName string) uint64 {
@@ -196,9 +193,10 @@ func (s *inMemoryStore) TotalEventsInStream(streamName string) uint64 {
 
 func (s *inMemoryStore) notifySubscribers(record *rangedb.Record) {
 	s.subscriberMux.RLock()
-	defer s.subscriberMux.RUnlock()
 
 	for _, subscriber := range s.subscribers {
 		subscriber.Accept(record)
 	}
+
+	s.subscriberMux.RUnlock()
 }

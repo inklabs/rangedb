@@ -22,7 +22,7 @@ func Test_InMemory_VerifyStoreInterface(t *testing.T) {
 		)
 
 		return store
-	}, func() {})
+	})
 }
 
 func Test_Failures(t *testing.T) {

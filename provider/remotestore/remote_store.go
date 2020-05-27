@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"log"
 	"sync"
 
 	"google.golang.org/grpc"
@@ -27,8 +28,8 @@ type remoteStore struct {
 	serializer JsonSerializer
 	client     rangedbpb.RangeDBClient
 
-	sync        sync.RWMutex
-	subscribers []rangedb.RecordSubscriber
+	subscriberMux sync.RWMutex
+	subscribers   []rangedb.RecordSubscriber
 }
 
 func New(conn *grpc.ClientConn) *remoteStore {
@@ -129,7 +130,7 @@ func (r *remoteStore) SaveEvent(aggregateType, aggregateID, eventType, eventID s
 }
 
 func (r *remoteStore) SubscribeStartingWith(eventNumber uint64, subscribers ...rangedb.RecordSubscriber) {
-	r.sync.Lock()
+	r.subscriberMux.Lock()
 	startSubscription := false
 	if len(r.subscribers) == 0 {
 		startSubscription = true
@@ -138,7 +139,7 @@ func (r *remoteStore) SubscribeStartingWith(eventNumber uint64, subscribers ...r
 	for _, subscriber := range subscribers {
 		r.subscribers = append(r.subscribers, subscriber)
 	}
-	r.sync.Unlock()
+	r.subscriberMux.Unlock()
 
 	if startSubscription {
 		go func() {
@@ -148,16 +149,16 @@ func (r *remoteStore) SubscribeStartingWith(eventNumber uint64, subscribers ...r
 
 			events, err := r.client.SubscribeToEvents(context.Background(), request)
 			if err != nil {
-				//r.logger.Printf("failed to subscribe: %v", err)
+				log.Printf("failed to subscribe: %v", err)
 				return
 			}
 
 			for record := range r.readRecords(context.Background(), events) {
-				r.sync.RLock()
+				r.subscriberMux.RLock()
 				for _, subscriber := range r.subscribers {
 					subscriber.Accept(record)
 				}
-				r.sync.RUnlock()
+				r.subscriberMux.RUnlock()
 			}
 		}()
 	}
@@ -186,13 +187,13 @@ func (r *remoteStore) readRecords(ctx context.Context, events PbRecordReceiver) 
 				break
 			}
 			if err != nil {
-				//r.logger.Printf("failed to get record: %v", err)
+				log.Printf("failed to get record: %v", err)
 				break
 			}
 
 			record, err := rangedbpb.ToRecord(pbRecord, r.serializer)
 			if err != nil {
-				//r.logger.Printf("failed converting to record: %v", err)
+				log.Printf("failed converting to record: %v", err)
 				continue
 			}
 

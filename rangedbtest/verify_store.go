@@ -3,6 +3,7 @@ package rangedbtest
 import (
 	"context"
 	"fmt"
+	"log"
 	"math/rand"
 	"sync"
 	"testing"
@@ -18,7 +19,7 @@ import (
 )
 
 // VerifyStore verifies the Store interface.
-func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) rangedb.Store, delay func()) {
+func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) rangedb.Store) {
 	t.Helper()
 
 	t.Run("get events by stream", func(t *testing.T) {
@@ -35,13 +36,9 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		ctx := context.Background()
 
 		// When
-		eventsChannel := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(eventA1))
+		records := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(eventA1))
 
 		// Then
-		actualRecord1 := <-eventsChannel
-		actualRecord2 := <-eventsChannel
-		finalRecord := <-eventsChannel
-
 		expectedRecord1 := &rangedb.Record{
 			AggregateType:        "thing",
 			AggregateID:          "A",
@@ -64,9 +61,9 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			Data:                 eventA2,
 			Metadata:             nil,
 		}
-		assert.Equal(t, expectedRecord1, actualRecord1)
-		assert.Equal(t, expectedRecord2, actualRecord2)
-		assert.Equal(t, (*rangedb.Record)(nil), finalRecord)
+		assert.Equal(t, expectedRecord1, <-records)
+		assert.Equal(t, expectedRecord2, <-records)
+		assert.Equal(t, (*rangedb.Record)(nil), <-records)
 	})
 
 	t.Run("get events by stream, ordered by sequence number lexicographically", func(t *testing.T) {
@@ -85,14 +82,14 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		ctx := context.Background()
 
 		// When
-		eventsChannel := store.EventsByStreamStartingWith(ctx, 0, "thing!A")
+		records := store.EventsByStreamStartingWith(ctx, 0, "thing!A")
 
 		// Then
-		actualRecords := recordChannelToRecordsSlice(eventsChannel)
-		require.Equal(t, len(events), len(actualRecords))
-		for i, actualRecord := range actualRecords {
-			assert.Equal(t, events[i], actualRecord.Data)
+		for _, event := range events {
+			actualRecord := <-records
+			assert.Equal(t, event, actualRecord.Data)
 		}
+		assert.Equal(t, (*rangedb.Record)(nil), <-records)
 	})
 
 	t.Run("get all events ordered by global sequence number", func(t *testing.T) {
@@ -111,57 +108,58 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		ctx := context.Background()
 
 		// When
-		eventsChannel := store.EventsStartingWith(ctx, 0)
+		records := store.EventsStartingWith(ctx, 0)
 
 		// Then
-		expectedRecords := []*rangedb.Record{
-			{
-				AggregateType:        "thing",
-				AggregateID:          "A",
-				GlobalSequenceNumber: 0,
-				StreamSequenceNumber: 0,
-				EventType:            "ThingWasDone",
-				EventID:              "d2ba8e70072943388203c438d4e94bf3",
-				InsertTimestamp:      0,
-				Data:                 thingWasDoneA0,
-				Metadata:             nil,
-			},
-			{
-				AggregateType:        "thing",
-				AggregateID:          "B",
-				GlobalSequenceNumber: 1,
-				StreamSequenceNumber: 0,
-				EventType:            "ThingWasDone",
-				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
-				InsertTimestamp:      1,
-				Data:                 thingWasDoneB0,
-				Metadata:             nil,
-			},
-			{
-				AggregateType:        "thing",
-				AggregateID:          "A",
-				GlobalSequenceNumber: 2,
-				StreamSequenceNumber: 1,
-				EventType:            "ThingWasDone",
-				EventID:              "2e9e6918af10498cb7349c89a351fdb7",
-				InsertTimestamp:      2,
-				Data:                 thingWasDoneA1,
-				Metadata:             nil,
-			},
-			{
-				AggregateType:        "another",
-				AggregateID:          "X",
-				GlobalSequenceNumber: 3,
-				StreamSequenceNumber: 0,
-				EventType:            "AnotherWasComplete",
-				EventID:              "5042958739514c948f776fc9f820bca0",
-				InsertTimestamp:      3,
-				Data:                 AnotherWasCompleteX0,
-				Metadata:             nil,
-			},
+		expectedRecord1 := &rangedb.Record{
+			AggregateType:        "thing",
+			AggregateID:          "A",
+			GlobalSequenceNumber: 0,
+			StreamSequenceNumber: 0,
+			EventType:            "ThingWasDone",
+			EventID:              "d2ba8e70072943388203c438d4e94bf3",
+			InsertTimestamp:      0,
+			Data:                 thingWasDoneA0,
+			Metadata:             nil,
 		}
-		actualRecords := recordChannelToRecordsSlice(eventsChannel)
-		require.Equal(t, expectedRecords, actualRecords)
+		expectedRecord2 := &rangedb.Record{
+			AggregateType:        "thing",
+			AggregateID:          "B",
+			GlobalSequenceNumber: 1,
+			StreamSequenceNumber: 0,
+			EventType:            "ThingWasDone",
+			EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+			InsertTimestamp:      1,
+			Data:                 thingWasDoneB0,
+			Metadata:             nil,
+		}
+		expectedRecord3 := &rangedb.Record{
+			AggregateType:        "thing",
+			AggregateID:          "A",
+			GlobalSequenceNumber: 2,
+			StreamSequenceNumber: 1,
+			EventType:            "ThingWasDone",
+			EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+			InsertTimestamp:      2,
+			Data:                 thingWasDoneA1,
+			Metadata:             nil,
+		}
+		expectedRecord4 := &rangedb.Record{
+			AggregateType:        "another",
+			AggregateID:          "X",
+			GlobalSequenceNumber: 3,
+			StreamSequenceNumber: 0,
+			EventType:            "AnotherWasComplete",
+			EventID:              "5042958739514c948f776fc9f820bca0",
+			InsertTimestamp:      3,
+			Data:                 AnotherWasCompleteX0,
+			Metadata:             nil,
+		}
+		assert.Equal(t, expectedRecord1, <-records)
+		assert.Equal(t, expectedRecord2, <-records)
+		assert.Equal(t, expectedRecord3, <-records)
+		assert.Equal(t, expectedRecord4, <-records)
+		assert.Equal(t, (*rangedb.Record)(nil), <-records)
 	})
 
 	t.Run("get all events starting with second entry", func(t *testing.T) {
@@ -176,12 +174,9 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		ctx := context.Background()
 
 		// When
-		eventsChannel := store.EventsStartingWith(ctx, 1)
+		records := store.EventsStartingWith(ctx, 1)
 
 		// Then
-		actualRecord := <-eventsChannel
-		finalRecord := <-eventsChannel
-
 		expectedRecord := &rangedb.Record{
 			AggregateType:        "thing",
 			AggregateID:          "A",
@@ -193,8 +188,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			Data:                 event2,
 			Metadata:             nil,
 		}
-		assert.Equal(t, expectedRecord, actualRecord)
-		assert.Equal(t, (*rangedb.Record)(nil), finalRecord)
+		assert.Equal(t, expectedRecord, <-records)
+		assert.Equal(t, (*rangedb.Record)(nil), <-records)
 	})
 
 	t.Run("get all events starting with second entry, stops from context.Done", func(t *testing.T) {
@@ -211,15 +206,13 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		require.NoError(t, store.Save(event3, nil))
 		require.NoError(t, store.Save(event4, nil))
 		ctx, done := context.WithCancel(context.Background())
-		eventsChannel := store.EventsStartingWith(ctx, 1)
+		records := store.EventsStartingWith(ctx, 1)
 
 		// When
-		actualRecord := <-eventsChannel
+		actualRecord := <-records
 		done()
 
-		for len(eventsChannel) > 0 {
-			<-eventsChannel
-		}
+		drainRecordChannel(records)
 
 		// Then
 		expectedRecord := &rangedb.Record{
@@ -250,24 +243,22 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		ctx := context.Background()
 
 		// When
-		eventsChannel := store.EventsByStreamStartingWith(ctx, 1, rangedb.GetEventStream(eventA1))
+		records := store.EventsByStreamStartingWith(ctx, 1, rangedb.GetEventStream(eventA1))
 
 		// Then
-		expectedRecords := []*rangedb.Record{
-			{
-				AggregateType:        "thing",
-				AggregateID:          "A",
-				GlobalSequenceNumber: 1,
-				StreamSequenceNumber: 1,
-				EventType:            "ThingWasDone",
-				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
-				InsertTimestamp:      1,
-				Data:                 eventA2,
-				Metadata:             nil,
-			},
+		expectedRecord := &rangedb.Record{
+			AggregateType:        "thing",
+			AggregateID:          "A",
+			GlobalSequenceNumber: 1,
+			StreamSequenceNumber: 1,
+			EventType:            "ThingWasDone",
+			EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+			InsertTimestamp:      1,
+			Data:                 eventA2,
+			Metadata:             nil,
 		}
-		actualRecords := recordChannelToRecordsSlice(eventsChannel)
-		assert.Equal(t, expectedRecords, actualRecords)
+		assert.Equal(t, expectedRecord, <-records)
+		assert.Equal(t, (*rangedb.Record)(nil), <-records)
 	})
 
 	t.Run("get events by stream starting with second entry, stops from context.Done", func(t *testing.T) {
@@ -287,15 +278,13 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		require.NoError(t, store.Save(eventB, nil))
 		ctx := context.Background()
 		ctx, done := context.WithCancel(context.Background())
-		eventsChannel := store.EventsByStreamStartingWith(ctx, 1, rangedb.GetEventStream(eventA1))
+		records := store.EventsByStreamStartingWith(ctx, 1, rangedb.GetEventStream(eventA1))
 
 		// When
-		actualRecord := <-eventsChannel
+		actualRecord := <-records
 		done()
 
-		for len(eventsChannel) > 0 {
-			<-eventsChannel
-		}
+		drainRecordChannel(records)
 
 		// Then
 		expectedRecord := &rangedb.Record{
@@ -327,45 +316,46 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		ctx := context.Background()
 
 		// When
-		eventsChannel := store.EventsByAggregateTypesStartingWith(ctx, 0, eventA1.AggregateType())
+		records := store.EventsByAggregateTypesStartingWith(ctx, 0, eventA1.AggregateType())
 
 		// Then
-		expectedRecords := []*rangedb.Record{
-			{
-				AggregateType:        "thing",
-				AggregateID:          "A",
-				GlobalSequenceNumber: 0,
-				StreamSequenceNumber: 0,
-				EventType:            "ThingWasDone",
-				EventID:              "d2ba8e70072943388203c438d4e94bf3",
-				InsertTimestamp:      0,
-				Data:                 eventA1,
-				Metadata:             nil,
-			},
-			{
-				AggregateType:        "thing",
-				AggregateID:          "A",
-				GlobalSequenceNumber: 1,
-				StreamSequenceNumber: 1,
-				EventType:            "ThingWasDone",
-				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
-				InsertTimestamp:      1,
-				Data:                 eventA2,
-				Metadata:             nil,
-			},
-			{
-				AggregateType:        "thing",
-				AggregateID:          "B",
-				GlobalSequenceNumber: 2,
-				StreamSequenceNumber: 0,
-				EventType:            "ThingWasDone",
-				EventID:              "2e9e6918af10498cb7349c89a351fdb7",
-				InsertTimestamp:      2,
-				Data:                 eventB,
-				Metadata:             nil,
-			},
+		expectedRecord1 := &rangedb.Record{
+			AggregateType:        "thing",
+			AggregateID:          "A",
+			GlobalSequenceNumber: 0,
+			StreamSequenceNumber: 0,
+			EventType:            "ThingWasDone",
+			EventID:              "d2ba8e70072943388203c438d4e94bf3",
+			InsertTimestamp:      0,
+			Data:                 eventA1,
+			Metadata:             nil,
 		}
-		assert.Equal(t, expectedRecords, recordChannelToRecordsSlice(eventsChannel))
+		expectedRecord2 := &rangedb.Record{
+			AggregateType:        "thing",
+			AggregateID:          "A",
+			GlobalSequenceNumber: 1,
+			StreamSequenceNumber: 1,
+			EventType:            "ThingWasDone",
+			EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+			InsertTimestamp:      1,
+			Data:                 eventA2,
+			Metadata:             nil,
+		}
+		expectedRecord3 := &rangedb.Record{
+			AggregateType:        "thing",
+			AggregateID:          "B",
+			GlobalSequenceNumber: 2,
+			StreamSequenceNumber: 0,
+			EventType:            "ThingWasDone",
+			EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+			InsertTimestamp:      2,
+			Data:                 eventB,
+			Metadata:             nil,
+		}
+		assert.Equal(t, expectedRecord1, <-records)
+		assert.Equal(t, expectedRecord2, <-records)
+		assert.Equal(t, expectedRecord3, <-records)
+		assert.Equal(t, (*rangedb.Record)(nil), <-records)
 	})
 
 	t.Run("get events by aggregate types starting with second entry", func(t *testing.T) {
@@ -382,7 +372,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		ctx := context.Background()
 
 		// When
-		eventsChannel := store.EventsByAggregateTypesStartingWith(
+		records := store.EventsByAggregateTypesStartingWith(
 			ctx,
 			1,
 			eventA1.AggregateType(),
@@ -390,31 +380,31 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		)
 
 		// Then
-		expectedRecords := []*rangedb.Record{
-			{
-				AggregateType:        "thing",
-				AggregateID:          "A",
-				GlobalSequenceNumber: 1,
-				StreamSequenceNumber: 1,
-				EventType:            "ThingWasDone",
-				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
-				InsertTimestamp:      1,
-				Data:                 eventA2,
-				Metadata:             nil,
-			},
-			{
-				AggregateType:        "another",
-				AggregateID:          "B",
-				GlobalSequenceNumber: 2,
-				StreamSequenceNumber: 0,
-				EventType:            "AnotherWasComplete",
-				EventID:              "2e9e6918af10498cb7349c89a351fdb7",
-				InsertTimestamp:      2,
-				Data:                 eventB,
-				Metadata:             nil,
-			},
+		expectedRecord1 := &rangedb.Record{
+			AggregateType:        "thing",
+			AggregateID:          "A",
+			GlobalSequenceNumber: 1,
+			StreamSequenceNumber: 1,
+			EventType:            "ThingWasDone",
+			EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+			InsertTimestamp:      1,
+			Data:                 eventA2,
+			Metadata:             nil,
 		}
-		assert.Equal(t, expectedRecords, recordChannelToRecordsSlice(eventsChannel))
+		expectedRecord2 := &rangedb.Record{
+			AggregateType:        "another",
+			AggregateID:          "B",
+			GlobalSequenceNumber: 2,
+			StreamSequenceNumber: 0,
+			EventType:            "AnotherWasComplete",
+			EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+			InsertTimestamp:      2,
+			Data:                 eventB,
+			Metadata:             nil,
+		}
+		assert.Equal(t, expectedRecord1, <-records)
+		assert.Equal(t, expectedRecord2, <-records)
+		assert.Equal(t, (*rangedb.Record)(nil), <-records)
 	})
 
 	t.Run("SaveEvent generates eventID if empty", func(t *testing.T) {
@@ -432,26 +422,23 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		// Then
 		require.NoError(t, err)
 		ctx := context.Background()
-		eventsChannel := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event))
-		expectedRecords := []*rangedb.Record{
-			{
-				AggregateType:        aggregateType,
-				AggregateID:          aggregateID,
-				GlobalSequenceNumber: 0,
-				StreamSequenceNumber: 0,
-				EventType:            "ThingWasDone",
-				EventID:              "d2ba8e70072943388203c438d4e94bf3",
-				InsertTimestamp:      0,
-				Data:                 event,
-				Metadata:             nil,
-			},
+		records := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event))
+		expectedRecord := &rangedb.Record{
+			AggregateType:        aggregateType,
+			AggregateID:          aggregateID,
+			GlobalSequenceNumber: 0,
+			StreamSequenceNumber: 0,
+			EventType:            "ThingWasDone",
+			EventID:              "d2ba8e70072943388203c438d4e94bf3",
+			InsertTimestamp:      0,
+			Data:                 event,
+			Metadata:             nil,
 		}
-		actualRecords := recordChannelToRecordsSlice(eventsChannel)
-		require.Equal(t, expectedRecords, actualRecords)
-		assert.Equal(t, event, actualRecords[0].Data)
+		assert.Equal(t, expectedRecord, <-records)
+		assert.Equal(t, (*rangedb.Record)(nil), <-records)
 	})
 
-	t.Run("SubscribeAndReplay sends previous and new events to subscribers on save, by pointer", func(t *testing.T) {
+	t.Run("SubscribeStartingWith sends previous and new events to subscribers on save, by pointer", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
 		const aggregateType = "thing"
@@ -463,22 +450,28 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		event2 := &ThingWasDone{ID: aggregateID, Number: 3}
 		countSubscriber1 := NewCountSubscriber()
 		countSubscriber2 := NewCountSubscriber()
-		store.SubscribeStartingWith(0, countSubscriber1, countSubscriber2)
-		delay()
+		go store.SubscribeStartingWith(0, countSubscriber1, countSubscriber2)
+		<-countSubscriber1.ReceivedRecords
+		<-countSubscriber2.ReceivedRecords
 
 		// When
-		err := store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event2, nil)
+		go func() {
+			log.Println("saving")
+			err := store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event2, nil)
+			require.NoError(t, err)
+			log.Println("save done")
+		}()
+		<-countSubscriber1.ReceivedRecords
+		<-countSubscriber2.ReceivedRecords
 
 		// Then
-		require.NoError(t, err)
-		delay()
 		assert.Equal(t, 2, countSubscriber1.TotalEvents())
 		assert.Equal(t, 5, countSubscriber1.TotalThingWasDone())
 		assert.Equal(t, 2, countSubscriber2.TotalEvents())
 		assert.Equal(t, 5, countSubscriber2.TotalThingWasDone())
 	})
 
-	t.Run("SubscribeAndReplay sends previous and new events to subscribers on save, by value", func(t *testing.T) {
+	t.Run("SubscribeStartingWith sends previous and new events to subscribers on save, by value", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
 		const aggregateType = "thing"
@@ -490,15 +483,19 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		event2 := ThingWasDone{ID: aggregateID, Number: 3}
 		countSubscriber1 := NewCountSubscriber()
 		countSubscriber2 := NewCountSubscriber()
-		store.SubscribeStartingWith(0, countSubscriber1, countSubscriber2)
-		delay()
+		go store.SubscribeStartingWith(0, countSubscriber1, countSubscriber2)
+		<-countSubscriber1.ReceivedRecords
+		<-countSubscriber2.ReceivedRecords
 
 		// When
-		err := store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event2, nil)
+		go func() {
+			err := store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event2, nil)
+			require.NoError(t, err)
+		}()
+		<-countSubscriber1.ReceivedRecords
+		<-countSubscriber2.ReceivedRecords
 
 		// Then
-		require.NoError(t, err)
-		delay()
 		assert.Equal(t, 2, countSubscriber1.TotalEvents())
 		assert.Equal(t, 5, countSubscriber1.TotalThingWasDone())
 		assert.Equal(t, 2, countSubscriber2.TotalEvents())
@@ -514,46 +511,44 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		event := ThingWasDone{ID: aggregateID, Number: 2}
 		triggerProcessManager := newTriggerProcessManager(store.Save)
 		store.SubscribeStartingWith(0, triggerProcessManager)
-		delay()
 
 		// When
-		err := store.Save(event, nil)
+		go func() {
+			err := store.Save(event, nil)
+			require.NoError(t, err)
+		}()
+		<-triggerProcessManager.ReceivedRecords
 
 		// Then
-		require.NoError(t, err)
-		delay()
 		ctx := context.Background()
-		eventsChannel := store.EventsStartingWith(ctx, 0)
-		actualRecords := recordChannelToRecordsSlice(eventsChannel)
-		expectedRecords := []*rangedb.Record{
-			{
-				AggregateType:        "thing",
-				AggregateID:          aggregateID,
-				GlobalSequenceNumber: 0,
-				StreamSequenceNumber: 0,
-				EventType:            "ThingWasDone",
-				EventID:              "d2ba8e70072943388203c438d4e94bf3",
-				InsertTimestamp:      0,
-				Data:                 &event,
-				Metadata:             nil,
-			},
-			{
-				AggregateType:        "another",
-				AggregateID:          "2",
-				GlobalSequenceNumber: 1,
-				StreamSequenceNumber: 0,
-				EventType:            "AnotherWasComplete",
-				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
-				InsertTimestamp:      1,
-				Data: &AnotherWasComplete{
-					ID: "2",
-				},
-				Metadata: nil,
-			},
+		actualRecords := store.EventsStartingWith(ctx, 0)
+		expectedRecord1 := &rangedb.Record{
+			AggregateType:        "thing",
+			AggregateID:          aggregateID,
+			GlobalSequenceNumber: 0,
+			StreamSequenceNumber: 0,
+			EventType:            "ThingWasDone",
+			EventID:              "d2ba8e70072943388203c438d4e94bf3",
+			InsertTimestamp:      0,
+			Data:                 &event,
+			Metadata:             nil,
 		}
-		require.Equal(t, expectedRecords, actualRecords)
-		assert.IsType(t, &ThingWasDone{}, actualRecords[0].Data)
-		assert.IsType(t, &AnotherWasComplete{}, actualRecords[1].Data)
+		expectedRecord2 := &rangedb.Record{
+			AggregateType:        "another",
+			AggregateID:          "2",
+			GlobalSequenceNumber: 1,
+			StreamSequenceNumber: 0,
+			EventType:            "AnotherWasComplete",
+			EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+			InsertTimestamp:      1,
+			Data: &AnotherWasComplete{
+				ID: "2",
+			},
+			Metadata: nil,
+		}
+		assert.Equal(t, expectedRecord1, <-actualRecords)
+		assert.Equal(t, expectedRecord2, <-actualRecords)
+		assert.Equal(t, (*rangedb.Record)(nil), <-actualRecords)
 	})
 
 	t.Run("save event by value and get event by pointer from store", func(t *testing.T) {
@@ -566,25 +561,22 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		ctx := context.Background()
 
 		// When
-		eventsChannel := store.EventsStartingWith(ctx, 0)
+		records := store.EventsStartingWith(ctx, 0)
 
 		// Then
-		expectedRecords := []*rangedb.Record{
-			{
-				AggregateType:        "thing",
-				AggregateID:          "A",
-				GlobalSequenceNumber: 0,
-				StreamSequenceNumber: 0,
-				EventType:            "ThingWasDone",
-				EventID:              "d2ba8e70072943388203c438d4e94bf3",
-				InsertTimestamp:      0,
-				Data:                 &event,
-				Metadata:             nil,
-			},
+		expectedRecord := &rangedb.Record{
+			AggregateType:        "thing",
+			AggregateID:          "A",
+			GlobalSequenceNumber: 0,
+			StreamSequenceNumber: 0,
+			EventType:            "ThingWasDone",
+			EventID:              "d2ba8e70072943388203c438d4e94bf3",
+			InsertTimestamp:      0,
+			Data:                 &event,
+			Metadata:             nil,
 		}
-		actualRecords := recordChannelToRecordsSlice(eventsChannel)
-		assert.Equal(t, expectedRecords, actualRecords)
-		assert.IsType(t, &ThingWasDone{}, actualRecords[0].Data)
+		assert.Equal(t, expectedRecord, <-records)
+		assert.Equal(t, (*rangedb.Record)(nil), <-records)
 	})
 
 	t.Run("get total events in stream", func(t *testing.T) {
@@ -605,36 +597,36 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 	})
 }
 
-func recordChannelToRecordsSlice(records <-chan *rangedb.Record) []*rangedb.Record {
-	var events []*rangedb.Record
-
-	for record := range records {
-		events = append(events, record)
+func drainRecordChannel(eventsChannel <-chan *rangedb.Record) {
+	for len(eventsChannel) > 0 {
+		<-eventsChannel
 	}
-
-	return events
 }
 
 type countSubscriber struct {
+	ReceivedRecords chan *rangedb.Record
+
 	sync              sync.RWMutex
 	totalEvents       int
 	totalThingWasDone int
 }
 
 func NewCountSubscriber() *countSubscriber {
-	return &countSubscriber{}
+	return &countSubscriber{
+		ReceivedRecords: make(chan *rangedb.Record),
+	}
 }
 
 func (c *countSubscriber) Accept(record *rangedb.Record) {
 	c.sync.Lock()
-	defer c.sync.Unlock()
-
 	c.totalEvents++
 
 	event, ok := record.Data.(*ThingWasDone)
 	if ok {
 		c.totalThingWasDone += event.Number
 	}
+	c.sync.Unlock()
+	c.ReceivedRecords <- record
 }
 
 func (c *countSubscriber) TotalEvents() int {
@@ -654,12 +646,14 @@ func (c *countSubscriber) TotalThingWasDone() int {
 type EventSaver func(event rangedb.Event, metadata interface{}) error
 
 type triggerProcessManager struct {
-	eventSaver EventSaver
+	eventSaver      EventSaver
+	ReceivedRecords chan *rangedb.Record
 }
 
 func newTriggerProcessManager(eventSaver EventSaver) *triggerProcessManager {
 	return &triggerProcessManager{
-		eventSaver: eventSaver,
+		eventSaver:      eventSaver,
+		ReceivedRecords: make(chan *rangedb.Record),
 	}
 }
 
@@ -670,4 +664,5 @@ func (t *triggerProcessManager) Accept(record *rangedb.Record) {
 			ID: fmt.Sprintf("%d", event.Number),
 		}, nil)
 	}
+	t.ReceivedRecords <- record
 }

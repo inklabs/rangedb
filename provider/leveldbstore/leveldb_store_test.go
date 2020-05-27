@@ -19,8 +19,11 @@ import (
 )
 
 func Test_LevelDB_VerifyStoreInterface(t *testing.T) {
+	cnt := 0
 	rangedbtest.VerifyStore(t, func(t *testing.T, clk clock.Clock) rangedb.Store {
-		dbPath := filepath.Join(os.TempDir(), fmt.Sprintf("testevents-%d", os.Getuid()))
+		cnt++
+		dbPath := filepath.Join(os.TempDir(), fmt.Sprintf("testevents-%d", cnt))
+		require.NoError(t, os.RemoveAll(dbPath))
 
 		t.Cleanup(func() {
 			require.NoError(t, os.RemoveAll(dbPath))
@@ -32,7 +35,7 @@ func Test_LevelDB_VerifyStoreInterface(t *testing.T) {
 		require.NoError(t, err)
 
 		return store
-	}, func() {})
+	})
 }
 
 func Test_Failures(t *testing.T) {

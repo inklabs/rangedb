@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"sync"
 
 	"google.golang.org/grpc/codes"
@@ -18,8 +19,8 @@ type rangeDBServer struct {
 	store rangedb.Store
 
 	sync                     sync.RWMutex
-	allEventConnections      map[PbRecordSender]struct{}
-	aggregateTypeConnections map[string]map[PbRecordSender]uint64
+	allEventConnections      map[PbRecordSender]*uint64
+	aggregateTypeConnections map[string]map[PbRecordSender]*uint64
 
 	broadcastMutex sync.Mutex
 }
@@ -38,8 +39,8 @@ func WithStore(store rangedb.Store) Option {
 func New(options ...Option) *rangeDBServer {
 	server := &rangeDBServer{
 		store:                    inmemorystore.New(),
-		allEventConnections:      make(map[PbRecordSender]struct{}),
-		aggregateTypeConnections: make(map[string]map[PbRecordSender]uint64),
+		allEventConnections:      make(map[PbRecordSender]*uint64),
+		aggregateTypeConnections: make(map[string]map[PbRecordSender]*uint64),
 	}
 
 	for _, option := range options {
@@ -155,6 +156,7 @@ func (s *rangeDBServer) SaveEvents(_ context.Context, req *rangedbpb.SaveEventsR
 
 func (s *rangeDBServer) SubscribeToEvents(req *rangedbpb.SubscribeToEventsRequest, stream rangedbpb.RangeDB_SubscribeToEventsServer) error {
 	s.broadcastMutex.Lock()
+	var latestGlobalSequenceNumber *uint64
 	for record := range s.store.EventsStartingWith(stream.Context(), req.StartingWithEventNumber) {
 		pbRecord, err := rangedbpb.ToPbRecord(record)
 		if err != nil {
@@ -165,9 +167,10 @@ func (s *rangeDBServer) SubscribeToEvents(req *rangedbpb.SubscribeToEventsReques
 		if err != nil {
 			return err
 		}
+		latestGlobalSequenceNumber = &record.GlobalSequenceNumber
 	}
 
-	s.subscribeToAllEvents(stream)
+	s.subscribeToAllEvents(stream, latestGlobalSequenceNumber)
 	s.broadcastMutex.Unlock()
 
 	<-stream.Context().Done()
@@ -176,9 +179,9 @@ func (s *rangeDBServer) SubscribeToEvents(req *rangedbpb.SubscribeToEventsReques
 	return nil
 }
 
-func (s *rangeDBServer) subscribeToAllEvents(stream rangedbpb.RangeDB_SubscribeToEventsServer) {
+func (s *rangeDBServer) subscribeToAllEvents(stream rangedbpb.RangeDB_SubscribeToEventsServer, latestGlobalSequenceNumber *uint64) {
 	s.sync.Lock()
-	s.allEventConnections[stream] = struct{}{}
+	s.allEventConnections[stream] = latestGlobalSequenceNumber
 	s.sync.Unlock()
 }
 
@@ -190,7 +193,7 @@ func (s *rangeDBServer) unsubscribeFromAllEvents(stream rangedbpb.RangeDB_Subscr
 
 func (s *rangeDBServer) SubscribeToEventsByAggregateType(req *rangedbpb.SubscribeToEventsByAggregateTypeRequest, stream rangedbpb.RangeDB_SubscribeToEventsByAggregateTypeServer) error {
 	s.broadcastMutex.Lock()
-	latestGlobalSequenceNumber := uint64(0)
+	var latestGlobalSequenceNumber *uint64
 	for record := range s.store.EventsByAggregateTypesStartingWith(stream.Context(), req.StartingWithEventNumber, req.AggregateTypes...) {
 		pbRecord, err := rangedbpb.ToPbRecord(record)
 		if err != nil {
@@ -201,7 +204,7 @@ func (s *rangeDBServer) SubscribeToEventsByAggregateType(req *rangedbpb.Subscrib
 		if err != nil {
 			return err
 		}
-		latestGlobalSequenceNumber = record.GlobalSequenceNumber
+		latestGlobalSequenceNumber = &record.GlobalSequenceNumber
 	}
 
 	s.subscribeToAggregateTypes(stream, req.AggregateTypes, latestGlobalSequenceNumber)
@@ -220,12 +223,12 @@ func (s *rangeDBServer) TotalEventsInStream(_ context.Context, request *rangedbp
 	}, nil
 }
 
-func (s *rangeDBServer) subscribeToAggregateTypes(stream rangedbpb.RangeDB_SubscribeToEventsByAggregateTypeServer, aggregateTypes []string, latestGlobalSequenceNumber uint64) {
+func (s *rangeDBServer) subscribeToAggregateTypes(stream rangedbpb.RangeDB_SubscribeToEventsByAggregateTypeServer, aggregateTypes []string, latestGlobalSequenceNumber *uint64) {
 	s.sync.Lock()
 
 	for _, aggregateType := range aggregateTypes {
 		if _, ok := s.aggregateTypeConnections[aggregateType]; !ok {
-			s.aggregateTypeConnections[aggregateType] = make(map[PbRecordSender]uint64)
+			s.aggregateTypeConnections[aggregateType] = make(map[PbRecordSender]*uint64)
 		}
 
 		s.aggregateTypeConnections[aggregateType][stream] = latestGlobalSequenceNumber
@@ -246,42 +249,45 @@ func (s *rangeDBServer) unsubscribeFromAggregateTypes(stream rangedbpb.RangeDB_S
 
 func (s *rangeDBServer) broadcastRecord(record *rangedb.Record) {
 	s.broadcastMutex.Lock()
-	go func() {
-		defer s.broadcastMutex.Unlock()
+	defer s.broadcastMutex.Unlock()
 
-		pbRecord, err := rangedbpb.ToPbRecord(record)
+	pbRecord, err := rangedbpb.ToPbRecord(record)
+	if err != nil {
+		//s.logger.Printf("unable to marshal record: %v", err)
+		return
+	}
+
+	s.sync.RLock()
+
+	for connection, latestGlobalSequenceNumber := range s.allEventConnections {
+		if latestGlobalSequenceNumber != nil && pbRecord.GlobalSequenceNumber <= *latestGlobalSequenceNumber {
+			continue
+		}
+
+		err := connection.Send(pbRecord)
 		if err != nil {
-			//s.logger.Printf("unable to marshal record: %v", err)
-			return
+			log.Printf("unable to send record to gRPC client: %v", err)
+		}
+	}
+
+	for aggregateType, connections := range s.aggregateTypeConnections {
+		if record.AggregateType != aggregateType {
+			continue
 		}
 
-		s.sync.RLock()
-		defer s.sync.RUnlock()
-
-		for connection := range s.allEventConnections {
-			err := connection.Send(pbRecord)
-			if err != nil {
-				//s.logger.Printf("unable to send record to gRPC client: %v", err)
-			}
-		}
-
-		for aggregateType, connections := range s.aggregateTypeConnections {
-			if record.AggregateType != aggregateType {
+		for connection, latestGlobalSequenceNumber := range connections {
+			if latestGlobalSequenceNumber != nil && pbRecord.GlobalSequenceNumber <= *latestGlobalSequenceNumber {
 				continue
 			}
 
-			for connection, latestGlobalSequenceNumber := range connections {
-				if pbRecord.GlobalSequenceNumber <= latestGlobalSequenceNumber {
-					continue
-				}
-
-				err := connection.Send(pbRecord)
-				if err != nil {
-					//s.logger.Printf("unable to send record to gRPC client: %v", err)
-				}
+			err := connection.Send(pbRecord)
+			if err != nil {
+				log.Printf("unable to send record to gRPC client: %v", err)
 			}
 		}
-	}()
+	}
+
+	s.sync.RUnlock()
 }
 
 type PbRecordSender interface {

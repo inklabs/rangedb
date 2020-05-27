@@ -168,16 +168,13 @@ func (s *levelDbStore) SaveEvent(aggregateType, aggregateID, eventType, eventID 
 func (s *levelDbStore) SubscribeStartingWith(eventNumber uint64, subscribers ...rangedb.RecordSubscriber) {
 	rangedb.ReplayEvents(s, eventNumber, subscribers...)
 
-	s.mux.Lock()
 	s.Subscribe(subscribers...)
-	defer s.mux.Unlock()
 }
 
 func (s *levelDbStore) Subscribe(subscribers ...rangedb.RecordSubscriber) {
 	s.subscriberMux.Lock()
-	defer s.subscriberMux.Unlock()
-
 	s.subscribers = append(s.subscribers, subscribers...)
+	s.subscriberMux.Unlock()
 }
 
 func (s *levelDbStore) TotalEventsInStream(streamName string) uint64 {

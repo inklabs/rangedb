@@ -44,7 +44,7 @@ func Test_ReplayEvents(t *testing.T) {
 		event2 := rangedbtest.ThingWasDone{ID: "A", Number: 2}
 		require.NoError(t, inMemoryStore.Save(event1, nil))
 		require.NoError(t, inMemoryStore.Save(event2, nil))
-		subscriber := rangedbtest.NewCountSubscriber()
+		subscriber := rangedbtest.NewTotalEventsSubscriber()
 
 		// When
 		rangedb.ReplayEvents(inMemoryStore, 0, subscriber)
@@ -60,7 +60,7 @@ func Test_ReplayEvents(t *testing.T) {
 		event2 := rangedbtest.ThingWasDone{ID: "A", Number: 2}
 		require.NoError(t, inMemoryStore.Save(event1, nil))
 		require.NoError(t, inMemoryStore.Save(event2, nil))
-		subscriber := rangedbtest.NewCountSubscriber()
+		subscriber := rangedbtest.NewTotalEventsSubscriber()
 
 		// When
 		rangedb.ReplayEvents(inMemoryStore, 1, subscriber)

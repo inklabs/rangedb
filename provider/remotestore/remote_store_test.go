@@ -4,7 +4,6 @@ import (
 	"context"
 	"net"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -50,7 +49,5 @@ func Test_RemoteStore_VerifyStoreInterface(t *testing.T) {
 		store := remotestore.New(conn)
 
 		return store
-	}, func() {
-		time.Sleep(time.Millisecond * 10)
 	})
 }
