@@ -193,6 +193,8 @@ func (s *inMemoryStore) Subscribe(subscribers ...rangedb.RecordSubscriber) {
 }
 
 func (s *inMemoryStore) TotalEventsInStream(streamName string) uint64 {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
 	return uint64(len(s.recordsByStream[streamName]))
 }
 

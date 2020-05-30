@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-const Version = "0.3.1-dev"
+const Version = "0.3.1"
 
 // Record contains event data and metadata.
 type Record struct {
@@ -32,6 +32,7 @@ type Store interface {
 	EventsByStreamStartingWith(ctx context.Context, eventNumber uint64, streamName string) <-chan *Record
 	Save(event Event, metadata interface{}) error
 	SaveEvent(aggregateType, aggregateID, eventType, eventID string, event, metadata interface{}) error
+	Subscribe(subscribers ...RecordSubscriber)
 	SubscribeStartingWith(ctx context.Context, eventNumber uint64, subscribers ...RecordSubscriber)
 	TotalEventsInStream(streamName string) uint64
 }
