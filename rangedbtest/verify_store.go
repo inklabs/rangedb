@@ -437,6 +437,33 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		assert.Equal(t, (*rangedb.Record)(nil), <-records)
 	})
 
+	t.Run("Subscribe sends new events to subscribers on save", func(t *testing.T) {
+		// Given
+		shortuuid.SetRand(100)
+		const aggregateType = "thing"
+		const aggregateID = "95eb3409cf6e4d909d41cca0c70ec812"
+		store := newStore(t, sequentialclock.New())
+		store.Bind(ThingWasDone{})
+		event1 := &ThingWasDone{ID: aggregateID, Number: 2}
+		require.NoError(t, store.Save(event1, nil))
+		event2 := &ThingWasDone{ID: aggregateID, Number: 3}
+		countSubscriber1 := NewCountSubscriber()
+		countSubscriber2 := NewCountSubscriber()
+		store.Subscribe(countSubscriber1, countSubscriber2)
+
+		// When
+		err := store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event2, nil)
+		require.NoError(t, err)
+
+		// Then
+		<-countSubscriber1.ReceivedRecords
+		<-countSubscriber2.ReceivedRecords
+		assert.Equal(t, 1, countSubscriber1.TotalEvents())
+		assert.Equal(t, 3, countSubscriber1.TotalThingWasDone())
+		assert.Equal(t, 1, countSubscriber2.TotalEvents())
+		assert.Equal(t, 3, countSubscriber2.TotalThingWasDone())
+	})
+
 	t.Run("SubscribeStartingWith sends previous and new events to subscribers on save, by pointer", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
