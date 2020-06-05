@@ -54,6 +54,14 @@ func (c *TestCase) Then(expectedEvents ...rangedb.Event) func(*testing.T) {
 
 		c.dispatch(c.command)
 
+		if len(expectedEvents) == 0 {
+			allEvents := eventChannelToSlice(c.store.EventsStartingWith(context.Background(), 0))
+
+			totalEmittedEvents := len(allEvents) - len(c.previousEvents)
+			require.Equal(t, 0, totalEmittedEvents)
+			return
+		}
+
 		streamExpectedEvents := make(map[string][]rangedb.Event)
 		for _, event := range expectedEvents {
 			stream := rangedb.GetEventStream(event)
