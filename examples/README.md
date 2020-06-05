@@ -3,7 +3,7 @@
 ## Code Examples
 
 * Go
-  * [Chat App](./chat/README.md)
+  * [Chat App](./chat)
 
 ---
 

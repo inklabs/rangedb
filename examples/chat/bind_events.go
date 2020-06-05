@@ -12,5 +12,6 @@ func BindEvents(binder rangedb.EventBinder) {
 		&RoomWasOnBoarded{},
 		&RoomWasJoined{},
 		&MessageWasSentToRoom{},
+		&PrivateMessageWasSentToRoom{},
 	)
 }

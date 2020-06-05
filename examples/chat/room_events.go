@@ -17,6 +17,12 @@ type MessageWasSentToRoom struct {
 	Message string `json:"message"`
 }
 
+type PrivateMessageWasSentToRoom struct {
+	RoomID       string `json:"roomID"`
+	TargetUserID string `json:"userID"`
+	Message      string `json:"message"`
+}
+
 // TODO: Generate code below
 
 func (e RoomWasOnBoarded) AggregateID() string   { return e.RoomID }
@@ -30,3 +36,7 @@ func (e RoomWasJoined) EventType() string     { return "RoomWasJoined" }
 func (e MessageWasSentToRoom) AggregateID() string   { return e.RoomID }
 func (e MessageWasSentToRoom) AggregateType() string { return "room" }
 func (e MessageWasSentToRoom) EventType() string     { return "MessageWasSentToRoom" }
+
+func (e PrivateMessageWasSentToRoom) AggregateID() string   { return e.RoomID }
+func (e PrivateMessageWasSentToRoom) AggregateType() string { return "room" }
+func (e PrivateMessageWasSentToRoom) EventType() string     { return "PrivateMessageWasSentToRoom" }

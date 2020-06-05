@@ -28,3 +28,7 @@ docker run -p 8080:8080 inklabs/rangedb
 
 * https://github.com/ddd-cqrs-es/slack-community
 * channel: #rangedb
+
+## Projects using RangeDB
+
+* [GOAuth2](https://github.com/inklabs/goauth2) - An OAuth2 Server in Go

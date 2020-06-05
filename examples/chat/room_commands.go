@@ -17,6 +17,12 @@ type SendMessageToRoom struct {
 	Message string `json:"message"`
 }
 
+type SendPrivateMessageToRoom struct {
+	RoomID       string `json:"roomID"`
+	TargetUserID string `json:"userID"`
+	Message      string `json:"message"`
+}
+
 // TODO: Generate code below
 
 func (c OnBoardRoom) AggregateID() string   { return c.RoomID }
@@ -30,3 +36,7 @@ func (c JoinRoom) CommandType() string   { return "JoinRoom" }
 func (c SendMessageToRoom) AggregateID() string   { return c.RoomID }
 func (c SendMessageToRoom) AggregateType() string { return "room" }
 func (c SendMessageToRoom) CommandType() string   { return "SendMessageToRoom" }
+
+func (c SendPrivateMessageToRoom) AggregateID() string   { return c.RoomID }
+func (c SendPrivateMessageToRoom) AggregateType() string { return "room" }
+func (c SendPrivateMessageToRoom) CommandType() string   { return "SendPrivateMessageToRoom" }

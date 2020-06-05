@@ -49,10 +49,26 @@ func (a *room) JoinRoom(c JoinRoom) {
 }
 
 func (a *room) SendMessageToRoom(c SendMessageToRoom) {
+	if !a.state.IsOnBoarded {
+		return
+	}
+
 	a.emit(MessageWasSentToRoom{
 		RoomID:  c.RoomID,
 		UserID:  c.UserID,
 		Message: c.Message,
+	})
+}
+
+func (a *room) SendPrivateMessageToRoom(c SendPrivateMessageToRoom) {
+	if !a.state.IsOnBoarded {
+		return
+	}
+
+	a.emit(PrivateMessageWasSentToRoom{
+		RoomID:       c.RoomID,
+		TargetUserID: c.TargetUserID,
+		Message:      c.Message,
 	})
 }
 
@@ -78,6 +94,10 @@ func (a *room) Handle(command cqrs.Command) []rangedb.Event {
 
 	case SendMessageToRoom:
 		a.SendMessageToRoom(c)
+
+	case SendPrivateMessageToRoom:
+		a.SendPrivateMessageToRoom(c)
+
 	}
 
 	return a.pendingEvents
@@ -88,6 +108,7 @@ func (a *room) CommandTypes() []string {
 		OnBoardRoom{}.CommandType(),
 		JoinRoom{}.CommandType(),
 		SendMessageToRoom{}.CommandType(),
+		SendPrivateMessageToRoom{}.CommandType(),
 	}
 }
 
