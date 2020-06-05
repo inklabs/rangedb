@@ -2,6 +2,7 @@ package bdd
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -55,7 +56,8 @@ func (c *TestCase) Then(expectedEvents ...rangedb.Event) func(*testing.T) {
 		c.dispatch(c.command)
 
 		if len(expectedEvents) == 0 {
-			allEvents := eventChannelToSlice(c.store.EventsStartingWith(context.Background(), 0))
+			allEvents, err := eventChannelToSlice(c.store.EventsStartingWith(context.Background(), 0))
+			require.NoError(t, err)
 
 			totalEmittedEvents := len(allEvents) - len(c.previousEvents)
 			require.Equal(t, 0, totalEmittedEvents)
@@ -72,7 +74,8 @@ func (c *TestCase) Then(expectedEvents ...rangedb.Event) func(*testing.T) {
 		ctx := context.Background()
 		for stream, expectedEventsInStream := range streamExpectedEvents {
 			eventNumber := streamPreviousEventCounts[stream]
-			actualEvents := eventChannelToSlice(c.store.EventsByStreamStartingWith(ctx, eventNumber, stream))
+			actualEvents, err := eventChannelToSlice(c.store.EventsByStreamStartingWith(ctx, eventNumber, stream))
+			assert.NoError(t, err)
 
 			assert.Equal(t, expectedEventsInStream, actualEvents, "stream: %s", stream)
 		}
@@ -95,7 +98,8 @@ func (c *TestCase) ThenInspectEvents(f func(t *testing.T, events []rangedb.Event
 		var events []rangedb.Event
 		for _, stream := range getStreamsFromStore(c.store) {
 			eventNumber := streamPreviousEventCounts[stream]
-			actualEvents := eventChannelToSlice(c.store.EventsByStreamStartingWith(ctx, eventNumber, stream))
+			actualEvents, err := eventChannelToSlice(c.store.EventsByStreamStartingWith(ctx, eventNumber, stream))
+			require.NoError(t, err)
 
 			events = append(events, actualEvents...)
 		}
@@ -117,23 +121,29 @@ func getStreamsFromStore(store rangedb.Store) []string {
 	return keys
 }
 
-func eventChannelToSlice(records <-chan *rangedb.Record) []rangedb.Event {
+func eventChannelToSlice(records <-chan *rangedb.Record) ([]rangedb.Event, error) {
 	var events []rangedb.Event
 
 	for record := range records {
-		events = append(events, eventAsValue(record.Data))
+		value, err := eventAsValue(record.Data)
+		if err != nil {
+			return nil, err
+		}
+		events = append(events, value)
 	}
 
-	return events
+	return events, nil
 }
 
-func eventAsValue(inputEvent interface{}) rangedb.Event {
+func eventAsValue(inputEvent interface{}) (rangedb.Event, error) {
 	var event rangedb.Event
 	reflectedValue := reflect.ValueOf(inputEvent)
 
 	if reflectedValue.Kind() == reflect.Ptr {
 		event = reflectedValue.Elem().Interface().(rangedb.Event)
+	} else {
+		return nil, fmt.Errorf("unbound event type: %T", inputEvent)
 	}
 
-	return event
+	return event, nil
 }

@@ -22,12 +22,13 @@ func TestTestCase_Then(t *testing.T) {
 		tt := testCase.Then()
 
 		// Then
-		t.Run("test case", tt)
+		assertNotFailed(t, tt)
 	})
 
 	t.Run("no events emitted, with previous events", func(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
+		store.Bind(NoopEvent{})
 		testCase := bdd.New(store, noopDispatcher)
 		testCase.Given(NoopEvent{ID: "xyz"})
 		testCase.When(NoopCommand{})
@@ -36,7 +37,7 @@ func TestTestCase_Then(t *testing.T) {
 		tt := testCase.Then()
 
 		// Then
-		t.Run("test case", tt)
+		assertNotFailed(t, tt)
 	})
 
 	t.Run("dispatcher emits single event", func(t *testing.T) {
@@ -52,7 +53,22 @@ func TestTestCase_Then(t *testing.T) {
 		tt := testCase.Then(NoopEvent{ID: "xyz"})
 
 		// Then
-		t.Run("test case", tt)
+		assertNotFailed(t, tt)
+	})
+
+	t.Run("fails from unbound event", func(t *testing.T) {
+		// Given
+		store := inmemorystore.New()
+		dispatcher := stubEventDispatcher(store, NoopEvent{ID: "xyz"})
+		testCase := bdd.New(store, dispatcher)
+		testCase.Given()
+		testCase.When(NoopCommand{})
+
+		// When
+		tt := testCase.Then(NoopEvent{ID: "xyz"})
+
+		// Then
+		assertFailed(t, tt)
 	})
 }
 
@@ -70,7 +86,7 @@ func TestTestCase_ThenInspectEvents(t *testing.T) {
 		})
 
 		// Then
-		t.Run("test case", tt)
+		assertNotFailed(t, tt)
 	})
 
 	t.Run("no events emitted, with previous events", func(t *testing.T) {
@@ -86,8 +102,24 @@ func TestTestCase_ThenInspectEvents(t *testing.T) {
 		})
 
 		// Then
-		t.Run("test case", tt)
+		assertNotFailed(t, tt)
 	})
+}
+
+func assertNotFailed(t *testing.T, tt func(*testing.T)) {
+	t.Helper()
+
+	mockT := &testing.T{}
+	tt(mockT)
+	assert.False(t, mockT.Failed())
+}
+
+func assertFailed(t *testing.T, tt func(*testing.T)) {
+	t.Helper()
+
+	mockT := &testing.T{}
+	tt(mockT)
+	assert.True(t, mockT.Failed())
 }
 
 func noopDispatcher(_ bdd.Command) {}

@@ -1,6 +1,15 @@
 # RangeDB Examples
 
-## HTTP API Examples
+## Code Examples
+
+* Go
+  * [Chat App](./chat/README.md)
+
+---
+
+## API Examples
+
+### HTTP API
 
 https://pkg.go.dev/github.com/inklabs/rangedb/pkg/rangedbapi
 
@@ -11,14 +20,14 @@ https://pkg.go.dev/github.com/inklabs/rangedb/pkg/rangedbapi
 * [Get Events by Stream as Newline Delimited JSON](../pkg/rangedbapi/get_events_by_stream_ndjson_test.go)
 * [Save Events](../pkg/rangedbapi/save_events_test.go)
 
-## Websocket API Examples
+### Websocket API
 
 https://pkg.go.dev/github.com/inklabs/rangedb/pkg/rangedbws
 
 * [Stream All Events](../pkg/rangedbws/stream_all_events_test.go)
 * [Stream Events by Aggregate Type](../pkg/rangedbws/stream_events_by_aggregate_type_test.go)
 
-## gRPC Examples
+### gRPC
 
 https://pkg.go.dev/github.com/inklabs/rangedb/pkg/grpc/rangedbserver
 
