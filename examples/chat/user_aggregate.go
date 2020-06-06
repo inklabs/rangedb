@@ -44,6 +44,7 @@ func (a *user) OnBoardUser(c OnBoardUser) {
 
 func (a *user) Load(records <-chan *rangedb.Record) {
 	a.state = userState{}
+	a.pendingEvents = nil
 
 	for record := range records {
 		if event, ok := record.Data.(rangedb.Event); ok {

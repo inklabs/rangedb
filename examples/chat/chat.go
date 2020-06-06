@@ -6,11 +6,17 @@ import (
 )
 
 func New(store rangedb.Store) cqrs.CommandDispatcher {
-	return cqrs.New(
+	app := cqrs.New(
 		store,
 		cqrs.WithAggregates(
 			NewUser(),
 			NewRoom(),
 		),
 	)
+
+	store.Subscribe(
+		newRestrictedWordProcessor(app),
+	)
+
+	return app
 }

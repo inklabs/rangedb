@@ -14,6 +14,7 @@ const (
 	roomName    = "general"
 	message     = "Hello, World!"
 	warnMessage = "you have been warned"
+	badMessage  = "Dagnabit!"
 )
 
 func Test_OnBoardUser(t *testing.T) {
@@ -115,6 +116,36 @@ func Test_SendMessageToRoom(t *testing.T) {
 			Message: message,
 		}).
 		Then())
+
+	t.Run("bad word results in warning to user", newTestCase().
+		Given(
+			chat.UserWasOnBoarded{
+				UserID: userID,
+				Name:   "John",
+			},
+			chat.RoomWasOnBoarded{
+				RoomID:   roomID,
+				UserID:   userID,
+				RoomName: roomName,
+			},
+		).
+		When(chat.SendMessageToRoom{
+			RoomID:  roomID,
+			UserID:  userID,
+			Message: badMessage,
+		}).
+		Then(
+			chat.MessageWasSentToRoom{
+				RoomID:  roomID,
+				UserID:  userID,
+				Message: badMessage,
+			},
+			chat.PrivateMessageWasSentToRoom{
+				RoomID:       roomID,
+				TargetUserID: userID,
+				Message:      warnMessage,
+			},
+		))
 }
 
 func Test_SendPrivateMessageToRoom(t *testing.T) {

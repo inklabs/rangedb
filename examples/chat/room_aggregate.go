@@ -76,6 +76,7 @@ func (a *room) SendPrivateMessageToRoom(c SendPrivateMessageToRoom) {
 
 func (a *room) Load(records <-chan *rangedb.Record) {
 	a.state = roomState{}
+	a.pendingEvents = nil
 
 	for record := range records {
 		if event, ok := record.Data.(rangedb.Event); ok {
