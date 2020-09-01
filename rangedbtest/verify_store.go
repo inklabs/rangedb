@@ -86,6 +86,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		// Then
 		for _, event := range events {
 			actualRecord := <-records
+			require.NotNil(t, actualRecord)
 			assert.Equal(t, event, actualRecord.Data)
 		}
 		assert.Equal(t, (*rangedb.Record)(nil), <-records)

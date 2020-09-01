@@ -3,6 +3,7 @@ package rangedb
 import (
 	"context"
 	"fmt"
+	"strings"
 )
 
 const Version = "0.3.2-dev"
@@ -72,6 +73,12 @@ func GetEventStream(message AggregateMessage) string {
 // GetStream returns the stream name for an aggregateType and aggregateID.
 func GetStream(aggregateType, aggregateID string) string {
 	return fmt.Sprintf("%s!%s", aggregateType, aggregateID)
+}
+
+// ParseStream returns the aggregateType and aggregateID for a stream name.
+func ParseStream(streamName string) (aggregateType, aggregateID string) {
+	pieces := strings.Split(streamName, "!")
+	return pieces[0], pieces[1]
 }
 
 // ReplayEvents applies all events to each subscriber.

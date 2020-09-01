@@ -23,6 +23,18 @@ func Test_GetStream_CombinesAggregateTypeAndId(t *testing.T) {
 	assert.Equal(t, "resource-owner!8e91008eb3a84a3da6f53481ffa9ea88", stream)
 }
 
+func Test_ParseStream_ReturnsAggregateTypeAndId(t *testing.T) {
+	// Given
+	streamName := "resource-owner!8e91008eb3a84a3da6f53481ffa9ea88"
+
+	// When
+	aggregateType, aggregateID := rangedb.ParseStream(streamName)
+
+	// Then
+	assert.Equal(t, "resource-owner", aggregateType)
+	assert.Equal(t, "8e91008eb3a84a3da6f53481ffa9ea88", aggregateID)
+}
+
 func Test_GetEventStream_ReturnsStreamFromMessage(t *testing.T) {
 	// Given
 	event := rangedbtest.ThingWasDone{
