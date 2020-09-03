@@ -539,6 +539,7 @@ func TestApi_ListAggregates(t *testing.T) {
 				"totalEvents": 2
 			}
 		],
+		"totalEvents": 3,
 		"links": {
 			"allEvents": "http://0.0.0.0:8080/events.json",
 			"self": "http://0.0.0.0:8080/list-aggregate-types"

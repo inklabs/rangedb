@@ -57,9 +57,7 @@ func New(options ...Option) *rangeDBServer {
 }
 
 func (s *rangeDBServer) initProjections() {
-	s.store.SubscribeStartingWith(
-		context.Background(),
-		0,
+	s.store.Subscribe(
 		rangedb.RecordSubscriberFunc(s.broadcastRecord),
 	)
 }

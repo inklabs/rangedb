@@ -1,7 +1,6 @@
 package rangedbws
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -79,9 +78,7 @@ func (a *websocketAPI) initRoutes() {
 }
 
 func (a *websocketAPI) initProjections() {
-	a.store.SubscribeStartingWith(
-		context.Background(),
-		0,
+	a.store.Subscribe(
 		rangedb.RecordSubscriberFunc(a.broadcastRecord),
 	)
 }

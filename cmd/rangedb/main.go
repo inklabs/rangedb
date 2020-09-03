@@ -15,6 +15,7 @@ import (
 
 	"github.com/inklabs/rangedb/pkg/grpc/rangedbpb"
 	"github.com/inklabs/rangedb/pkg/grpc/rangedbserver"
+	"github.com/inklabs/rangedb/pkg/projection"
 	"github.com/inklabs/rangedb/pkg/rangedbapi"
 	"github.com/inklabs/rangedb/pkg/rangedbui"
 	"github.com/inklabs/rangedb/pkg/rangedbui/pkg/templatemanager"
@@ -50,6 +51,7 @@ func main() {
 	api := rangedbapi.New(
 		rangedbapi.WithStore(leveldbStore),
 		rangedbapi.WithBaseUri(*baseUri+"/api"),
+		rangedbapi.WithSnapshotStore(projection.NewDiskSnapshotStore(snapshotBasePath())),
 	)
 	websocketAPI := rangedbws.New(
 		rangedbws.WithStore(leveldbStore),
@@ -127,4 +129,13 @@ func serveGRPC(srv *grpc.Server, gRPCPort int) {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func snapshotBasePath() string {
+	snapshotBasePath := fmt.Sprintf("%sshapshots", os.TempDir())
+	err := os.Mkdir(snapshotBasePath, 0700)
+	if err != nil && os.IsNotExist(err) {
+		log.Printf("unable to create snapshot directory: %v", err)
+	}
+	return snapshotBasePath
 }

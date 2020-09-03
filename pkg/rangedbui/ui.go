@@ -65,6 +65,7 @@ func (a *webUI) index(w http.ResponseWriter, _ *http.Request) {
 
 type aggregateTypesTemplateVars struct {
 	AggregateTypes []AggregateTypeInfo
+	TotalEvents    uint64
 }
 
 func (a *webUI) aggregateTypes(w http.ResponseWriter, _ *http.Request) {
@@ -73,12 +74,13 @@ func (a *webUI) aggregateTypes(w http.ResponseWriter, _ *http.Request) {
 	for _, aggregateType := range a.aggregateTypeStats.SortedAggregateTypes() {
 		aggregateTypes = append(aggregateTypes, AggregateTypeInfo{
 			Name:        aggregateType,
-			TotalEvents: a.aggregateTypeStats.TotalEventsByAggregateType[aggregateType],
+			TotalEvents: a.aggregateTypeStats.TotalEventsByAggregateType(aggregateType),
 		})
 	}
 
 	a.renderWithValues(w, "aggregate-types.html", aggregateTypesTemplateVars{
 		AggregateTypes: aggregateTypes,
+		TotalEvents:    a.aggregateTypeStats.TotalEvents(),
 	})
 }
 
@@ -101,12 +103,12 @@ func (a *webUI) aggregateType(w http.ResponseWriter, r *http.Request) {
 	)
 
 	baseURI := fmt.Sprintf("/e/%s", aggregateTypeName)
-	totalRecords := a.aggregateTypeStats.TotalEventsByAggregateType[aggregateTypeName]
+	totalRecords := a.aggregateTypeStats.TotalEventsByAggregateType(aggregateTypeName)
 
 	a.renderWithValues(w, "aggregate-type.html", aggregateTypeTemplateVars{
 		AggregateTypeInfo: AggregateTypeInfo{
 			Name:        aggregateTypeName,
-			TotalEvents: a.aggregateTypeStats.TotalEventsByAggregateType[aggregateTypeName],
+			TotalEvents: a.aggregateTypeStats.TotalEventsByAggregateType(aggregateTypeName),
 		},
 		PaginationLinks: pagination.Links(baseURI, totalRecords),
 		Records:         records,

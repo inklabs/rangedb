@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -24,6 +25,7 @@ type api struct {
 	ndJSONRecordIoStream  rangedb.RecordIoStream
 	msgpackRecordIoStream rangedb.RecordIoStream
 	store                 rangedb.Store
+	snapshotStore         projection.SnapshotStore
 	handler               http.Handler
 	baseUri               string
 	projections           struct {
@@ -38,6 +40,13 @@ type Option func(*api)
 func WithStore(store rangedb.Store) Option {
 	return func(api *api) {
 		api.store = store
+	}
+}
+
+// WithSnapshotStore is a functional option to inject a SnapshotStore.
+func WithSnapshotStore(snapshotStore projection.SnapshotStore) Option {
+	return func(api *api) {
+		api.snapshotStore = snapshotStore
 	}
 }
 
@@ -83,11 +92,31 @@ func (a *api) initRoutes() {
 
 func (a *api) initProjections() {
 	a.projections.aggregateTypeStats = projection.NewAggregateTypeStats()
+	eventNumber := uint64(0)
+
+	if a.snapshotStore != nil {
+		err := a.snapshotStore.Load(a.projections.aggregateTypeStats)
+		if err != nil {
+			log.Print(err)
+		}
+
+		if a.projections.aggregateTypeStats.TotalEvents() > 0 {
+			eventNumber = a.projections.aggregateTypeStats.LatestGlobalSequenceNumber() + 1
+		}
+	}
+
 	a.store.SubscribeStartingWith(
 		context.Background(),
-		0,
+		eventNumber,
 		a.projections.aggregateTypeStats,
 	)
+
+	if a.snapshotStore != nil {
+		err := a.snapshotStore.Save(a.projections.aggregateTypeStats)
+		if err != nil {
+			log.Print(err)
+		}
+	}
 }
 
 func (a *api) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -195,7 +224,7 @@ func (a *api) listAggregateTypes(w http.ResponseWriter, _ *http.Request) {
 	for _, aggregateType := range a.projections.aggregateTypeStats.SortedAggregateTypes() {
 		data = append(data, map[string]interface{}{
 			"name":        aggregateType,
-			"totalEvents": a.projections.aggregateTypeStats.TotalEventsByAggregateType[aggregateType],
+			"totalEvents": a.projections.aggregateTypeStats.TotalEventsByAggregateType(aggregateType),
 			"links": map[string]interface{}{
 				"self": fmt.Sprintf("%s/events/%s.json", a.baseUri, aggregateType),
 			},
@@ -203,10 +232,12 @@ func (a *api) listAggregateTypes(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	listResponse := struct {
-		Data  interface{}       `json:"data"`
-		Links map[string]string `json:"links"`
+		Data        interface{}       `json:"data"`
+		TotalEvents uint64            `json:"totalEvents"`
+		Links       map[string]string `json:"links"`
 	}{
-		Data: data,
+		Data:        data,
+		TotalEvents: a.projections.aggregateTypeStats.TotalEvents(),
 		Links: map[string]string{
 			"allEvents": fmt.Sprintf("%s/events.json", a.baseUri),
 			"self":      fmt.Sprintf("%s/list-aggregate-types", a.baseUri),
