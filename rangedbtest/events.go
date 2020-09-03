@@ -62,3 +62,24 @@ func (t ThatWasDone) AggregateType() string {
 func (t ThatWasDone) EventType() string {
 	return "ThatWasDone"
 }
+
+// FloatWasDone is an event used for testing.
+type FloatWasDone struct {
+	ID     string  `json:"id"`
+	Number float64 `json:"number"`
+}
+
+// AggregateID returns the aggregate id.
+func (t FloatWasDone) AggregateID() string {
+	return t.ID
+}
+
+// AggregateType returns the aggregate type.
+func (t FloatWasDone) AggregateType() string {
+	return "float"
+}
+
+// EventType returns the event type. This will always be the struct name.
+func (t FloatWasDone) EventType() string {
+	return "FloatWasDone"
+}

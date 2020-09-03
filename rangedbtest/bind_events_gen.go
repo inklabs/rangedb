@@ -8,5 +8,6 @@ func BindEvents(binder rangedb.EventBinder) {
 		&ThingWasDone{},
 		&AnotherWasComplete{},
 		&ThatWasDone{},
+		&FloatWasDone{},
 	)
 }

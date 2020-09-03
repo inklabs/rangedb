@@ -29,9 +29,11 @@ func Test_Private_writeEventsToConnection_Fails(t *testing.T) {
 		)
 
 		// When
-		api.writeEventsToConnection(nil, events)
+		total, err := api.writeEventsToConnection(nil, events)
 
 		// Then
+		assert.EqualError(t, err, "unable to marshal record: json: unsupported value: +Inf")
+		assert.Equal(t, uint64(0), total)
 		assert.Equal(t, "unable to marshal record: json: unsupported value: +Inf\n", logBuffer.String())
 	})
 
@@ -49,9 +51,10 @@ func Test_Private_writeEventsToConnection_Fails(t *testing.T) {
 		)
 
 		// When
-		api.writeEventsToConnection(conn, events)
+		totalWritten, _ := api.writeEventsToConnection(conn, events)
 
 		// Then
+		assert.Equal(t, uint64(0), totalWritten)
 		assert.Equal(t, "unable to send record to client: failingMessageWriter.WriteMessage failed\n", logBuffer.String())
 	})
 }

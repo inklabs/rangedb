@@ -3,6 +3,7 @@ package rangedbws
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -97,8 +98,17 @@ func (a *websocketAPI) SubscribeToAllEvents(w http.ResponseWriter, r *http.Reque
 	}
 	defer ignoreClose(conn)
 
+	total, err := a.writeEventsToConnection(conn, a.store.EventsStartingWith(r.Context(), 0))
+	if err != nil {
+		return
+	}
+
 	a.broadcastMutex.Lock()
-	a.writeEventsToConnection(conn, a.store.EventsStartingWith(r.Context(), 0))
+	total, err = a.writeEventsToConnection(conn, a.store.EventsStartingWith(r.Context(), total+1))
+	if err != nil {
+		a.broadcastMutex.Unlock()
+		return
+	}
 	a.subscribeToAllEvents(conn)
 	a.broadcastMutex.Unlock()
 
@@ -106,16 +116,24 @@ func (a *websocketAPI) SubscribeToAllEvents(w http.ResponseWriter, r *http.Reque
 	a.unsubscribeFromAllEvents(conn)
 }
 
-func (a *websocketAPI) writeEventsToConnection(conn MessageWriter, events <-chan *rangedb.Record) {
+func (a *websocketAPI) writeEventsToConnection(conn MessageWriter, events <-chan *rangedb.Record) (uint64, error) {
+	totalWritten := uint64(0)
 	for event := range events {
 		jsonEvent, err := json.Marshal(event)
 		if err != nil {
-			a.logger.Printf("unable to marshal record: %v", err)
-			return
+			err := fmt.Errorf("unable to marshal record: %v", err)
+			a.logger.Print(err)
+			return totalWritten, err
 		}
 
-		a.sendMessage(conn, jsonEvent)
+		err = a.sendMessage(conn, jsonEvent)
+		if err != nil {
+			return totalWritten, err
+		}
+		totalWritten++
 	}
+
+	return totalWritten, nil
 }
 
 func (a *websocketAPI) SubscribeToEventsByAggregateTypes(w http.ResponseWriter, r *http.Request) {
@@ -129,8 +147,17 @@ func (a *websocketAPI) SubscribeToEventsByAggregateTypes(w http.ResponseWriter, 
 	}
 	defer ignoreClose(conn)
 
+	total, err := a.writeEventsToConnection(conn, a.store.EventsByAggregateTypesStartingWith(r.Context(), 0, aggregateTypes...))
+	if err != nil {
+		return
+	}
+
 	a.broadcastMutex.Lock()
-	a.writeEventsToConnection(conn, a.store.EventsByAggregateTypesStartingWith(r.Context(), 0, aggregateTypes...))
+	_, err = a.writeEventsToConnection(conn, a.store.EventsByAggregateTypesStartingWith(r.Context(), total+1, aggregateTypes...))
+	if err != nil {
+		a.broadcastMutex.Unlock()
+		return
+	}
 	a.subscribeToAggregateTypes(conn, aggregateTypes)
 	a.broadcastMutex.Unlock()
 
@@ -194,7 +221,7 @@ func (a *websocketAPI) broadcastRecord(record *rangedb.Record) {
 		defer a.sync.RUnlock()
 
 		for connection := range a.allEventConnections {
-			a.sendMessage(connection, jsonEvent)
+			_ = a.sendMessage(connection, jsonEvent)
 		}
 
 		for aggregateType, connections := range a.aggregateTypeConnections {
@@ -203,7 +230,7 @@ func (a *websocketAPI) broadcastRecord(record *rangedb.Record) {
 			}
 
 			for connection := range connections {
-				a.sendMessage(connection, jsonEvent)
+				_ = a.sendMessage(connection, jsonEvent)
 			}
 		}
 	}()
@@ -214,10 +241,15 @@ type MessageWriter interface {
 	WriteMessage(messageType int, data []byte) error
 }
 
-func (a *websocketAPI) sendMessage(conn MessageWriter, message []byte) {
-	if err := conn.WriteMessage(websocket.TextMessage, message); err != nil {
-		a.logger.Printf("unable to send record to client: %v", err)
+func (a *websocketAPI) sendMessage(conn MessageWriter, message []byte) error {
+	err := conn.WriteMessage(websocket.TextMessage, message)
+	if err != nil {
+		err := fmt.Errorf("unable to send record to client: %v", err)
+		a.logger.Printf("%v", err)
+		return err
 	}
+
+	return nil
 }
 
 func ignoreClose(c io.Closer) {

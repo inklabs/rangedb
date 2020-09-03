@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"sync"
 
@@ -43,20 +44,23 @@ func WithClock(clock clock.Clock) Option {
 }
 
 // New constructs an postgresStore.
-func New(config Config, options ...Option) *postgresStore {
+func New(config Config, options ...Option) (*postgresStore, error) {
 	s := &postgresStore{
 		clock:      systemclock.New(),
 		serializer: jsonrecordserializer.New(),
 	}
 
-	s.connectToDB(config)
+	err := s.connectToDB(config)
+	if err != nil {
+		return nil, err
+	}
 	s.initDB()
 
 	for _, option := range options {
 		option(s)
 	}
 
-	return s
+	return s, nil
 }
 
 // CloseDB closes the postgres DB connection.
@@ -218,18 +222,20 @@ func (s *postgresStore) notifySubscribers(record *rangedb.Record) {
 	}
 }
 
-func (s *postgresStore) connectToDB(config Config) {
+func (s *postgresStore) connectToDB(config Config) error {
 	db, err := sql.Open("postgres", config.DataSourceName())
 	if err != nil {
-		panic(err) // TODO: test this error path
+		return fmt.Errorf("unable to open DB connection: %v", err)
 	}
 
 	err = db.Ping()
 	if err != nil {
-		panic(err) // TODO: test this error path
+		return fmt.Errorf("unable to connect to DB: %v", err)
 	}
 
 	s.db = db
+
+	return nil
 }
 
 func (s *postgresStore) initDB() {

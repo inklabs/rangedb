@@ -6,7 +6,11 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -14,6 +18,8 @@ import (
 )
 
 func main() {
+	fmt.Println("gRPC Event Subscriber")
+
 	aggregateTypesCSV := flag.String("aggregateTypes", "", "aggregateTypes separated by comma")
 	host := flag.String("host", "127.0.0.1:8081", "RangeDB gRPC host address")
 	flag.Parse()
@@ -23,23 +29,38 @@ func main() {
 		log.Fatalf("Error: must supply aggregate types!")
 	}
 
-	conn, err := grpc.Dial(*host, grpc.WithInsecure())
+	fmt.Printf("Subscribing to: %s\n", *aggregateTypesCSV)
+
+	ctx, _ := context.WithTimeout(context.Background(), time.Second*5)
+	conn, err := grpc.DialContext(ctx, *host, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		log.Fatalf("unable to dial (%s): %v", *host, err)
 	}
 
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
-	ctx := context.Background()
 	request := &rangedbpb.SubscribeToEventsByAggregateTypeRequest{
 		StartingWithEventNumber: 0,
 		AggregateTypes:          aggregateTypes,
 	}
 
-	events, err := rangeDBClient.SubscribeToEventsByAggregateType(ctx, request)
+	subscribeCtx, done := context.WithCancel(context.Background())
+	events, err := rangeDBClient.SubscribeToEventsByAggregateType(subscribeCtx, request)
 	if err != nil {
 		log.Fatalf("unable to get events: %v", err)
 	}
 
+	stop := make(chan os.Signal)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	go readEventsForever(events)
+
+	<-stop
+
+	fmt.Println("Shutting down")
+	done()
+}
+
+func readEventsForever(events rangedbpb.RangeDB_SubscribeToEventsByAggregateTypeClient) {
 	for {
 		record, err := events.Recv()
 		if err == io.EOF {
