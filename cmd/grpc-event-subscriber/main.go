@@ -31,11 +31,19 @@ func main() {
 
 	fmt.Printf("Subscribing to: %s\n", *aggregateTypesCSV)
 
-	ctx, _ := context.WithTimeout(context.Background(), time.Second*5)
+	ctx, connectDone := context.WithTimeout(context.Background(), time.Second*5)
 	conn, err := grpc.DialContext(ctx, *host, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		log.Fatalf("unable to dial (%s): %v", *host, err)
 	}
+	defer func() {
+		err := conn.Close()
+		if err != nil {
+			log.Printf("failed closing: %v", err)
+		}
+
+		connectDone()
+	}()
 
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
 	request := &rangedbpb.SubscribeToEventsByAggregateTypeRequest{
@@ -43,7 +51,7 @@ func main() {
 		AggregateTypes:          aggregateTypes,
 	}
 
-	subscribeCtx, done := context.WithCancel(context.Background())
+	subscribeCtx, subscribeDone := context.WithCancel(context.Background())
 	events, err := rangeDBClient.SubscribeToEventsByAggregateType(subscribeCtx, request)
 	if err != nil {
 		log.Fatalf("unable to get events: %v", err)
@@ -57,7 +65,7 @@ func main() {
 	<-stop
 
 	fmt.Println("Shutting down")
-	done()
+	subscribeDone()
 }
 
 func readEventsForever(events rangedbpb.RangeDB_SubscribeToEventsByAggregateTypeClient) {
