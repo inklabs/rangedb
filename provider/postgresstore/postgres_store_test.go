@@ -104,6 +104,7 @@ func Test_Failures(t *testing.T) {
 
 		// Then
 		assert.Nil(t, store)
-		assert.EqualError(t, err, `unable to connect to DB: missing "=" after "h" in connection info string"`)
+		require.NotNil(t, err)
+		assert.Contains(t, err.Error(), `unable to connect to DB:`)
 	})
 }
