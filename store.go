@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-const Version = "0.4.0-dev"
+const Version = "0.4.0"
 
 // Record contains event data and metadata.
 type Record struct {
