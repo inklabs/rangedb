@@ -54,7 +54,7 @@ func TestToPbRecord(t *testing.T) {
 			EventType:            "ThingWasDone",
 			InsertTimestamp:      2,
 			Data:                 &rangedbtest.ThingWasDone{ID: "A", Number: 1},
-			Metadata:             nil,
+			Metadata:             map[string]interface{}{"x": "y"},
 		}
 		pbRecord, err := rangedbpb.ToPbRecord(input)
 		require.NoError(t, err)
@@ -65,6 +65,37 @@ func TestToPbRecord(t *testing.T) {
 		// Then
 		require.NoError(t, err)
 		assert.Equal(t, input, actual)
+	})
+
+	t.Run("fails to decode invalid data", func(t *testing.T) {
+		// Given
+		serializer := jsonrecordserializer.New()
+		serializer.Bind(rangedbtest.ThingWasDone{})
+		pbRecord := &rangedbpb.Record{}
+		pbRecord.Data = `invalid-json`
+
+		// When
+		actual, err := rangedbpb.ToRecord(pbRecord, serializer)
+
+		// Then
+		assert.EqualError(t, err, "unable to decode data: invalid character 'i' looking for beginning of value")
+		assert.Nil(t, actual)
+	})
+
+	t.Run("fails to decode invalid metadata", func(t *testing.T) {
+		// Given
+		serializer := jsonrecordserializer.New()
+		serializer.Bind(rangedbtest.ThingWasDone{})
+		pbRecord := &rangedbpb.Record{}
+		pbRecord.Data = `{}`
+		pbRecord.Metadata = `invalid-json`
+
+		// When
+		actual, err := rangedbpb.ToRecord(pbRecord, serializer)
+
+		// Then
+		assert.EqualError(t, err, "unable to unmarshal metadata: invalid character 'i' looking for beginning of value")
+		assert.Nil(t, actual)
 	})
 
 	t.Run("fails with invalid data", func(t *testing.T) {

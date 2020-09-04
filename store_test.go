@@ -1,6 +1,7 @@
 package rangedb_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -80,4 +81,48 @@ func Test_ReplayEvents(t *testing.T) {
 		// Then
 		assert.Equal(t, 1, subscriber.TotalEvents())
 	})
+}
+
+func TestReadNRecords(t *testing.T) {
+	t.Run("reads 2 records from a channel with 3 records", func(t *testing.T) {
+		// Given
+		recordsChannel := make(chan *rangedb.Record, 10)
+		recordsChannel <- getRecord(0)
+		recordsChannel <- getRecord(1)
+		recordsChannel <- getRecord(2)
+
+		// When
+		records := rangedb.ReadNRecords(
+			2,
+			func(ctx context.Context) <-chan *rangedb.Record {
+				return recordsChannel
+			},
+		)
+
+		// Then
+		require.Len(t, records, 2)
+		assert.Equal(t, uint64(0), records[0].GlobalSequenceNumber)
+		assert.Equal(t, uint64(1), records[1].GlobalSequenceNumber)
+	})
+}
+
+func TestRecordSubscriberFunc_Accept(t *testing.T) {
+	// Given
+	dummyRecordSubscriber := dummyRecordSubscriber{}
+	f := rangedb.RecordSubscriberFunc(dummyRecordSubscriber.broadcast)
+	record := getRecord(5)
+
+	// When
+	f.Accept(record)
+
+	// Then
+	assert.Equal(t, uint64(5), dummyRecordSubscriber.GlobalSequenceNumber)
+}
+
+type dummyRecordSubscriber struct {
+	GlobalSequenceNumber uint64
+}
+
+func (f *dummyRecordSubscriber) broadcast(r *rangedb.Record) {
+	f.GlobalSequenceNumber = r.GlobalSequenceNumber
 }

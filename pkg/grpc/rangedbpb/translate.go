@@ -39,10 +39,13 @@ func ToRecord(pbRecord *Record, eventTypeIdentifier rangedb.EventTypeIdentifier)
 		strings.NewReader(pbRecord.Data),
 		eventTypeIdentifier,
 	)
+	if err != nil {
+		return nil, fmt.Errorf("unable to decode data: %v", err)
+	}
 
 	var metadata interface{}
 	if pbRecord.Metadata != "null" {
-		err = json.Unmarshal([]byte(pbRecord.Metadata), metadata)
+		err = json.Unmarshal([]byte(pbRecord.Metadata), &metadata)
 		if err != nil {
 			return nil, fmt.Errorf("unable to unmarshal metadata: %v", err)
 		}
