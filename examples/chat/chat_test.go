@@ -150,6 +150,88 @@ func Test_SendMessageToRoom(t *testing.T) {
 				Reason: "language",
 			},
 		))
+
+	t.Run("2nd bad word results in 2nd warning to user", newTestCase().
+		Given(
+			chat.UserWasOnBoarded{
+				UserID: userID,
+				Name:   "John",
+			},
+			chat.RoomWasOnBoarded{
+				RoomID:   roomID,
+				UserID:   userID,
+				RoomName: roomName,
+			},
+			chat.UserWasWarned{
+				UserID: userID,
+				Reason: "language",
+			},
+		).
+		When(chat.SendMessageToRoom{
+			RoomID:  roomID,
+			UserID:  userID,
+			Message: badMessage,
+		}).
+		Then(
+			chat.MessageWasSentToRoom{
+				RoomID:  roomID,
+				UserID:  userID,
+				Message: badMessage,
+			},
+			chat.PrivateMessageWasSentToRoom{
+				RoomID:       roomID,
+				TargetUserID: userID,
+				Message:      warnMessage,
+			},
+			chat.UserWasWarned{
+				UserID: userID,
+				Reason: "language",
+			},
+		))
+
+	t.Run("too many bad words results in user removed and banned from room", newTestCase().
+		Given(
+			chat.UserWasOnBoarded{
+				UserID: userID,
+				Name:   "John",
+			},
+			chat.RoomWasOnBoarded{
+				RoomID:   roomID,
+				UserID:   userID,
+				RoomName: roomName,
+			},
+			chat.UserWasWarned{
+				UserID: userID,
+				Reason: "language",
+			},
+			chat.UserWasWarned{
+				UserID: userID,
+				Reason: "language",
+			},
+		).
+		When(chat.SendMessageToRoom{
+			RoomID:  roomID,
+			UserID:  userID,
+			Message: badMessage,
+		}).
+		Then(
+			chat.MessageWasSentToRoom{
+				RoomID:  roomID,
+				UserID:  userID,
+				Message: badMessage,
+			},
+			chat.UserWasRemovedFromRoom{
+				RoomID: roomID,
+				UserID: userID,
+				Reason: "language",
+			},
+			chat.UserWasBannedFromRoom{
+				RoomID:  roomID,
+				UserID:  userID,
+				Reason:  "language",
+				Timeout: 3600,
+			},
+		))
 }
 
 func Test_SendPrivateMessageToRoom(t *testing.T) {

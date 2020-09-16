@@ -23,6 +23,19 @@ type PrivateMessageWasSentToRoom struct {
 	Message      string `json:"message"`
 }
 
+type UserWasRemovedFromRoom struct {
+	RoomID string `json:"roomID"`
+	UserID string `json:"userID"`
+	Reason string `json:"reason"`
+}
+
+type UserWasBannedFromRoom struct {
+	RoomID  string `json:"roomID"`
+	UserID  string `json:"userID"`
+	Reason  string `json:"reason"`
+	Timeout uint   `json:"timeout"`
+}
+
 // TODO: Generate code below
 
 func (e RoomWasOnBoarded) AggregateID() string   { return e.RoomID }
@@ -40,3 +53,11 @@ func (e MessageWasSentToRoom) EventType() string     { return "MessageWasSentToR
 func (e PrivateMessageWasSentToRoom) AggregateID() string   { return e.RoomID }
 func (e PrivateMessageWasSentToRoom) AggregateType() string { return "room" }
 func (e PrivateMessageWasSentToRoom) EventType() string     { return "PrivateMessageWasSentToRoom" }
+
+func (e UserWasRemovedFromRoom) AggregateID() string   { return e.RoomID }
+func (e UserWasRemovedFromRoom) AggregateType() string { return "room" }
+func (e UserWasRemovedFromRoom) EventType() string     { return "UserWasRemovedFromRoom" }
+
+func (e UserWasBannedFromRoom) AggregateID() string   { return e.RoomID }
+func (e UserWasBannedFromRoom) AggregateType() string { return "room" }
+func (e UserWasBannedFromRoom) EventType() string     { return "UserWasBannedFromRoom" }

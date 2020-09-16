@@ -72,6 +72,23 @@ func (a *room) SendPrivateMessageToRoom(c SendPrivateMessageToRoom) {
 	})
 }
 
+func (a *room) BanUserFromRoom(c BanUserFromRoom) {
+	a.emit(UserWasBannedFromRoom{
+		RoomID:  c.RoomID,
+		UserID:  c.UserID,
+		Reason:  c.Reason,
+		Timeout: c.Timeout,
+	})
+}
+
+func (a *room) RemoveUserFromRoom(c RemoveUserFromRoom) {
+	a.emit(UserWasRemovedFromRoom{
+		RoomID: c.RoomID,
+		UserID: c.UserID,
+		Reason: c.Reason,
+	})
+}
+
 // TODO: Generate code below
 
 func (a *room) Load(records <-chan *rangedb.Record) {
@@ -99,6 +116,12 @@ func (a *room) Handle(command cqrs.Command) []rangedb.Event {
 	case SendPrivateMessageToRoom:
 		a.SendPrivateMessageToRoom(c)
 
+	case RemoveUserFromRoom:
+		a.RemoveUserFromRoom(c)
+
+	case BanUserFromRoom:
+		a.BanUserFromRoom(c)
+
 	}
 
 	return a.pendingEvents
@@ -110,6 +133,8 @@ func (a *room) CommandTypes() []string {
 		JoinRoom{}.CommandType(),
 		SendMessageToRoom{}.CommandType(),
 		SendPrivateMessageToRoom{}.CommandType(),
+		RemoveUserFromRoom{}.CommandType(),
+		BanUserFromRoom{}.CommandType(),
 	}
 }
 

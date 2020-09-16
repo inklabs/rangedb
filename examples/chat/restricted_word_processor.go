@@ -7,23 +7,45 @@ import (
 	"github.com/inklabs/rangedb/pkg/cqrs"
 )
 
+const (
+	warnThreshold = 2
+	banTimeout    = 3600
+)
+
 var RestrictedWords = []string{"golly", "dagnabit", "gadzooks"}
 
 type restrictedWordProcessor struct {
-	dispatcher cqrs.CommandDispatcher
+	dispatcher  cqrs.CommandDispatcher
+	warnedUsers *warnedUsersProjection
 }
 
-func newRestrictedWordProcessor(d cqrs.CommandDispatcher) *restrictedWordProcessor {
+func newRestrictedWordProcessor(d cqrs.CommandDispatcher, warnedUsers *warnedUsersProjection) *restrictedWordProcessor {
 	return &restrictedWordProcessor{
-		dispatcher: d,
+		dispatcher:  d,
+		warnedUsers: warnedUsers,
 	}
 }
 
-func (r restrictedWordProcessor) Accept(record *rangedb.Record) {
+func (r *restrictedWordProcessor) Accept(record *rangedb.Record) {
 	switch e := record.Data.(type) {
 
 	case *MessageWasSentToRoom:
 		if containsRestrictedWord(e.Message) {
+			if r.userWarningsExceedThreshold(e.UserID) {
+				r.dispatcher.Dispatch(RemoveUserFromRoom{
+					UserID: e.UserID,
+					RoomID: e.RoomID,
+					Reason: "language",
+				})
+				r.dispatcher.Dispatch(BanUserFromRoom{
+					UserID:  e.UserID,
+					RoomID:  e.RoomID,
+					Reason:  "language",
+					Timeout: banTimeout,
+				})
+				return
+			}
+
 			r.dispatcher.Dispatch(SendPrivateMessageToRoom{
 				RoomID:       e.RoomID,
 				TargetUserID: e.UserID,
@@ -36,6 +58,10 @@ func (r restrictedWordProcessor) Accept(record *rangedb.Record) {
 		}
 
 	}
+}
+
+func (r *restrictedWordProcessor) userWarningsExceedThreshold(userID string) bool {
+	return r.warnedUsers.TotalWarnings(userID) >= warnThreshold
 }
 
 func containsRestrictedWord(message string) bool {
