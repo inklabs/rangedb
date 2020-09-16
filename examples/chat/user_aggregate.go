@@ -40,6 +40,13 @@ func (a *user) OnBoardUser(c OnBoardUser) {
 	})
 }
 
+func (a *user) WarnUser(c WarnUser) {
+	a.emit(UserWasWarned{
+		UserID: c.UserID,
+		Reason: c.Reason,
+	})
+}
+
 // TODO: Generate code below
 
 func (a *user) Load(records <-chan *rangedb.Record) {
@@ -57,6 +64,10 @@ func (a *user) Handle(command cqrs.Command) []rangedb.Event {
 	switch c := command.(type) {
 	case OnBoardUser:
 		a.OnBoardUser(c)
+
+	case WarnUser:
+		a.WarnUser(c)
+
 	}
 
 	return a.pendingEvents
@@ -65,6 +76,7 @@ func (a *user) Handle(command cqrs.Command) []rangedb.Event {
 func (a *user) CommandTypes() []string {
 	return []string{
 		OnBoardUser{}.CommandType(),
+		WarnUser{}.CommandType(),
 	}
 }
 

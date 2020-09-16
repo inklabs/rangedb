@@ -9,6 +9,7 @@ import (
 func BindEvents(binder rangedb.EventBinder) {
 	binder.Bind(
 		&UserWasOnBoarded{},
+		&UserWasWarned{},
 		&RoomWasOnBoarded{},
 		&RoomWasJoined{},
 		&MessageWasSentToRoom{},

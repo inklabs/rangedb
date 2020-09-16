@@ -29,6 +29,10 @@ func (r restrictedWordProcessor) Accept(record *rangedb.Record) {
 				TargetUserID: e.UserID,
 				Message:      "you have been warned",
 			})
+			r.dispatcher.Dispatch(WarnUser{
+				UserID: e.UserID,
+				Reason: "language",
+			})
 		}
 
 	}

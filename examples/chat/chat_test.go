@@ -145,6 +145,10 @@ func Test_SendMessageToRoom(t *testing.T) {
 				TargetUserID: userID,
 				Message:      warnMessage,
 			},
+			chat.UserWasWarned{
+				UserID: userID,
+				Reason: "language",
+			},
 		))
 }
 
