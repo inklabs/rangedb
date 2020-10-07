@@ -30,7 +30,7 @@ func (a *room) apply(event rangedb.Event) {
 }
 
 func (a *room) OnBoardRoom(c OnBoardRoom) {
-	a.emit(RoomWasOnBoarded{
+	a.raise(RoomWasOnBoarded{
 		RoomID:   c.RoomID,
 		UserID:   c.UserID,
 		RoomName: c.RoomName,
@@ -42,7 +42,7 @@ func (a *room) JoinRoom(c JoinRoom) {
 		return
 	}
 
-	a.emit(RoomWasJoined{
+	a.raise(RoomWasJoined{
 		RoomID: c.RoomID,
 		UserID: c.UserID,
 	})
@@ -53,7 +53,7 @@ func (a *room) SendMessageToRoom(c SendMessageToRoom) {
 		return
 	}
 
-	a.emit(MessageWasSentToRoom{
+	a.raise(MessageWasSentToRoom{
 		RoomID:  c.RoomID,
 		UserID:  c.UserID,
 		Message: c.Message,
@@ -65,7 +65,7 @@ func (a *room) SendPrivateMessageToRoom(c SendPrivateMessageToRoom) {
 		return
 	}
 
-	a.emit(PrivateMessageWasSentToRoom{
+	a.raise(PrivateMessageWasSentToRoom{
 		RoomID:       c.RoomID,
 		TargetUserID: c.TargetUserID,
 		Message:      c.Message,
@@ -73,7 +73,7 @@ func (a *room) SendPrivateMessageToRoom(c SendPrivateMessageToRoom) {
 }
 
 func (a *room) BanUserFromRoom(c BanUserFromRoom) {
-	a.emit(UserWasBannedFromRoom{
+	a.raise(UserWasBannedFromRoom{
 		RoomID:  c.RoomID,
 		UserID:  c.UserID,
 		Reason:  c.Reason,
@@ -82,7 +82,7 @@ func (a *room) BanUserFromRoom(c BanUserFromRoom) {
 }
 
 func (a *room) RemoveUserFromRoom(c RemoveUserFromRoom) {
-	a.emit(UserWasRemovedFromRoom{
+	a.raise(UserWasRemovedFromRoom{
 		RoomID: c.RoomID,
 		UserID: c.UserID,
 		Reason: c.Reason,
@@ -138,6 +138,6 @@ func (a *room) CommandTypes() []string {
 	}
 }
 
-func (a *room) emit(events ...rangedb.Event) {
+func (a *room) raise(events ...rangedb.Event) {
 	a.pendingEvents = append(a.pendingEvents, events...)
 }

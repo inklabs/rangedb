@@ -14,7 +14,7 @@ import (
 )
 
 func Test_CQRS(t *testing.T) {
-	t.Run("emits single event", func(t *testing.T) {
+	t.Run("raises single event", func(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
 		rangedbtest.BindEvents(store)
@@ -42,7 +42,7 @@ func Test_CQRS(t *testing.T) {
 		assert.Equal(t, expectedEvents, actualEvents)
 	})
 
-	t.Run("does not emit event if save fails", func(t *testing.T) {
+	t.Run("does not raise event if save fails", func(t *testing.T) {
 		// Given
 		store := rangedbtest.NewFailingEventStore()
 		rangedbtest.BindEvents(store)

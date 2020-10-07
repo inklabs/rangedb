@@ -20,7 +20,7 @@ import (
 	"github.com/inklabs/rangedb/rangedbtest"
 )
 
-func Test_WebsocketApi_SubscribeToAllEvents_EmitsEventsOverWebsocket(t *testing.T) {
+func Test_WebsocketApi_SubscribeToAllEvents_ReadsEventsOverWebsocket(t *testing.T) {
 	// Given
 	uuid.SetRand(rand.New(rand.NewSource(100)))
 	store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))

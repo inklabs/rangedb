@@ -59,8 +59,8 @@ func (c *TestCase) Then(expectedEvents ...rangedb.Event) func(*testing.T) {
 			allEvents, err := eventChannelToSlice(c.store.EventsStartingWith(context.Background(), 0))
 			require.NoError(t, err)
 
-			totalEmittedEvents := len(allEvents) - len(c.previousEvents)
-			require.Equal(t, 0, totalEmittedEvents)
+			totalRaisedEvents := len(allEvents) - len(c.previousEvents)
+			require.Equal(t, 0, totalRaisedEvents)
 			return
 		}
 

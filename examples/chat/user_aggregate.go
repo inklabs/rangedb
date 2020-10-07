@@ -34,14 +34,14 @@ func (a *user) OnBoardUser(c OnBoardUser) {
 		return
 	}
 
-	a.emit(UserWasOnBoarded{
+	a.raise(UserWasOnBoarded{
 		UserID: c.UserID,
 		Name:   c.Name,
 	})
 }
 
 func (a *user) WarnUser(c WarnUser) {
-	a.emit(UserWasWarned{
+	a.raise(UserWasWarned{
 		UserID: c.UserID,
 		Reason: c.Reason,
 	})
@@ -80,6 +80,6 @@ func (a *user) CommandTypes() []string {
 	}
 }
 
-func (a *user) emit(events ...rangedb.Event) {
+func (a *user) raise(events ...rangedb.Event) {
 	a.pendingEvents = append(a.pendingEvents, events...)
 }

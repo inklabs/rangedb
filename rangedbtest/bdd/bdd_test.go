@@ -11,7 +11,7 @@ import (
 )
 
 func TestTestCase_Then(t *testing.T) {
-	t.Run("no events emitted", func(t *testing.T) {
+	t.Run("no events raised", func(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
 		testCase := bdd.New(store, noopDispatcher)
@@ -25,7 +25,7 @@ func TestTestCase_Then(t *testing.T) {
 		assertNotFailed(t, tt)
 	})
 
-	t.Run("no events emitted, with previous events", func(t *testing.T) {
+	t.Run("no events raised, with previous events", func(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
 		store.Bind(NoopEvent{})
@@ -40,7 +40,7 @@ func TestTestCase_Then(t *testing.T) {
 		assertNotFailed(t, tt)
 	})
 
-	t.Run("dispatcher emits single event", func(t *testing.T) {
+	t.Run("dispatcher raises single event", func(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
 		store.Bind(NoopEvent{})
@@ -73,7 +73,7 @@ func TestTestCase_Then(t *testing.T) {
 }
 
 func TestTestCase_ThenInspectEvents(t *testing.T) {
-	t.Run("no events emitted", func(t *testing.T) {
+	t.Run("no events raised", func(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
 		testCase := bdd.New(store, noopDispatcher)
@@ -89,7 +89,7 @@ func TestTestCase_ThenInspectEvents(t *testing.T) {
 		assertNotFailed(t, tt)
 	})
 
-	t.Run("no events emitted, with previous events", func(t *testing.T) {
+	t.Run("no events raised, with previous events", func(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
 		testCase := bdd.New(store, noopDispatcher)
