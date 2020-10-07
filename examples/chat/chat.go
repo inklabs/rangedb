@@ -7,6 +7,8 @@ import (
 	"github.com/inklabs/rangedb/pkg/cqrs"
 )
 
+//go:generate go run ../../gen/eventbinder/main.go -package chat -files room_events.go,user_events.go
+
 func New(store rangedb.Store) cqrs.CommandDispatcher {
 	app := cqrs.New(
 		store,
