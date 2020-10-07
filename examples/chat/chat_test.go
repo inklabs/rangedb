@@ -79,6 +79,26 @@ func Test_JoinRoom(t *testing.T) {
 			UserID: userID,
 		}).
 		Then())
+
+	t.Run("fails to join room after being banned", newTestCase().
+		Given(
+			chat.RoomWasOnBoarded{
+				RoomID:   roomID,
+				UserID:   userID,
+				RoomName: roomName,
+			},
+			chat.UserWasBannedFromRoom{
+				RoomID:  roomID,
+				UserID:  userID,
+				Reason:  "language",
+				Timeout: 3600,
+			},
+		).
+		When(chat.JoinRoom{
+			RoomID: roomID,
+			UserID: userID,
+		}).
+		Then())
 }
 
 func Test_SendMessageToRoom(t *testing.T) {

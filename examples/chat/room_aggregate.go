@@ -1,18 +1,23 @@
 package chat
 
 import (
+	"sync"
+
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/cqrs"
 )
 
 type room struct {
-	state         roomState
 	pendingEvents []rangedb.Event
+
+	sync  sync.RWMutex
+	state roomState
 }
 
 type roomState struct {
 	RoomName    string
 	IsOnBoarded bool
+	BannedUsers map[string]struct{}
 }
 
 func NewRoom() *room {
@@ -25,6 +30,11 @@ func (a *room) apply(event rangedb.Event) {
 	case *RoomWasOnBoarded:
 		a.state.IsOnBoarded = true
 		a.state.RoomName = e.RoomName
+
+	case *UserWasBannedFromRoom:
+		a.sync.Lock()
+		a.state.BannedUsers[e.UserID] = struct{}{}
+		a.sync.Unlock()
 
 	}
 }
@@ -39,6 +49,10 @@ func (a *room) OnBoardRoom(c OnBoardRoom) {
 
 func (a *room) JoinRoom(c JoinRoom) {
 	if !a.state.IsOnBoarded {
+		return
+	}
+
+	if a.userIsBanned(c.UserID) {
 		return
 	}
 
@@ -89,10 +103,19 @@ func (a *room) RemoveUserFromRoom(c RemoveUserFromRoom) {
 	})
 }
 
+func (a *room) userIsBanned(userID string) bool {
+	a.sync.RLock()
+	_, ok := a.state.BannedUsers[userID]
+	a.sync.RUnlock()
+	return ok
+}
+
 // TODO: Generate code below
 
 func (a *room) Load(records <-chan *rangedb.Record) {
-	a.state = roomState{}
+	a.state = roomState{
+		BannedUsers: make(map[string]struct{}),
+	}
 	a.pendingEvents = nil
 
 	for record := range records {
