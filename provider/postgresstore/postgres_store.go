@@ -15,6 +15,7 @@ import (
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
 	"github.com/inklabs/rangedb/pkg/clock/provider/systemclock"
+	"github.com/inklabs/rangedb/pkg/errors"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
@@ -127,23 +128,31 @@ func (s *postgresStore) EventsByStreamStartingWith(ctx context.Context, eventNum
 	return records
 }
 
-func (s *postgresStore) Save(event rangedb.Event, metadata interface{}) error {
+func (s *postgresStore) Save(event rangedb.Event, expectedStreamSequenceNumber *uint64, metadata interface{}) error {
 	return s.SaveEvent(
 		event.AggregateType(),
 		event.AggregateID(),
 		event.EventType(),
 		shortuuid.New().String(),
+		expectedStreamSequenceNumber,
 		event,
 		metadata,
 	)
 }
 
-func (s *postgresStore) SaveEvent(aggregateType, aggregateID, eventType, eventID string, event, metadata interface{}) error {
+func (s *postgresStore) SaveEvent(aggregateType, aggregateID, eventType, eventID string, expectedStreamSequenceNumber *uint64, event, metadata interface{}) error {
 	if eventID == "" {
 		eventID = shortuuid.New().String()
 	}
 
 	streamSequenceNumber := s.getNextStreamSequenceNumber(aggregateType, aggregateID)
+
+	if expectedStreamSequenceNumber != nil && streamSequenceNumber != *expectedStreamSequenceNumber {
+		return errors.ErrUnexpectedVersionError{
+			ExpectedVersion: streamSequenceNumber,
+			EventVersion:    *expectedStreamSequenceNumber,
+		}
+	}
 
 	jsonData, err := json.Marshal(event)
 	if err != nil {
