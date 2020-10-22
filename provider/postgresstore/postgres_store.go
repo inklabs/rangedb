@@ -132,8 +132,6 @@ func (s *postgresStore) EventsByStreamStartingWith(ctx context.Context, eventNum
 
 	go func() {
 		aggregateType, aggregateID := rangedb.ParseStream(streamName)
-		fmt.Printf("SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE AggregateType = %s AND AggregateID = %s AND StreamSequenceNumber >= %d ORDER BY GlobalSequenceNumber\n",
-			aggregateType, aggregateID, int64(eventNumber))
 		rows, err := s.db.Query("SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE AggregateType = $1 AND AggregateID = $2 AND StreamSequenceNumber >= $3 ORDER BY GlobalSequenceNumber",
 			aggregateType, aggregateID, int64(eventNumber))
 		if err != nil {
