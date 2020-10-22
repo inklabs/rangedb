@@ -9,6 +9,7 @@ import (
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
 	"github.com/inklabs/rangedb/pkg/clock/provider/systemclock"
+	"github.com/inklabs/rangedb/pkg/errors"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
@@ -126,18 +127,23 @@ func (s *inMemoryStore) recordsStartingWith(ctx context.Context, eventNumber uin
 	return records
 }
 
-func (s *inMemoryStore) Save(event rangedb.Event, metadata interface{}) error {
+func (s *inMemoryStore) Save(event rangedb.Event, expectedStreamSequenceNumber *uint64, metadata interface{}) error {
 	return s.SaveEvent(
 		event.AggregateType(),
 		event.AggregateID(),
 		event.EventType(),
 		shortuuid.New().String(),
+		expectedStreamSequenceNumber,
 		event,
 		metadata,
 	)
 }
 
-func (s *inMemoryStore) SaveEvent(aggregateType, aggregateID, eventType, eventID string, event, metadata interface{}) error {
+func (s *inMemoryStore) SaveEvent(
+	aggregateType, aggregateID,
+	eventType, eventID string,
+	expectedStreamSequenceNumber *uint64,
+	event, metadata interface{}) error {
 	s.mux.Lock()
 
 	if eventID == "" {
@@ -145,11 +151,20 @@ func (s *inMemoryStore) SaveEvent(aggregateType, aggregateID, eventType, eventID
 	}
 
 	stream := rangedb.GetStream(aggregateType, aggregateID)
+	nextSequenceNumber := uint64(len(s.recordsByStream[stream]))
+
+	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber != nextSequenceNumber {
+		return errors.ErrUnexpectedVersionError{
+			ExpectedVersion: nextSequenceNumber,
+			EventVersion:    *expectedStreamSequenceNumber,
+		}
+	}
+
 	record := &rangedb.Record{
 		AggregateType:        aggregateType,
 		AggregateID:          aggregateID,
 		GlobalSequenceNumber: uint64(len(s.allRecords)),
-		StreamSequenceNumber: uint64(len(s.recordsByStream[stream])),
+		StreamSequenceNumber: nextSequenceNumber,
 		EventType:            eventType,
 		EventID:              eventID,
 		InsertTimestamp:      uint64(s.clock.Now().Unix()),

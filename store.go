@@ -21,6 +21,11 @@ type Record struct {
 	Metadata             interface{} `msgpack:"m" json:"metadata"`
 }
 
+type Stream struct {
+	StreamName           string `msgpack:"n" json:"streamName"`
+	GlobalSequenceNumber uint64 `msgpack:"g" json:"globalSequenceNumber"`
+}
+
 type EventBinder interface {
 	Bind(events ...Event)
 }
@@ -28,11 +33,12 @@ type EventBinder interface {
 // Store is the interface that stores and retrieves event records.
 type Store interface {
 	EventBinder
+	// StreamsStartingWith(ctx context.Context, globalSequenceNumber uint64) ([]*Stream, error)
 	EventsStartingWith(ctx context.Context, eventNumber uint64) <-chan *Record
 	EventsByAggregateTypesStartingWith(ctx context.Context, eventNumber uint64, aggregateTypes ...string) <-chan *Record
 	EventsByStreamStartingWith(ctx context.Context, eventNumber uint64, streamName string) <-chan *Record
-	Save(event Event, metadata interface{}) error
-	SaveEvent(aggregateType, aggregateID, eventType, eventID string, event, metadata interface{}) error
+	Save(event Event, expectedStreamSequenceNumber *uint64, metadata interface{}) error
+	SaveEvent(aggregateType, aggregateID, eventType, eventID string, expectedStreamSequenceNumber *uint64, event, metadata interface{}) error
 	Subscribe(subscribers ...RecordSubscriber)
 	SubscribeStartingWith(ctx context.Context, eventNumber uint64, subscribers ...RecordSubscriber)
 	TotalEventsInStream(streamName string) uint64

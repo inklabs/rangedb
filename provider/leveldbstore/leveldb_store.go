@@ -107,18 +107,19 @@ func (s *levelDbStore) EventsByStreamStartingWith(ctx context.Context, eventNumb
 	return s.getEventsByPrefixStartingWith(ctx, stream, eventNumber)
 }
 
-func (s *levelDbStore) Save(event rangedb.Event, metadata interface{}) error {
+func (s *levelDbStore) Save(event rangedb.Event, expectedStreamSequenceNumber *uint64, metadata interface{}) error {
 	return s.SaveEvent(
 		event.AggregateType(),
 		event.AggregateID(),
 		event.EventType(),
 		shortuuid.New().String(),
+		*expectedStreamSequenceNumber,
 		event,
 		metadata,
 	)
 }
 
-func (s *levelDbStore) SaveEvent(aggregateType, aggregateID, eventType, eventID string, event, metadata interface{}) error {
+func (s *levelDbStore) SaveEvent(aggregateType, aggregateID, eventType, eventID string, expectedStreamSequenceNumber uint64, event, metadata interface{}) error {
 	s.mux.Lock()
 
 	if eventID == "" {
