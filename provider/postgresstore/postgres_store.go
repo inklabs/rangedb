@@ -73,12 +73,12 @@ func (s *postgresStore) Bind(events ...rangedb.Event) {
 	s.serializer.Bind(events...)
 }
 
-func (s *postgresStore) EventsStartingWith(ctx context.Context, eventNumber uint64) <-chan *rangedb.Record {
+func (s *postgresStore) StreamsStartingWith(ctx context.Context, globalSequenceNumber uint64) <-chan *rangedb.Record {
 	records := make(chan *rangedb.Record)
 
 	go func() {
-		rows, err := s.db.Query("SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE StreamSequenceNumber >= $1 ORDER BY GlobalSequenceNumber",
-			eventNumber)
+		rows, err := s.db.Query("SELECT DISTINCT(AggregateID)FROM record WHERE GlobalSequenceNumber >= $1 ORDER BY GlobalSequenceNumber",
+			globalSequenceNumber)
 		if err != nil {
 			panic(err) // TODO: test this error path
 		}
@@ -91,12 +91,30 @@ func (s *postgresStore) EventsStartingWith(ctx context.Context, eventNumber uint
 	return records
 }
 
-func (s *postgresStore) EventsByAggregateTypesStartingWith(ctx context.Context, eventNumber uint64, aggregateTypes ...string) <-chan *rangedb.Record {
+func (s *postgresStore) EventsStartingWith(ctx context.Context, globalSequenceNumber uint64) <-chan *rangedb.Record {
 	records := make(chan *rangedb.Record)
 
 	go func() {
-		rows, err := s.db.Query("SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE AggregateType = ANY($1) ORDER BY GlobalSequenceNumber, StreamSequenceNumber OFFSET $2",
-			pq.Array(aggregateTypes), eventNumber)
+		rows, err := s.db.Query("SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE globalSequenceNumber >= $1 ORDER BY GlobalSequenceNumber",
+			int64(globalSequenceNumber))
+		if err != nil {
+			panic(err) // TODO: test this error path
+		}
+		defer rows.Close()
+		s.readRecords(ctx, rows, records)
+
+		close(records)
+	}()
+
+	return records
+}
+
+func (s *postgresStore) EventsByAggregateTypesStartingWith(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) <-chan *rangedb.Record {
+	records := make(chan *rangedb.Record)
+
+	go func() {
+		rows, err := s.db.Query("SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE AggregateType = ANY($1) AND GlobalSequenceNumber >= $2 ORDER BY GlobalSequenceNumber, StreamSequenceNumber",
+			pq.Array(aggregateTypes), int64(globalSequenceNumber))
 		if err != nil {
 			panic(err) // TODO: test this error path
 		}
@@ -114,14 +132,15 @@ func (s *postgresStore) EventsByStreamStartingWith(ctx context.Context, eventNum
 
 	go func() {
 		aggregateType, aggregateID := rangedb.ParseStream(streamName)
+		fmt.Printf("SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE AggregateType = %s AND AggregateID = %s AND StreamSequenceNumber >= %d ORDER BY GlobalSequenceNumber\n",
+			aggregateType, aggregateID, int64(eventNumber))
 		rows, err := s.db.Query("SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE AggregateType = $1 AND AggregateID = $2 AND StreamSequenceNumber >= $3 ORDER BY GlobalSequenceNumber",
-			aggregateType, aggregateID, eventNumber)
+			aggregateType, aggregateID, int64(eventNumber))
 		if err != nil {
 			panic(err) // TODO: test this error path
 		}
 		defer rows.Close()
 		s.readRecords(ctx, rows, records)
-
 		close(records)
 	}()
 
@@ -311,7 +330,7 @@ func (s *postgresStore) readRecords(ctx context.Context, rows *sql.Rows, records
 
 		var metadata interface{}
 		if serializedMetadata != "null" {
-			err = json.Unmarshal([]byte(serializedMetadata), metadata)
+			err = json.Unmarshal([]byte(serializedMetadata), &metadata)
 			if err != nil {
 				panic(err) // TODO: test this error path
 			}
