@@ -684,10 +684,12 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			err := store.OptimisticSave(1, event, nil)
 
 			// Then
-			assert.EqualError(t, err, "unexpected sequence number: 1, next: 0")
-			sequenceNumberErr := err.(errors.UnexpectedSequenceNumber)
-			assert.Equal(t, uint64(1), sequenceNumberErr.Expected)
-			assert.Equal(t, uint64(0), sequenceNumberErr.NextSequenceNumber)
+			require.NotNil(t, err)
+			assert.Contains(t, err.Error(), "unexpected sequence number: 1, next: 0")
+			if sequenceNumberErr, ok := err.(errors.UnexpectedSequenceNumber); ok {
+				assert.Equal(t, uint64(1), sequenceNumberErr.Expected)
+				assert.Equal(t, uint64(0), sequenceNumberErr.NextSequenceNumber)
+			}
 		})
 	})
 }

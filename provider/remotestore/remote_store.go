@@ -86,13 +86,25 @@ func (s *remoteStore) EventsByStreamStartingWith(ctx context.Context, eventNumbe
 	return s.readRecords(ctx, events)
 }
 
-func (s *remoteStore) Save(event rangedb.Event, expectedStreamSequenceNumber *uint64, metadata interface{}) error {
+func (s *remoteStore) Save(event rangedb.Event, metadata interface{}) error {
 	return s.SaveEvent(
 		event.AggregateType(),
 		event.AggregateID(),
 		event.EventType(),
 		shortuuid.New().String(),
-		expectedStreamSequenceNumber,
+		nil,
+		event,
+		metadata,
+	)
+}
+
+func (s *remoteStore) OptimisticSave(expectedStreamSequenceNumber uint64, event rangedb.Event, metadata interface{}) error {
+	return s.SaveEvent(
+		event.AggregateType(),
+		event.AggregateID(),
+		event.EventType(),
+		shortuuid.New().String(),
+		&expectedStreamSequenceNumber,
 		event,
 		metadata,
 	)
