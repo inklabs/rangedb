@@ -631,6 +631,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 	})
 
 	t.Run("get total events in stream", func(t *testing.T) {
+		// Given
 		store := newStore(t, sequentialclock.New())
 		store.Bind(ThingWasDone{})
 		eventA1 := &ThingWasDone{ID: "A", Number: 1}
@@ -649,6 +650,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 	t.Run("optimistic save", func(t *testing.T) {
 		t.Run("saves first event", func(t *testing.T) {
+			// Given
 			shortuuid.SetRand(100)
 			store := newStore(t, sequentialclock.New())
 			store.Bind(&ThingWasDone{})
@@ -676,10 +678,12 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		})
 
 		t.Run("fails to save first event from unexpected sequence number", func(t *testing.T) {
+			// Given
 			shortuuid.SetRand(100)
 			store := newStore(t, sequentialclock.New())
 			store.Bind(&ThingWasDone{})
 			event := ThingWasDone{ID: "A", Number: 1}
+
 			// When
 			err := store.OptimisticSave(1, event, nil)
 
