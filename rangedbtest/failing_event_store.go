@@ -31,8 +31,12 @@ func (f failingEventStore) Save(_ rangedb.Event, _ interface{}) error {
 	return fmt.Errorf("failingEventStore.Save")
 }
 
-func (f failingEventStore) SaveEvent(_, _, _, _ string, _, _ interface{}) error {
+func (f failingEventStore) SaveEvent(_, _, _, _ string, _ *uint64, _, _ interface{}) error {
 	return fmt.Errorf("failingEventStore.SaveEvent")
+}
+
+func (f failingEventStore) OptimisticSave(_ uint64, _ rangedb.Event, _ interface{}) error {
+	return fmt.Errorf("failingEventStore.OptimisticSave")
 }
 
 func (f failingEventStore) Subscribe(_ ...rangedb.RecordSubscriber) {}
