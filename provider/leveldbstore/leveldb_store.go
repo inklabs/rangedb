@@ -16,6 +16,7 @@ import (
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
 	"github.com/inklabs/rangedb/pkg/clock/provider/systemclock"
+	"github.com/inklabs/rangedb/pkg/errors"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
@@ -107,19 +108,31 @@ func (s *levelDbStore) EventsByStreamStartingWith(ctx context.Context, eventNumb
 	return s.getEventsByPrefixStartingWith(ctx, stream, eventNumber)
 }
 
-func (s *levelDbStore) Save(event rangedb.Event, expectedStreamSequenceNumber *uint64, metadata interface{}) error {
+func (s *levelDbStore) Save(event rangedb.Event, metadata interface{}) error {
 	return s.SaveEvent(
 		event.AggregateType(),
 		event.AggregateID(),
 		event.EventType(),
 		shortuuid.New().String(),
-		*expectedStreamSequenceNumber,
+		nil,
 		event,
 		metadata,
 	)
 }
 
-func (s *levelDbStore) SaveEvent(aggregateType, aggregateID, eventType, eventID string, expectedStreamSequenceNumber uint64, event, metadata interface{}) error {
+func (s *levelDbStore) OptimisticSave(expectedStreamSequenceNumber uint64, event rangedb.Event, metadata interface{}) error {
+	return s.SaveEvent(
+		event.AggregateType(),
+		event.AggregateID(),
+		event.EventType(),
+		shortuuid.New().String(),
+		&expectedStreamSequenceNumber,
+		event,
+		metadata,
+	)
+}
+
+func (s *levelDbStore) SaveEvent(aggregateType, aggregateID, eventType, eventID string, expectedStreamSequenceNumber *uint64, event, metadata interface{}) error {
 	s.mux.Lock()
 
 	if eventID == "" {
@@ -127,11 +140,20 @@ func (s *levelDbStore) SaveEvent(aggregateType, aggregateID, eventType, eventID 
 	}
 
 	stream := rangedb.GetStream(aggregateType, aggregateID)
+	nextSequenceNumber := s.getNextStreamSequenceNumber(stream)
+
+	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber != nextSequenceNumber {
+		return errors.UnexpectedSequenceNumber{
+			Expected:           *expectedStreamSequenceNumber,
+			NextSequenceNumber: nextSequenceNumber,
+		}
+	}
+
 	record := &rangedb.Record{
 		AggregateType:        aggregateType,
 		AggregateID:          aggregateID,
 		GlobalSequenceNumber: s.getNextGlobalSequenceNumber(),
-		StreamSequenceNumber: s.getNextStreamSequenceNumber(stream),
+		StreamSequenceNumber: nextSequenceNumber,
 		EventType:            eventType,
 		EventID:              eventID,
 		InsertTimestamp:      uint64(s.clock.Now().Unix()),
