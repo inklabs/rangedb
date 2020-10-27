@@ -202,6 +202,7 @@ func (a *api) saveRecords(aggregateType, aggregateID string, records <-chan *ran
 				aggregateID,
 				record.EventType,
 				record.EventID,
+				&record.StreamSequenceNumber,
 				record.Data,
 				record.Metadata,
 			)

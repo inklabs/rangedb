@@ -62,11 +62,16 @@ message TotalEventsInStreamResponse {
   uint64 TotalEvents = 1;
 }
 
+message Uint64Value {
+  uint64 value = 1;
+}
+
 message Event {
   string ID = 1;
   string Type = 2;
   string Data = 3;
   string Metadata = 4;
+  Uint64Value ExpectedStreamSequenceNumber = 5;
 }
 
 message Record {

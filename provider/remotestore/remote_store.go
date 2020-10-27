@@ -86,18 +86,19 @@ func (s *remoteStore) EventsByStreamStartingWith(ctx context.Context, eventNumbe
 	return s.readRecords(ctx, events)
 }
 
-func (s *remoteStore) Save(event rangedb.Event, metadata interface{}) error {
+func (s *remoteStore) Save(event rangedb.Event, expectedStreamSequenceNumber *uint64, metadata interface{}) error {
 	return s.SaveEvent(
 		event.AggregateType(),
 		event.AggregateID(),
 		event.EventType(),
 		shortuuid.New().String(),
+		expectedStreamSequenceNumber,
 		event,
 		metadata,
 	)
 }
 
-func (s *remoteStore) SaveEvent(aggregateType, aggregateID, eventType, eventID string, event, metadata interface{}) error {
+func (s *remoteStore) SaveEvent(aggregateType, aggregateID, eventType, eventID string, expectedStreamSequenceNumber *uint64, event, metadata interface{}) error {
 	jsonData, err := json.Marshal(event)
 	if err != nil {
 		return err
@@ -108,15 +109,21 @@ func (s *remoteStore) SaveEvent(aggregateType, aggregateID, eventType, eventID s
 		return err
 	}
 
+	var expectedSSN *rangedbpb.Uint64Value
+	if expectedStreamSequenceNumber != nil {
+		expectedSSN = &rangedbpb.Uint64Value{Value: *expectedStreamSequenceNumber}
+	}
+
 	request := &rangedbpb.SaveEventsRequest{
 		AggregateType: aggregateType,
 		AggregateID:   aggregateID,
 		Events: []*rangedbpb.Event{
 			{
-				ID:       eventID,
-				Type:     eventType,
-				Data:     string(jsonData),
-				Metadata: string(jsonMetadata),
+				ID:                           eventID,
+				Type:                         eventType,
+				Data:                         string(jsonData),
+				Metadata:                     string(jsonMetadata),
+				ExpectedStreamSequenceNumber: expectedSSN,
 			},
 		},
 	}
