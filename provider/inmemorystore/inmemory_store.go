@@ -163,7 +163,7 @@ func (s *inMemoryStore) SaveEvent(
 	}
 
 	stream := rangedb.GetStream(aggregateType, aggregateID)
-	nextSequenceNumber := uint64(len(s.recordsByStream[stream]))
+	nextSequenceNumber := s.getNextStreamSequenceNumber(stream)
 
 	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber != nextSequenceNumber {
 		return errors.UnexpectedSequenceNumber{
@@ -175,7 +175,7 @@ func (s *inMemoryStore) SaveEvent(
 	record := &rangedb.Record{
 		AggregateType:        aggregateType,
 		AggregateID:          aggregateID,
-		GlobalSequenceNumber: uint64(len(s.allRecords)),
+		GlobalSequenceNumber: s.getNextGlobalSequenceNumber(),
 		StreamSequenceNumber: nextSequenceNumber,
 		EventType:            eventType,
 		EventID:              eventID,
@@ -223,6 +223,14 @@ func (s *inMemoryStore) TotalEventsInStream(streamName string) uint64 {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return uint64(len(s.recordsByStream[streamName]))
+}
+
+func (s *inMemoryStore) getNextStreamSequenceNumber(stream string) uint64 {
+	return uint64(len(s.recordsByStream[stream]))
+}
+
+func (s *inMemoryStore) getNextGlobalSequenceNumber() uint64 {
+	return uint64(len(s.allRecords))
 }
 
 func (s *inMemoryStore) notifySubscribers(record *rangedb.Record) {
