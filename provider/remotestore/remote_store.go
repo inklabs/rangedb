@@ -121,9 +121,9 @@ func (s *remoteStore) SaveEvent(aggregateType, aggregateID, eventType, eventID s
 		return err
 	}
 
-	var expectedSSN *rangedbpb.Uint64Value
+	var pbExpectedStreamSequenceNumber *rangedbpb.Uint64Value
 	if expectedStreamSequenceNumber != nil {
-		expectedSSN = &rangedbpb.Uint64Value{Value: *expectedStreamSequenceNumber}
+		pbExpectedStreamSequenceNumber = &rangedbpb.Uint64Value{Value: *expectedStreamSequenceNumber}
 	}
 
 	request := &rangedbpb.SaveEventsRequest{
@@ -135,7 +135,7 @@ func (s *remoteStore) SaveEvent(aggregateType, aggregateID, eventType, eventID s
 				Type:                         eventType,
 				Data:                         string(jsonData),
 				Metadata:                     string(jsonMetadata),
-				ExpectedStreamSequenceNumber: expectedSSN,
+				ExpectedStreamSequenceNumber: pbExpectedStreamSequenceNumber,
 			},
 		},
 	}
