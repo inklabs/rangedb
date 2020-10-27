@@ -136,9 +136,9 @@ func (s *rangeDBServer) SaveEvents(_ context.Context, req *rangedbpb.SaveEventsR
 			}
 		}
 
-		var expectedVersion *uint64
+		var expectedSequenceNumber *uint64
 		if event.ExpectedStreamSequenceNumber != nil {
-			expectedVersion = &event.ExpectedStreamSequenceNumber.Value
+			expectedSequenceNumber = &event.ExpectedStreamSequenceNumber.Value
 		}
 
 		err = s.store.SaveEvent(
@@ -146,7 +146,7 @@ func (s *rangeDBServer) SaveEvents(_ context.Context, req *rangedbpb.SaveEventsR
 			req.AggregateID,
 			event.Type,
 			event.ID,
-			expectedVersion,
+			expectedSequenceNumber,
 			data,
 			metadata,
 		)
