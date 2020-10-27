@@ -14,6 +14,7 @@ import (
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
 	"github.com/inklabs/rangedb/pkg/clock/provider/sequentialclock"
+	"github.com/inklabs/rangedb/pkg/errors"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 )
 
@@ -417,7 +418,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		event := &ThingWasDone{ID: aggregateID, Number: 1}
 
 		// When
-		err := store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event, nil)
+		err := store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", nil, event, nil)
 
 		// Then
 		require.NoError(t, err)
@@ -453,7 +454,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		store.Subscribe(countSubscriber1, countSubscriber2)
 
 		// When
-		err := store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event2, nil)
+		err := store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", nil, event2, nil)
 		require.NoError(t, err)
 
 		// Then
@@ -483,7 +484,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		<-countSubscriber2.ReceivedRecords
 
 		// When
-		err := store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event2, nil)
+		err := store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", nil, event2, nil)
 		require.NoError(t, err)
 
 		// Then
@@ -513,7 +514,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		<-countSubscriber2.ReceivedRecords
 
 		// When
-		err := store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event2, nil)
+		err := store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", nil, event2, nil)
 		require.NoError(t, err)
 
 		// Then
@@ -542,7 +543,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		store.SubscribeStartingWith(ctx, 0, countSubscriber1, countSubscriber2)
 
 		// When
-		err := store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", event2, nil)
+		err := store.SaveEvent(aggregateType, aggregateID, "ThingWasDone", "", nil, event2, nil)
 		require.NoError(t, err)
 
 		// Then
@@ -644,6 +645,50 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		// Then
 		assert.Equal(t, 2, int(totalEvents))
+	})
+
+	t.Run("optimistic save", func(t *testing.T) {
+		t.Run("saves first event", func(t *testing.T) {
+			shortuuid.SetRand(100)
+			store := newStore(t, sequentialclock.New())
+			store.Bind(&ThingWasDone{})
+			event := ThingWasDone{ID: "A", Number: 1}
+			require.NoError(t, store.OptimisticSave(0, event, nil))
+			ctx := context.Background()
+
+			// When
+			records := store.EventsStartingWith(ctx, 0)
+
+			// Then
+			expectedRecord := &rangedb.Record{
+				AggregateType:        "thing",
+				AggregateID:          "A",
+				GlobalSequenceNumber: 0,
+				StreamSequenceNumber: 0,
+				EventType:            "ThingWasDone",
+				EventID:              "d2ba8e70072943388203c438d4e94bf3",
+				InsertTimestamp:      0,
+				Data:                 &event,
+				Metadata:             nil,
+			}
+			assert.Equal(t, expectedRecord, <-records)
+			assert.Equal(t, (*rangedb.Record)(nil), <-records)
+		})
+
+		t.Run("fails to save first event from unexpected sequence number", func(t *testing.T) {
+			shortuuid.SetRand(100)
+			store := newStore(t, sequentialclock.New())
+			store.Bind(&ThingWasDone{})
+			event := ThingWasDone{ID: "A", Number: 1}
+			// When
+			err := store.OptimisticSave(1, event, nil)
+
+			// Then
+			assert.EqualError(t, err, "unexpected sequence number: 1, next: 0")
+			sequenceNumberErr := err.(errors.UnexpectedSequenceNumber)
+			assert.Equal(t, uint64(1), sequenceNumberErr.Expected)
+			assert.Equal(t, uint64(0), sequenceNumberErr.NextSequenceNumber)
+		})
 	})
 }
 

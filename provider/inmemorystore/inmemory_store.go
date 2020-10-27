@@ -127,13 +127,25 @@ func (s *inMemoryStore) recordsStartingWith(ctx context.Context, eventNumber uin
 	return records
 }
 
-func (s *inMemoryStore) Save(event rangedb.Event, expectedStreamSequenceNumber *uint64, metadata interface{}) error {
+func (s *inMemoryStore) Save(event rangedb.Event, metadata interface{}) error {
 	return s.SaveEvent(
 		event.AggregateType(),
 		event.AggregateID(),
 		event.EventType(),
 		shortuuid.New().String(),
-		expectedStreamSequenceNumber,
+		nil,
+		event,
+		metadata,
+	)
+}
+
+func (s *inMemoryStore) OptimisticSave(expectedStreamSequenceNumber uint64, event rangedb.Event, metadata interface{}) error {
+	return s.SaveEvent(
+		event.AggregateType(),
+		event.AggregateID(),
+		event.EventType(),
+		shortuuid.New().String(),
+		&expectedStreamSequenceNumber,
 		event,
 		metadata,
 	)
@@ -154,9 +166,9 @@ func (s *inMemoryStore) SaveEvent(
 	nextSequenceNumber := uint64(len(s.recordsByStream[stream]))
 
 	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber != nextSequenceNumber {
-		return errors.ErrUnexpectedVersionError{
-			ExpectedVersion: nextSequenceNumber,
-			EventVersion:    *expectedStreamSequenceNumber,
+		return errors.UnexpectedSequenceNumber{
+			Expected:           *expectedStreamSequenceNumber,
+			NextSequenceNumber: nextSequenceNumber,
 		}
 	}
 

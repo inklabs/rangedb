@@ -165,9 +165,9 @@ func (s *postgresStore) SaveEvent(aggregateType, aggregateID, eventType, eventID
 	streamSequenceNumber := s.getNextStreamSequenceNumber(aggregateType, aggregateID)
 
 	if expectedStreamSequenceNumber != nil && streamSequenceNumber != *expectedStreamSequenceNumber {
-		return errors.ErrUnexpectedVersionError{
-			ExpectedVersion: streamSequenceNumber,
-			EventVersion:    *expectedStreamSequenceNumber,
+		return errors.UnexpectedSequenceNumber{
+			Expected:           streamSequenceNumber,
+			NextSequenceNumber: *expectedStreamSequenceNumber,
 		}
 	}
 
