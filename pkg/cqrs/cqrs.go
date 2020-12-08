@@ -21,6 +21,7 @@ type Aggregate interface {
 	Load(<-chan *rangedb.Record)
 	Handle(Command) []rangedb.Event
 	CommandTypes() []string
+	ApplyEvent(event rangedb.Event)
 }
 
 type cqrs struct {
