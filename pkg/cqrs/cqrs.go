@@ -21,7 +21,7 @@ type Aggregate interface {
 	Load(<-chan *rangedb.Record)
 	Apply(event rangedb.Event)
 	Handle(Command) []rangedb.Event
-	CommandTypes() []string
+	Commands() []Command
 }
 
 type cqrs struct {
@@ -44,8 +44,8 @@ func WithLogger(logger *log.Logger) Option {
 func WithAggregates(aggregates ...Aggregate) Option {
 	return func(c *cqrs) {
 		for _, aggregate := range aggregates {
-			for _, commandType := range aggregate.CommandTypes() {
-				c.aggregates[commandType] = aggregate
+			for _, command := range aggregate.Commands() {
+				c.aggregates[command.CommandType()] = aggregate
 			}
 		}
 	}
