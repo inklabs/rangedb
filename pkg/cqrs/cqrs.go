@@ -78,6 +78,14 @@ func (c *cqrs) Dispatch(command Command) []rangedb.Event {
 	streamName := rangedb.GetEventStream(command)
 	eventStream := c.store.EventsByStreamStartingWith(context.Background(), 0, streamName)
 	commandHandler.Load(eventStream)
+
+	// Why can we can't do this here?
+	//for record := range eventStream {
+	//	if event, ok := record.Data.(rangedb.Event); ok {
+	//		u.ApplyEvent(event)
+	//	}
+	//}
+
 	handlerEvents := commandHandler.Handle(command)
 
 	events := append(preHandlerEvents, handlerEvents...)
