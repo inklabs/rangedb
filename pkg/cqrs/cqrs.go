@@ -2,6 +2,7 @@ package cqrs
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"log"
 
@@ -45,6 +46,10 @@ func WithAggregates(aggregates ...Aggregate) Option {
 	return func(c *cqrs) {
 		for _, aggregate := range aggregates {
 			for _, command := range aggregate.Commands() {
+				if c.aggregates[command.CommandType()] != nil {
+					panic(fmt.Sprintf("command \"%s\" is already registered", command.CommandType()))
+				}
+
 				c.aggregates[command.CommandType()] = aggregate
 			}
 		}
