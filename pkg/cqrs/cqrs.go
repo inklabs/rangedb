@@ -19,9 +19,9 @@ type CommandDispatcher interface {
 
 type Aggregate interface {
 	Load(<-chan *rangedb.Record)
+	Apply(event rangedb.Event)
 	Handle(Command) []rangedb.Event
 	CommandTypes() []string
-	ApplyEvent(event rangedb.Event)
 }
 
 type cqrs struct {
@@ -82,7 +82,7 @@ func (c *cqrs) Dispatch(command Command) []rangedb.Event {
 	// Why can we can't do this here?
 	//for record := range eventStream {
 	//	if event, ok := record.Data.(rangedb.Event); ok {
-	//		u.ApplyEvent(event)
+	//		u.Apply(event)
 	//	}
 	//}
 
