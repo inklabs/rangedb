@@ -15,7 +15,6 @@ import (
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
 	"github.com/inklabs/rangedb/pkg/clock/provider/systemclock"
-	"github.com/inklabs/rangedb/pkg/errors"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
@@ -160,7 +159,7 @@ func (s *postgresStore) SaveEvent(aggregateType, aggregateID, eventType, eventID
 	nextStreamSequenceNumber := s.getNextStreamSequenceNumber(aggregateType, aggregateID)
 
 	if expectedStreamSequenceNumber != nil && nextStreamSequenceNumber != *expectedStreamSequenceNumber {
-		return errors.UnexpectedSequenceNumber{
+		return &rangedb.UnexpectedSequenceNumber{
 			Expected:           *expectedStreamSequenceNumber,
 			NextSequenceNumber: nextStreamSequenceNumber,
 		}

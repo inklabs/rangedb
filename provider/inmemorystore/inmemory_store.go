@@ -9,7 +9,6 @@ import (
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
 	"github.com/inklabs/rangedb/pkg/clock/provider/systemclock"
-	"github.com/inklabs/rangedb/pkg/errors"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
@@ -166,7 +165,7 @@ func (s *inMemoryStore) SaveEvent(
 	nextSequenceNumber := s.getNextStreamSequenceNumber(stream)
 
 	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber != nextSequenceNumber {
-		return errors.UnexpectedSequenceNumber{
+		return &rangedb.UnexpectedSequenceNumber{
 			Expected:           *expectedStreamSequenceNumber,
 			NextSequenceNumber: nextSequenceNumber,
 		}

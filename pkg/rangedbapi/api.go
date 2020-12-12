@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/handlers"
@@ -164,15 +165,23 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	expectedStreamSequenceNumber := stringToSequenceNumber(r.Header.Get("X-ExpectedStreamSequenceNumber"))
+
 	w.Header().Set("Content-Type", "application/json")
 
 	records, errors := a.jsonRecordIoStream.Read(r.Body)
 
-	err := a.saveRecords(aggregateType, aggregateID, records, errors)
+	err := a.saveRecords(aggregateType, aggregateID, records, errors, expectedStreamSequenceNumber)
 	if err != nil {
 		if _, ok := err.(*invalidInput); ok {
 			w.WriteHeader(http.StatusBadRequest)
 			_, _ = fmt.Fprintf(w, `{"status":"Failed"}`)
+			return
+		}
+
+		if unexpectedErr, ok := err.(*rangedb.UnexpectedSequenceNumber); ok {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = fmt.Fprintf(w, `{"status":"Failed", "message": "%s"}`, unexpectedErr.Error())
 			return
 		}
 
@@ -185,11 +194,26 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 	_, _ = fmt.Fprintf(w, `{"status":"OK"}`)
 }
 
+func stringToSequenceNumber(input string) *uint64 {
+	if input == "" {
+		return nil
+	}
+
+	expectedStreamSequenceNumber, err := strconv.ParseUint(input, 10, 64)
+	if err != nil {
+		return nil
+	}
+	return &expectedStreamSequenceNumber
+}
+
 func (a *api) AggregateTypeStatsProjection() *projection.AggregateTypeStats {
 	return a.projections.aggregateTypeStats
 }
 
-func (a *api) saveRecords(aggregateType, aggregateID string, records <-chan *rangedb.Record, errors <-chan error) error {
+func (a *api) saveRecords(aggregateType, aggregateID string, records <-chan *rangedb.Record, errors <-chan error, expectedStreamSequenceNumber *uint64) error {
+	var nextExpectedSequenceNumber *uint64
+	nextExpectedSequenceNumber = expectedStreamSequenceNumber
+
 	for {
 		select {
 		case record, ok := <-records:
@@ -197,17 +221,22 @@ func (a *api) saveRecords(aggregateType, aggregateID string, records <-chan *ran
 				return nil
 			}
 
+			// TODO: Replace with SaveEvents using a single transaction
 			err := a.store.SaveEvent(
 				aggregateType,
 				aggregateID,
 				record.EventType,
 				record.EventID,
-				nil,
+				nextExpectedSequenceNumber,
 				record.Data,
 				record.Metadata,
 			)
 			if err != nil {
-				return fmt.Errorf("unable to save event: %v", err)
+				return err
+			}
+
+			if nextExpectedSequenceNumber != nil {
+				*nextExpectedSequenceNumber++
 			}
 
 		case err, ok := <-errors:

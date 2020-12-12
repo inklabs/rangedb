@@ -93,6 +93,111 @@ func TestApi_SaveEvents(t *testing.T) {
 		assert.Equal(t, `{"status":"OK"}`, response.Body.String())
 	})
 
+	t.Run("saves from json with expected stream sequence number", func(t *testing.T) {
+		// Given
+		jsonEvent := `[
+			{
+				"eventID": "b93bd54592394c999fad7095e2b4840e",
+				"eventType": "ThingWasDone",
+				"data":{
+					"id": "0a403cfe0e8c4284b2107e12bbe19881",
+					"number": 100
+				},
+				"metadata":null
+			}
+		]`
+
+		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
+		const aggregateType = "thing"
+		api := rangedbapi.New()
+		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
+		request := httptest.NewRequest("POST", saveUri, strings.NewReader(jsonEvent))
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("X-ExpectedStreamSequenceNumber", "0")
+		response := httptest.NewRecorder()
+
+		// When
+		api.ServeHTTP(response, request)
+
+		// Then
+		assert.Equal(t, http.StatusCreated, response.Code)
+		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
+		assert.Equal(t, `{"status":"OK"}`, response.Body.String())
+	})
+
+	t.Run("saves 2 events from json with expected stream sequence number", func(t *testing.T) {
+		// Given
+		jsonEvent := `[
+			{
+				"eventID": "642391df40ba40028e277f25677d4fc1",
+				"eventType": "ThingWasDone",
+				"data":{
+					"id": "0a403cfe0e8c4284b2107e12bbe19881",
+					"number": 100
+				},
+				"metadata":null
+			},
+			{
+				"eventID": "b91f39c892a344d4b09619e6dc18f985",
+				"eventType": "ThingWasDone",
+				"data":{
+					"id": "0a403cfe0e8c4284b2107e12bbe19881",
+					"number": 100
+				},
+				"metadata":null
+			}
+		]`
+
+		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
+		const aggregateType = "thing"
+		api := rangedbapi.New()
+		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
+		request := httptest.NewRequest("POST", saveUri, strings.NewReader(jsonEvent))
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("X-ExpectedStreamSequenceNumber", "0")
+		response := httptest.NewRecorder()
+
+		// When
+		api.ServeHTTP(response, request)
+
+		// Then
+		assert.Equal(t, http.StatusCreated, response.Code)
+		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
+		assert.Equal(t, `{"status":"OK"}`, response.Body.String())
+	})
+
+	t.Run("fails to save from json with wrong expected stream sequence number", func(t *testing.T) {
+		// Given
+		jsonEvent := `[
+			{
+				"eventID": "b93bd54592394c999fad7095e2b4840e",
+				"eventType": "ThingWasDone",
+				"data":{
+					"id": "0a403cfe0e8c4284b2107e12bbe19881",
+					"number": 100
+				},
+				"metadata":null
+			}
+		]`
+
+		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
+		const aggregateType = "thing"
+		api := rangedbapi.New()
+		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
+		request := httptest.NewRequest("POST", saveUri, strings.NewReader(jsonEvent))
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("X-ExpectedStreamSequenceNumber", "1")
+		response := httptest.NewRecorder()
+
+		// When
+		api.ServeHTTP(response, request)
+
+		// Then
+		assert.Equal(t, http.StatusBadRequest, response.Code)
+		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
+		assert.Equal(t, `{"status":"Failed", "message": "unexpected sequence number: 1, next: 0"}`, response.Body.String())
+	})
+
 	t.Run("fails when content type not set", func(t *testing.T) {
 		// Given
 		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"

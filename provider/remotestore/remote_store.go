@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"io"
 	"log"
+	"strings"
 	"sync"
 
 	"google.golang.org/grpc"
@@ -142,6 +143,10 @@ func (s *remoteStore) SaveEvent(aggregateType, aggregateID, eventType, eventID s
 
 	_, err = s.client.SaveEvents(context.Background(), request)
 	if err != nil {
+		if strings.Contains(err.Error(), "unable to save to store: unexpected sequence number") {
+			return rangedb.NewUnexpectedSequenceNumberFromString(err.Error())
+		}
+
 		return err
 	}
 

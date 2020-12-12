@@ -3,6 +3,7 @@ package rangedb
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 )
 
@@ -21,6 +22,13 @@ type Record struct {
 	Metadata             interface{} `msgpack:"m" json:"metadata"`
 }
 
+//type EventInput struct {
+//	EventID   string      `msgpack:"e" json:"eventID"`
+//	EventType string      `msgpack:"t" json:"eventType"`
+//	Data      interface{} `msgpack:"d" json:"data"`
+//	Metadata  interface{} `msgpack:"m" json:"metadata"`
+//}
+
 type EventBinder interface {
 	Bind(events ...Event)
 }
@@ -34,6 +42,7 @@ type Store interface {
 	Save(event Event, metadata interface{}) error
 	OptimisticSave(expectedStreamSequenceNumber uint64, event Event, metadata interface{}) error
 	SaveEvent(aggregateType, aggregateID, eventType, eventID string, expectedStreamSequenceNumber *uint64, event, metadata interface{}) error
+	//SaveEvents(aggregateType, aggregateID, string, expectedStreamSequenceNumber *uint64, events <-chan *EventInput) error
 	Subscribe(subscribers ...RecordSubscriber)
 	SubscribeStartingWith(ctx context.Context, eventNumber uint64, subscribers ...RecordSubscriber)
 	TotalEventsInStream(streamName string) uint64
@@ -107,4 +116,32 @@ func ReadNRecords(totalEvents uint64, f func(context.Context) <-chan *Record) []
 	done()
 
 	return records
+}
+
+type UnexpectedSequenceNumber struct {
+	Expected           uint64
+	NextSequenceNumber uint64
+}
+
+// TODO: make private? convert to regex?
+func NewUnexpectedSequenceNumberFromString(input string) *UnexpectedSequenceNumber {
+	pieces := strings.Split(input, "unexpected sequence number:")
+	var expected, next uint64
+	_, err := fmt.Sscanf(pieces[1], "%d, next: %d", &expected, &next)
+	if err != nil {
+		log.Print(err)
+		return nil
+	}
+
+	return &UnexpectedSequenceNumber{
+		Expected:           expected,
+		NextSequenceNumber: next,
+	}
+}
+
+func (e UnexpectedSequenceNumber) Error() string {
+	return fmt.Sprintf("unexpected sequence number: %d, next: %d",
+		e.Expected,
+		e.NextSequenceNumber,
+	)
 }
