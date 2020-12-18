@@ -165,13 +165,22 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expectedStreamSequenceNumber := stringToSequenceNumber(r.Header.Get("ExpectedStreamSequenceNumber"))
-
 	w.Header().Set("Content-Type", "application/json")
 
+	// TODO: Replace with proper json input for events, no aggregate details
+	// api_test.SaveEventRequest
+	// [
+	//		{
+	//			"eventType": "ThingWasDone",
+	//			"data":{
+	//				"id": "0a403cfe0e8c4284b2107e12bbe19881",
+	//				"number": 100
+	//			},
+	//			"metadata":null
+	//		}
+	//	]
 	records, errors := a.jsonRecordIoStream.Read(r.Body)
-
-	err := a.saveRecords(aggregateType, aggregateID, records, errors, expectedStreamSequenceNumber)
+	eventRecords, err := getEventRecords(aggregateType, aggregateID, records, errors)
 	if err != nil {
 		if _, ok := err.(*invalidInput); ok {
 			w.WriteHeader(http.StatusBadRequest)
@@ -179,7 +188,27 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if unexpectedErr, ok := err.(*rangedb.UnexpectedSequenceNumber); ok {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = fmt.Fprintf(w, `{"status":"Failed"}`)
+		return
+	}
+
+	var saveErr error
+	expectedStreamSequenceNumberInput := r.Header.Get("ExpectedStreamSequenceNumber")
+	if expectedStreamSequenceNumberInput != "" {
+		expectedStreamSequenceNumber, err := strconv.ParseUint(expectedStreamSequenceNumberInput, 10, 64)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = fmt.Fprintf(w, `{"status":"Failed", "message": "invalid ExpectedStreamSequenceNumber"}`)
+			return
+		}
+		saveErr = a.store.OptimisticSave(expectedStreamSequenceNumber, eventRecords...)
+	} else {
+		saveErr = a.store.Save(eventRecords...)
+	}
+
+	if saveErr != nil {
+		if unexpectedErr, ok := saveErr.(*rangedb.UnexpectedSequenceNumber); ok {
 			w.WriteHeader(http.StatusBadRequest)
 			_, _ = fmt.Fprintf(w, `{"status":"Failed", "message": "%s"}`, unexpectedErr.Error())
 			return
@@ -194,59 +223,33 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 	_, _ = fmt.Fprintf(w, `{"status":"OK"}`)
 }
 
-func stringToSequenceNumber(input string) *uint64 {
-	if input == "" {
-		return nil
-	}
-
-	expectedStreamSequenceNumber, err := strconv.ParseUint(input, 10, 64)
-	if err != nil {
-		return nil
-	}
-	return &expectedStreamSequenceNumber
-}
-
-func (a *api) AggregateTypeStatsProjection() *projection.AggregateTypeStats {
-	return a.projections.aggregateTypeStats
-}
-
-func (a *api) saveRecords(aggregateType, aggregateID string, records <-chan *rangedb.Record, errors <-chan error, expectedStreamSequenceNumber *uint64) error {
-	var nextExpectedSequenceNumber *uint64
-	nextExpectedSequenceNumber = expectedStreamSequenceNumber
+func getEventRecords(aggregateType, aggregateID string, records <-chan *rangedb.Record, errors <-chan error) ([]*rangedb.EventRecord, error) {
+	var eventRecords []*rangedb.EventRecord
 
 	for {
 		select {
 		case record, ok := <-records:
 			if !ok {
-				return nil
+				return eventRecords, nil
 			}
 
-			// TODO: Replace with SaveEvents using a single transaction
-			err := a.store.SaveEvent(
-				aggregateType,
-				aggregateID,
-				record.EventType,
-				record.EventID,
-				nextExpectedSequenceNumber,
-				record.Data,
-				record.Metadata,
-			)
-			if err != nil {
-				return err
-			}
-
-			if nextExpectedSequenceNumber != nil {
-				*nextExpectedSequenceNumber++
-			}
+			eventRecords = append(eventRecords, &rangedb.EventRecord{
+				Event:    rangedb.NewRawEvent(aggregateType, aggregateID, record.EventType, record.Data),
+				Metadata: record.Metadata,
+			})
 
 		case err, ok := <-errors:
 			if !ok {
-				return nil
+				return eventRecords, nil
 			}
 
-			return newInvalidInput(err)
+			return nil, newInvalidInput(err)
 		}
 	}
+}
+
+func (a *api) AggregateTypeStatsProjection() *projection.AggregateTypeStats {
+	return a.projections.aggregateTypeStats
 }
 
 func (a *api) listAggregateTypes(w http.ResponseWriter, _ *http.Request) {

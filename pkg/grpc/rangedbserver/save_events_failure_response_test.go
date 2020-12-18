@@ -53,15 +53,13 @@ func ExampleRangeDBServer_SaveEvents_failureResponse() {
 	request := &rangedbpb.SaveEventsRequest{
 		AggregateType: "thing",
 		AggregateID:   "141b39d2b9854f8093ef79dc47dae6af",
-		Events: []*rangedbpb.Event{
+		Events: []*rangedbpb.SaveEventRequest{
 			{
-				ID:       "2b1bb91150db464a8723cae30def7996",
 				Type:     "ThingWasDone",
 				Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
 				Metadata: "",
 			},
 			{
-				ID:       "c8df652d85f2419e83ad6ef3afa49b08",
 				Type:     "ThingWasDone",
 				Data:     `{invalid-json`,
 				Metadata: "",
@@ -85,6 +83,6 @@ func ExampleRangeDBServer_SaveEvents_failureResponse() {
 	// Output:
 	// rpc error: code = InvalidArgument desc = unable to read event data: invalid character 'i' looking for beginning of object key string
 	// {
-	//   "EventsSaved": 1
+	//   "Message": "unable to read event data: invalid character 'i' looking for beginning of object key string"
 	// }
 }

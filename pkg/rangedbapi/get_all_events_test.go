@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock/provider/sequentialclock"
 	"github.com/inklabs/rangedb/pkg/jsontools"
 	"github.com/inklabs/rangedb/pkg/rangedbapi"
@@ -26,8 +27,10 @@ func Example_getAllEvents() {
 	defer server.Close()
 
 	PrintError(
-		inMemoryStore.Save(rangedbtest.ThingWasDone{ID: "605f20348fb940e386c171d51c877bf1", Number: 100}, nil),
-		inMemoryStore.Save(rangedbtest.AnotherWasComplete{ID: "a095086e52bc4617a1763a62398cd645"}, nil),
+		inMemoryStore.Save(
+			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "605f20348fb940e386c171d51c877bf1", Number: 100}},
+			&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a095086e52bc4617a1763a62398cd645"}},
+		),
 	)
 	url := fmt.Sprintf("%s/events.json", server.URL)
 

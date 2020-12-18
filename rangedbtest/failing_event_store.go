@@ -27,16 +27,12 @@ func (f failingEventStore) EventsByStreamStartingWith(_ context.Context, _ uint6
 	return getClosedChannel()
 }
 
-func (f failingEventStore) Save(_ rangedb.Event, _ interface{}) error {
-	return fmt.Errorf("failingEventStore.Save")
-}
-
-func (f failingEventStore) SaveEvent(_, _, _, _ string, _ *uint64, _, _ interface{}) error {
-	return fmt.Errorf("failingEventStore.SaveEvent")
-}
-
-func (f failingEventStore) OptimisticSave(_ uint64, _ rangedb.Event, _ interface{}) error {
+func (f failingEventStore) OptimisticSave(_ uint64, _ ...*rangedb.EventRecord) error {
 	return fmt.Errorf("failingEventStore.OptimisticSave")
+}
+
+func (f failingEventStore) Save(_ ...*rangedb.EventRecord) error {
+	return fmt.Errorf("failingEventStore.Save")
 }
 
 func (f failingEventStore) Subscribe(_ ...rangedb.RecordSubscriber) {}

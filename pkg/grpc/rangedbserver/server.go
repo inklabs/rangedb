@@ -111,15 +111,16 @@ func (s *rangeDBServer) EventsByAggregateType(req *rangedbpb.EventsByAggregateTy
 }
 
 func (s *rangeDBServer) SaveEvents(_ context.Context, req *rangedbpb.SaveEventsRequest) (*rangedbpb.SaveEventResponse, error) {
-	eventsSaved := uint32(0)
+	var eventRecords []*rangedb.EventRecord
 
 	for _, event := range req.Events {
 		var data interface{}
 		err := json.Unmarshal([]byte(event.Data), &data)
 		if err != nil {
-			st := status.New(codes.InvalidArgument, fmt.Sprintf("unable to read event data: %v", err))
+			message := fmt.Sprintf("unable to read event data: %v", err)
+			st := status.New(codes.InvalidArgument, message)
 			st, _ = st.WithDetails(&rangedbpb.SaveEventFailureResponse{
-				EventsSaved: eventsSaved,
+				Message: message,
 			})
 			return nil, st.Err()
 		}
@@ -128,41 +129,41 @@ func (s *rangeDBServer) SaveEvents(_ context.Context, req *rangedbpb.SaveEventsR
 		if event.Metadata != "" {
 			err = json.Unmarshal([]byte(event.Metadata), &metadata)
 			if err != nil {
-				st := status.New(codes.InvalidArgument, fmt.Sprintf("unable to read event metadata: %v", err))
+				message := fmt.Sprintf("unable to read event metadata: %v", err)
+				st := status.New(codes.InvalidArgument, message)
 				st, _ = st.WithDetails(&rangedbpb.SaveEventFailureResponse{
-					EventsSaved: eventsSaved,
+					Message: message,
 				})
 				return nil, st.Err()
 			}
 		}
 
-		var expectedSequenceNumber *uint64
-		if event.ExpectedStreamSequenceNumber != nil {
-			expectedSequenceNumber = &event.ExpectedStreamSequenceNumber.Value
-		}
+		eventRecords = append(eventRecords, &rangedb.EventRecord{
+			Event:    rangedb.NewRawEvent(req.AggregateType, req.AggregateID, event.Type, data),
+			Metadata: metadata,
+		})
+	}
 
-		err = s.store.SaveEvent(
-			req.AggregateType,
-			req.AggregateID,
-			event.Type,
-			event.ID,
-			expectedSequenceNumber,
-			data,
-			metadata,
-		)
-		if err != nil {
-			st := status.New(codes.Internal, fmt.Sprintf("unable to save to store: %v", err))
-			st, _ = st.WithDetails(&rangedbpb.SaveEventFailureResponse{
-				EventsSaved: eventsSaved,
-			})
-			return nil, st.Err()
-		}
+	var saveErr error
+	var expectedSequenceNumber *uint64
+	if req.ExpectedStreamSequenceNumber != nil {
+		expectedSequenceNumber = &req.ExpectedStreamSequenceNumber.Value
+		saveErr = s.store.OptimisticSave(*expectedSequenceNumber, eventRecords...)
+	} else {
+		saveErr = s.store.Save(eventRecords...)
+	}
 
-		eventsSaved++
+	if saveErr != nil {
+		message := fmt.Sprintf("unable to save to store: %v", saveErr)
+		st := status.New(codes.Internal, message)
+		st, _ = st.WithDetails(&rangedbpb.SaveEventFailureResponse{
+			Message: message,
+		})
+		return nil, st.Err()
 	}
 
 	return &rangedbpb.SaveEventResponse{
-		EventsSaved: eventsSaved,
+		EventsSaved: uint32(len(eventRecords)),
 	}, nil
 }
 

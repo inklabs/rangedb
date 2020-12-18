@@ -41,9 +41,10 @@ message SubscribeToEventsByAggregateTypeRequest {
 }
 
 message SaveEventsRequest {
-  string AggregateType = 1;
-  string AggregateID = 2;
-  repeated Event Events = 3;
+  Uint64Value ExpectedStreamSequenceNumber = 1;
+  string AggregateType = 2;
+  string AggregateID = 3;
+  repeated SaveEventRequest Events = 4;
 }
 
 message SaveEventResponse {
@@ -51,7 +52,7 @@ message SaveEventResponse {
 }
 
 message SaveEventFailureResponse {
-  uint32 EventsSaved = 1;
+  string Message = 1;
 }
 
 message TotalEventsInStreamRequest {
@@ -66,12 +67,10 @@ message Uint64Value {
   uint64 value = 1;
 }
 
-message Event {
-  string ID = 1;
-  string Type = 2;
-  string Data = 3;
-  string Metadata = 4;
-  Uint64Value ExpectedStreamSequenceNumber = 5;
+message SaveEventRequest {
+  string Type = 1;
+  string Data = 2;
+  string Metadata = 3;
 }
 
 message Record {

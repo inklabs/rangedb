@@ -126,7 +126,7 @@ func noopDispatcher(_ bdd.Command) {}
 func stubEventDispatcher(store rangedb.Store, events ...rangedb.Event) func(bdd.Command) {
 	return func(_ bdd.Command) {
 		for _, event := range events {
-			_ = store.Save(event, nil)
+			_ = store.Save(&rangedb.EventRecord{Event: event})
 		}
 	}
 }

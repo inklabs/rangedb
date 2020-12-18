@@ -21,6 +21,7 @@ import (
 	"github.com/inklabs/rangedb/pkg/jsontools"
 	"github.com/inklabs/rangedb/pkg/projection"
 	"github.com/inklabs/rangedb/pkg/rangedbapi"
+	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/provider/msgpackrecordiostream"
 	"github.com/inklabs/rangedb/rangedbtest"
@@ -274,9 +275,9 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 	const aggregateID2 = "5b36ae984b724685917b69ae47968be1"
 	const aggregateID3 = "9bc181144cef4fd19da1f32a17363997"
 
+	shortuuid.SetRand(100)
 	saveEvents(t, api, "thing", aggregateID1,
-		SaveEventsRequest{
-			EventId:   "27e9965ce0ce4b65a38d1e0b7768ba27",
+		SaveEventRequest{
 			EventType: "ThingWasDone",
 			Data: rangedbtest.ThingWasDone{
 				ID:     aggregateID1,
@@ -284,8 +285,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 			},
 			Metadata: nil,
 		},
-		SaveEventsRequest{
-			EventId:   "27e9965ce0ce4b65a38d1e0b7768ba27",
+		SaveEventRequest{
 			EventType: "ThingWasDone",
 			Data: rangedbtest.ThingWasDone{
 				ID:     aggregateID1,
@@ -295,8 +295,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 		},
 	)
 	saveEvents(t, api, "thing", aggregateID2,
-		SaveEventsRequest{
-			EventId:   "ac376375a0834b0bae47b9246ed570c8",
+		SaveEventRequest{
 			EventType: "ThingWasDone",
 			Data: rangedbtest.ThingWasDone{
 				ID:     aggregateID2,
@@ -306,8 +305,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 		},
 	)
 	saveEvents(t, api, "another", aggregateID3,
-		SaveEventsRequest{
-			EventId:   "d3d25ad1340e42ce89b809ef77ee67c7",
+		SaveEventRequest{
 			EventType: "AnotherWasComplete",
 			Data: rangedbtest.AnotherWasComplete{
 				ID: aggregateID3,
@@ -334,7 +332,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber": 0,
 				"sequenceNumber": 0,
 				"insertTimestamp": 0,
-				"eventID": "27e9965ce0ce4b65a38d1e0b7768ba27",
+				"eventID": "d2ba8e70072943388203c438d4e94bf3",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -348,7 +346,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber": 1,
 				"sequenceNumber": 1,
 				"insertTimestamp": 1,
-				"eventID": "27e9965ce0ce4b65a38d1e0b7768ba27",
+				"eventID": "99cbd88bbcaf482ba1cc96ed12541707",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -362,7 +360,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber": 2,
 				"sequenceNumber": 0,
 				"insertTimestamp": 2,
-				"eventID": "ac376375a0834b0bae47b9246ed570c8",
+				"eventID": "2e9e6918af10498cb7349c89a351fdb7",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "5b36ae984b724685917b69ae47968be1",
@@ -376,7 +374,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber": 3,
 				"sequenceNumber": 0,
 				"insertTimestamp": 3,
-				"eventID": "d3d25ad1340e42ce89b809ef77ee67c7",
+				"eventID": "5042958739514c948f776fc9f820bca0",
 				"eventType": "AnotherWasComplete",
 				"data":{
 					"id": "9bc181144cef4fd19da1f32a17363997"
@@ -445,7 +443,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 			GlobalSequenceNumber: 0,
 			StreamSequenceNumber: 0,
 			InsertTimestamp:      0,
-			EventID:              "27e9965ce0ce4b65a38d1e0b7768ba27",
+			EventID:              "d2ba8e70072943388203c438d4e94bf3",
 			EventType:            "ThingWasDone",
 			Data: map[string]interface{}{
 				"id":     aggregateID1,
@@ -459,7 +457,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 			GlobalSequenceNumber: 1,
 			StreamSequenceNumber: 1,
 			InsertTimestamp:      1,
-			EventID:              "27e9965ce0ce4b65a38d1e0b7768ba27",
+			EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
 			EventType:            "ThingWasDone",
 			Data: map[string]interface{}{
 				"id":     aggregateID1,
@@ -493,7 +491,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber":0,
 				"sequenceNumber":0,
 				"insertTimestamp":0,
-				"eventID": "27e9965ce0ce4b65a38d1e0b7768ba27",
+				"eventID": "d2ba8e70072943388203c438d4e94bf3",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -507,7 +505,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber":1,
 				"sequenceNumber":1,
 				"insertTimestamp":1,
-				"eventID": "27e9965ce0ce4b65a38d1e0b7768ba27",
+				"eventID": "99cbd88bbcaf482ba1cc96ed12541707",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -521,7 +519,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber": 2,
 				"sequenceNumber": 0,
 				"insertTimestamp": 2,
-				"eventID": "ac376375a0834b0bae47b9246ed570c8",
+				"eventID": "2e9e6918af10498cb7349c89a351fdb7",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "5b36ae984b724685917b69ae47968be1",
@@ -551,7 +549,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber":0,
 				"sequenceNumber":0,
 				"insertTimestamp":0,
-				"eventID": "27e9965ce0ce4b65a38d1e0b7768ba27",
+				"eventID": "d2ba8e70072943388203c438d4e94bf3",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -565,7 +563,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber":1,
 				"sequenceNumber":1,
 				"insertTimestamp":1,
-				"eventID": "27e9965ce0ce4b65a38d1e0b7768ba27",
+				"eventID": "99cbd88bbcaf482ba1cc96ed12541707",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -579,7 +577,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber": 2,
 				"sequenceNumber": 0,
 				"insertTimestamp": 2,
-				"eventID": "ac376375a0834b0bae47b9246ed570c8",
+				"eventID": "2e9e6918af10498cb7349c89a351fdb7",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "5b36ae984b724685917b69ae47968be1",
@@ -593,7 +591,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber": 3,
 				"sequenceNumber": 0,
 				"insertTimestamp": 3,
-				"eventID": "d3d25ad1340e42ce89b809ef77ee67c7",
+				"eventID": "5042958739514c948f776fc9f820bca0",
 				"eventType": "AnotherWasComplete",
 				"data":{
 					"id": "9bc181144cef4fd19da1f32a17363997"
@@ -611,9 +609,11 @@ func TestApi_ListAggregates(t *testing.T) {
 	event1 := rangedbtest.ThingWasDone{ID: "A", Number: 1}
 	event2 := rangedbtest.ThingWasDone{ID: "A", Number: 2}
 	event3 := rangedbtest.AnotherWasComplete{ID: "B"}
-	require.NoError(t, store.Save(event1, nil))
-	require.NoError(t, store.Save(event2, nil))
-	require.NoError(t, store.Save(event3, nil))
+	require.NoError(t, store.Save(
+		&rangedb.EventRecord{Event: event1},
+		&rangedb.EventRecord{Event: event2},
+		&rangedb.EventRecord{Event: event3},
+	))
 	api := rangedbapi.New(
 		rangedbapi.WithStore(store),
 		rangedbapi.WithBaseUri("http://0.0.0.0:8080"),
@@ -669,7 +669,7 @@ func assertJsonEqual(t *testing.T, expectedJson, actualJson string) {
 	assert.Equal(t, jsontools.PrettyJSONString(expectedJson), jsontools.PrettyJSONString(actualJson))
 }
 
-func saveEvents(t *testing.T, api http.Handler, aggregateType, aggregateID string, requests ...SaveEventsRequest) {
+func saveEvents(t *testing.T, api http.Handler, aggregateType, aggregateID string, requests ...SaveEventRequest) {
 	saveJson, err := json.Marshal(requests)
 	require.NoError(t, err)
 
@@ -691,8 +691,7 @@ func readGzippedBody(t *testing.T, body io.Reader) string {
 	return string(actualBody)
 }
 
-type SaveEventsRequest struct {
-	EventId   string      `msgpack:"e" json:"eventID"`
+type SaveEventRequest struct {
 	EventType string      `msgpack:"t" json:"eventType"`
 	Data      interface{} `msgpack:"d" json:"data"`
 	Metadata  interface{} `msgpack:"m" json:"metadata"`

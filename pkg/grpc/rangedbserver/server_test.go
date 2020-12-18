@@ -395,15 +395,13 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 		request := &rangedbpb.SaveEventsRequest{
 			AggregateType: "thing",
 			AggregateID:   "b5ef2296339d4ad1887f1deb486f7821",
-			Events: []*rangedbpb.Event{
+			Events: []*rangedbpb.SaveEventRequest{
 				{
-					ID:       "dea776d1a9104e389d0153e391717f26",
 					Type:     "ThingWasDone",
 					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
 					Metadata: "",
 				},
 				{
-					ID:   "96489f712adf44f3bd6ee4509d19d46c",
 					Type: "ThingWasDone",
 					Data: `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":200}`,
 				},
@@ -423,7 +421,7 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 			GlobalSequenceNumber: 0,
 			StreamSequenceNumber: 0,
 			InsertTimestamp:      0,
-			EventID:              "dea776d1a9104e389d0153e391717f26",
+			EventID:              "d2ba8e70072943388203c438d4e94bf3",
 			EventType:            "ThingWasDone",
 			Data: map[string]interface{}{
 				"id":     "141b39d2b9854f8093ef79dc47dae6af",
@@ -437,7 +435,7 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 			GlobalSequenceNumber: 1,
 			StreamSequenceNumber: 1,
 			InsertTimestamp:      1,
-			EventID:              "96489f712adf44f3bd6ee4509d19d46c",
+			EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
 			EventType:            "ThingWasDone",
 			Data: map[string]interface{}{
 				"id":     "141b39d2b9854f8093ef79dc47dae6af",
@@ -450,7 +448,7 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 		assert.Equal(t, (*rangedb.Record)(nil), <-actualRecords)
 	})
 
-	t.Run("saves 1 event and fails on 2nd from invalid event data", func(t *testing.T) {
+	t.Run("fails on 2nd from invalid event data", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
 		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
@@ -459,15 +457,13 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 		request := &rangedbpb.SaveEventsRequest{
 			AggregateType: "thing",
 			AggregateID:   "b5ef2296339d4ad1887f1deb486f7821",
-			Events: []*rangedbpb.Event{
+			Events: []*rangedbpb.SaveEventRequest{
 				{
-					ID:       "dea776d1a9104e389d0153e391717f26",
 					Type:     "ThingWasDone",
 					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
 					Metadata: "",
 				},
 				{
-					ID:   "96489f712adf44f3bd6ee4509d19d46c",
 					Type: "ThingWasDone",
 					Data: `{invalid-json`,
 				},
@@ -482,10 +478,10 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 		log.Println(response)
 		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveEventFailureResponse)
 		require.True(t, ok)
-		assert.Equal(t, uint32(1), errorResponse.EventsSaved)
+		assert.Equal(t, "unable to read event data: invalid character 'i' looking for beginning of object key string", errorResponse.Message)
 	})
 
-	t.Run("saves 1 event and fails on 2nd from invalid event metadata", func(t *testing.T) {
+	t.Run("fails on 2nd from invalid event metadata", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
 		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
@@ -494,15 +490,13 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 		request := &rangedbpb.SaveEventsRequest{
 			AggregateType: "thing",
 			AggregateID:   "b5ef2296339d4ad1887f1deb486f7821",
-			Events: []*rangedbpb.Event{
+			Events: []*rangedbpb.SaveEventRequest{
 				{
-					ID:       "dea776d1a9104e389d0153e391717f26",
 					Type:     "ThingWasDone",
 					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
 					Metadata: "",
 				},
 				{
-					ID:       "96489f712adf44f3bd6ee4509d19d46c",
 					Type:     "ThingWasDone",
 					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
 					Metadata: `{invalid-json`,
@@ -518,7 +512,7 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 		log.Println(response)
 		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveEventFailureResponse)
 		require.True(t, ok)
-		assert.Equal(t, uint32(1), errorResponse.EventsSaved)
+		assert.Equal(t, "unable to read event metadata: invalid character 'i' looking for beginning of object key string", errorResponse.Message)
 	})
 
 	t.Run("fails from failing store", func(t *testing.T) {
@@ -530,18 +524,16 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 		request := &rangedbpb.SaveEventsRequest{
 			AggregateType: "thing",
 			AggregateID:   "b5ef2296339d4ad1887f1deb486f7821",
-			Events: []*rangedbpb.Event{
+			Events: []*rangedbpb.SaveEventRequest{
 				{
-					ID:       "dea776d1a9104e389d0153e391717f26",
 					Type:     "ThingWasDone",
 					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
 					Metadata: "",
 				},
 				{
-					ID:       "96489f712adf44f3bd6ee4509d19d46c",
 					Type:     "ThingWasDone",
 					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
-					Metadata: `{invalid-json`,
+					Metadata: "",
 				},
 			},
 		}
@@ -550,17 +542,17 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 		response, err := rangeDBClient.SaveEvents(ctx, request)
 
 		// Then
-		require.EqualError(t, err, "rpc error: code = Internal desc = unable to save to store: failingEventStore.SaveEvent")
+		require.EqualError(t, err, "rpc error: code = Internal desc = unable to save to store: failingEventStore.Save")
 		log.Println(response)
 		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveEventFailureResponse)
 		require.True(t, ok)
-		assert.Equal(t, uint32(0), errorResponse.EventsSaved)
+		assert.Equal(t, "unable to save to store: failingEventStore.Save", errorResponse.Message)
 	})
 }
 
 func saveEvents(t *testing.T, store rangedb.Store, events ...rangedb.Event) {
 	for _, event := range events {
-		require.NoError(t, store.Save(event, nil))
+		require.NoError(t, store.Save(&rangedb.EventRecord{Event: event}))
 	}
 }
 

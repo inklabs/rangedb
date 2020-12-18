@@ -52,15 +52,13 @@ func ExampleRangeDBServer_SaveEvents() {
 	request := &rangedbpb.SaveEventsRequest{
 		AggregateType: "thing",
 		AggregateID:   "141b39d2b9854f8093ef79dc47dae6af",
-		Events: []*rangedbpb.Event{
+		Events: []*rangedbpb.SaveEventRequest{
 			{
-				ID:       "2b1bb91150db464a8723cae30def7996",
 				Type:     "ThingWasDone",
 				Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
 				Metadata: "",
 			},
 			{
-				ID:       "c8df652d85f2419e83ad6ef3afa49b08",
 				Type:     "ThingWasDone",
 				Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":200}`,
 				Metadata: "",
