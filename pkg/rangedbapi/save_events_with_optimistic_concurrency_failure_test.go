@@ -12,7 +12,7 @@ import (
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 )
 
-func Example_saveEvent() {
+func Example_optimisticSaveEvents_failure() {
 	// Given
 	inMemoryStore := inmemorystore.New(
 		inmemorystore.WithClock(sequentialclock.New()),
@@ -41,9 +41,14 @@ func Example_saveEvent() {
 		}
 	]`
 	url := fmt.Sprintf("%s/save-events/thing/141b39d2b9854f8093ef79dc47dae6af", server.URL)
+	request, err := http.NewRequest(http.MethodPost, url, strings.NewReader(requestBody))
+	PrintError(err)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("ExpectedStreamSequenceNumber", "2")
+	client := http.DefaultClient
 
 	// When
-	response, err := http.Post(url, "application/json", strings.NewReader(requestBody))
+	response, err := client.Do(request)
 	PrintError(err)
 	defer Close(response.Body)
 
@@ -52,5 +57,5 @@ func Example_saveEvent() {
 	fmt.Println(string(body))
 
 	// Output:
-	// {"status":"OK"}
+	// {"status":"Failed", "message": "unexpected sequence number: 2, next: 0"}
 }

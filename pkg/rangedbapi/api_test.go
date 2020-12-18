@@ -65,7 +65,6 @@ func TestApi_SaveEvents(t *testing.T) {
 	// Given
 	singleJsonEvent := `[
 		{
-			"eventID": "b93bd54592394c999fad7095e2b4840e",
 			"eventType": "ThingWasDone",
 			"data":{
 				"id": "0a403cfe0e8c4284b2107e12bbe19881",
@@ -81,7 +80,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		const aggregateType = "thing"
 		api := rangedbapi.New()
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
-		request := httptest.NewRequest("POST", saveUri, strings.NewReader(singleJsonEvent))
+		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(singleJsonEvent))
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 
@@ -98,7 +97,6 @@ func TestApi_SaveEvents(t *testing.T) {
 		// Given
 		jsonEvent := `[
 			{
-				"eventID": "b93bd54592394c999fad7095e2b4840e",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "0a403cfe0e8c4284b2107e12bbe19881",
@@ -112,7 +110,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		const aggregateType = "thing"
 		api := rangedbapi.New()
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
-		request := httptest.NewRequest("POST", saveUri, strings.NewReader(jsonEvent))
+		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(jsonEvent))
 		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("ExpectedStreamSequenceNumber", "0")
 		response := httptest.NewRecorder()
@@ -130,7 +128,6 @@ func TestApi_SaveEvents(t *testing.T) {
 		// Given
 		jsonEvent := `[
 			{
-				"eventID": "642391df40ba40028e277f25677d4fc1",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "0a403cfe0e8c4284b2107e12bbe19881",
@@ -139,7 +136,6 @@ func TestApi_SaveEvents(t *testing.T) {
 				"metadata":null
 			},
 			{
-				"eventID": "b91f39c892a344d4b09619e6dc18f985",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "0a403cfe0e8c4284b2107e12bbe19881",
@@ -153,7 +149,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		const aggregateType = "thing"
 		api := rangedbapi.New()
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
-		request := httptest.NewRequest("POST", saveUri, strings.NewReader(jsonEvent))
+		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(jsonEvent))
 		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("ExpectedStreamSequenceNumber", "0")
 		response := httptest.NewRecorder()
@@ -171,7 +167,6 @@ func TestApi_SaveEvents(t *testing.T) {
 		// Given
 		jsonEvent := `[
 			{
-				"eventID": "b93bd54592394c999fad7095e2b4840e",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "0a403cfe0e8c4284b2107e12bbe19881",
@@ -185,7 +180,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		const aggregateType = "thing"
 		api := rangedbapi.New()
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
-		request := httptest.NewRequest("POST", saveUri, strings.NewReader(jsonEvent))
+		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(jsonEvent))
 		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("ExpectedStreamSequenceNumber", "1")
 		response := httptest.NewRecorder()
@@ -205,7 +200,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		const aggregateType = "thing"
 		api := rangedbapi.New()
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
-		request := httptest.NewRequest("POST", saveUri, strings.NewReader(singleJsonEvent))
+		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(singleJsonEvent))
 		response := httptest.NewRecorder()
 
 		// When
@@ -221,9 +216,8 @@ func TestApi_SaveEvents(t *testing.T) {
 		const aggregateID = "cbba5f386b2d4924ac34d1b9e9217d67"
 		const aggregateType = "thing"
 		api := rangedbapi.New(rangedbapi.WithStore(rangedbtest.NewFailingEventStore()))
-		expectedJson := `[
+		jsonBody := `[
 		{
-			"eventID": "b93bd54592394c999fad7095e2b4840e",
 			"eventType": "ThingWasDone",
 			"data":{
 				"Name": "Thing Test",
@@ -233,7 +227,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		}
 	]`
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
-		request := httptest.NewRequest("POST", saveUri, strings.NewReader(expectedJson))
+		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(jsonBody))
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 
@@ -253,7 +247,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		api := rangedbapi.New(rangedbapi.WithStore(rangedbtest.NewFailingEventStore()))
 		invalidJson := `x`
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
-		request := httptest.NewRequest("POST", saveUri, strings.NewReader(invalidJson))
+		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(invalidJson))
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 
@@ -674,7 +668,7 @@ func saveEvents(t *testing.T, api http.Handler, aggregateType, aggregateID strin
 	require.NoError(t, err)
 
 	saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
-	saveRequest := httptest.NewRequest("POST", saveUri, bytes.NewReader(saveJson))
+	saveRequest := httptest.NewRequest(http.MethodPost, saveUri, bytes.NewReader(saveJson))
 	saveRequest.Header.Set("Content-Type", "application/json")
 	saveResponse := httptest.NewRecorder()
 
