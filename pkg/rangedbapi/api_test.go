@@ -113,7 +113,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
 		request := httptest.NewRequest("POST", saveUri, strings.NewReader(jsonEvent))
 		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set("X-ExpectedStreamSequenceNumber", "0")
+		request.Header.Set("ExpectedStreamSequenceNumber", "0")
 		response := httptest.NewRecorder()
 
 		// When
@@ -154,7 +154,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
 		request := httptest.NewRequest("POST", saveUri, strings.NewReader(jsonEvent))
 		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set("X-ExpectedStreamSequenceNumber", "0")
+		request.Header.Set("ExpectedStreamSequenceNumber", "0")
 		response := httptest.NewRecorder()
 
 		// When
@@ -186,7 +186,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
 		request := httptest.NewRequest("POST", saveUri, strings.NewReader(jsonEvent))
 		request.Header.Set("Content-Type", "application/json")
-		request.Header.Set("X-ExpectedStreamSequenceNumber", "1")
+		request.Header.Set("ExpectedStreamSequenceNumber", "1")
 		response := httptest.NewRecorder()
 
 		// When

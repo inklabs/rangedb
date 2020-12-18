@@ -165,7 +165,7 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expectedStreamSequenceNumber := stringToSequenceNumber(r.Header.Get("X-ExpectedStreamSequenceNumber"))
+	expectedStreamSequenceNumber := stringToSequenceNumber(r.Header.Get("ExpectedStreamSequenceNumber"))
 
 	w.Header().Set("Content-Type", "application/json")
 
