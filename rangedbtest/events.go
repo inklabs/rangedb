@@ -1,5 +1,9 @@
 package rangedbtest
 
+import (
+	"github.com/inklabs/rangedb"
+)
+
 //go:generate go run ../gen/eventbinder/main.go -package rangedbtest -files events.go
 
 // ThingWasDone is an event used for testing.
@@ -82,4 +86,13 @@ func (t FloatWasDone) AggregateType() string {
 // EventType returns the event type. This will always be the struct name.
 func (t FloatWasDone) EventType() string {
 	return "FloatWasDone"
+}
+
+func NewEventThatWillFailUnmarshal(aggregateType, aggregateID string) rangedb.Event {
+	return rangedb.NewRawEvent(
+		aggregateType,
+		aggregateID,
+		"UnmarshalWillHaveFailed",
+		make(chan int),
+	)
 }

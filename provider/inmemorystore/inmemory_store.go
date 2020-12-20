@@ -139,6 +139,7 @@ func (s *inMemoryStore) saveEvents(expectedStreamSequenceNumber *uint64, eventRe
 	nextExpectedStreamSequenceNumber := expectedStreamSequenceNumber
 
 	var pendingEventsData [][]byte
+	var totalSavedEvents int
 
 	s.mux.Lock()
 	for _, eventRecord := range eventRecords {
@@ -152,9 +153,12 @@ func (s *inMemoryStore) saveEvents(expectedStreamSequenceNumber *uint64, eventRe
 			eventRecord.Metadata,
 		)
 		if err != nil {
+			s.removeEvents(totalSavedEvents, eventRecord.Event.AggregateType(), eventRecord.Event.AggregateID())
 			s.mux.Unlock()
 			return err
 		}
+
+		totalSavedEvents++
 		pendingEventsData = append(pendingEventsData, data)
 
 		if nextExpectedStreamSequenceNumber != nil {
@@ -209,6 +213,17 @@ func (s *inMemoryStore) saveEvent(
 	s.recordsByAggregateType[aggregateType] = append(s.recordsByAggregateType[aggregateType], data)
 
 	return data, nil
+}
+
+func (s *inMemoryStore) removeEvents(total int, aggregateType, aggregateID string) {
+	stream := rangedb.GetStream(aggregateType, aggregateID)
+	s.allRecords = rTrimFromByteSlice(s.allRecords, total)
+	s.recordsByStream[stream] = rTrimFromByteSlice(s.recordsByStream[stream], total)
+	s.recordsByAggregateType[aggregateType] = rTrimFromByteSlice(s.recordsByAggregateType[aggregateType], total)
+}
+
+func rTrimFromByteSlice(slice [][]byte, total int) [][]byte {
+	return slice[:len(slice)-total]
 }
 
 func (s *inMemoryStore) SubscribeStartingWith(ctx context.Context, eventNumber uint64, subscribers ...rangedb.RecordSubscriber) {
