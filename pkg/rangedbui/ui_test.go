@@ -219,6 +219,8 @@ func storeWithTwoEvents(t *testing.T) (rangedb.Store, *projection.AggregateTypeS
 			ID:     "f6b6f8ed682c4b5180f625e53b3c4bac",
 			Number: 0,
 		}},
+	))
+	require.NoError(t, store.Save(
 		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{
 			ID: "5e4a649230924041a7ccf18887ccc153",
 		}},

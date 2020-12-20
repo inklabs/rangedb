@@ -606,6 +606,8 @@ func TestApi_ListAggregates(t *testing.T) {
 	require.NoError(t, store.Save(
 		&rangedb.EventRecord{Event: event1},
 		&rangedb.EventRecord{Event: event2},
+	))
+	require.NoError(t, store.Save(
 		&rangedb.EventRecord{Event: event3},
 	))
 	api := rangedbapi.New(

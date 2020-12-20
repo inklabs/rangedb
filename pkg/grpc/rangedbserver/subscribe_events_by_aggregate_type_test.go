@@ -60,13 +60,15 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 	events, err := rangeDBClient.SubscribeToEventsByAggregateType(ctx, request)
 	PrintError(err)
 
-	PrintError(
-		inMemoryStore.Save(
-			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "52e247a7c0a54a65906e006dac9be108", Number: 100}},
-			&rangedb.EventRecord{Event: rangedbtest.ThatWasDone{ID: "de33dd02222f443b86861a9fb4574ce9"}},
-			&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a3d9faa7614a46b388c6dce9984b6620"}},
-		),
-	)
+	PrintError(inMemoryStore.Save(
+		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "52e247a7c0a54a65906e006dac9be108", Number: 100}},
+	))
+	PrintError(inMemoryStore.Save(
+		&rangedb.EventRecord{Event: rangedbtest.ThatWasDone{ID: "de33dd02222f443b86861a9fb4574ce9"}},
+	))
+	PrintError(inMemoryStore.Save(
+		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a3d9faa7614a46b388c6dce9984b6620"}},
+	))
 
 	for i := 0; i < 2; i++ {
 		record, err := events.Recv()

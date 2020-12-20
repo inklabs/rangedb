@@ -47,13 +47,15 @@ func Example_streamAggregateTypeEvents() {
 	}()
 
 	// When
-	PrintError(
-		inMemoryStore.Save(
-			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "dce275e43137467b92c9f4eb6c9c77a3", Number: 100}},
-			&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "594c68cfa7944f9b94afc83505ff99e9"}},
-			&rangedb.EventRecord{Event: rangedbtest.ThatWasDone{ID: "075d37ae85894093aa818b391442df9b"}},
-		),
-	)
+	PrintError(inMemoryStore.Save(
+		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "dce275e43137467b92c9f4eb6c9c77a3", Number: 100}},
+	))
+	PrintError(inMemoryStore.Save(
+		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "594c68cfa7944f9b94afc83505ff99e9"}},
+	))
+	PrintError(inMemoryStore.Save(
+		&rangedb.EventRecord{Event: rangedbtest.ThatWasDone{ID: "075d37ae85894093aa818b391442df9b"}},
+	))
 
 	wg.Wait()
 

@@ -3,6 +3,7 @@ package remotestore
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"strings"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/grpc/rangedbpb"
-	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
 
@@ -87,61 +87,60 @@ func (s *remoteStore) EventsByStreamStartingWith(ctx context.Context, eventNumbe
 	return s.readRecords(ctx, events)
 }
 
-func (s *remoteStore) Save(event rangedb.Event, metadata interface{}) error {
-	return s.SaveEvent(
-		event.AggregateType(),
-		event.AggregateID(),
-		event.EventType(),
-		shortuuid.New().String(),
-		nil,
-		event,
-		metadata,
-	)
+func (s *remoteStore) OptimisticSave(expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) error {
+	return s.saveEvents(&expectedStreamSequenceNumber, eventRecords...)
 }
 
-func (s *remoteStore) OptimisticSave(expectedStreamSequenceNumber uint64, event rangedb.Event, metadata interface{}) error {
-	return s.SaveEvent(
-		event.AggregateType(),
-		event.AggregateID(),
-		event.EventType(),
-		shortuuid.New().String(),
-		&expectedStreamSequenceNumber,
-		event,
-		metadata,
-	)
+func (s *remoteStore) Save(eventRecords ...*rangedb.EventRecord) error {
+	return s.saveEvents(nil, eventRecords...)
 }
 
-func (s *remoteStore) SaveEvent(aggregateType, aggregateID, eventType, eventID string, expectedStreamSequenceNumber *uint64, event, metadata interface{}) error {
-	jsonData, err := json.Marshal(event)
-	if err != nil {
-		return err
-	}
-
-	jsonMetadata, err := json.Marshal(metadata)
-	if err != nil {
-		return err
-	}
-
+func (s *remoteStore) saveEvents(expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) error {
 	var pbExpectedStreamSequenceNumber *rangedbpb.Uint64Value
 	if expectedStreamSequenceNumber != nil {
 		pbExpectedStreamSequenceNumber = &rangedbpb.Uint64Value{Value: *expectedStreamSequenceNumber}
 	}
 
-	request := &rangedbpb.SaveEventsRequest{
-		AggregateType: aggregateType,
-		AggregateID:   aggregateID,
-		Events: []*rangedbpb.Event{
-			{
-				ID:                           eventID,
-				Type:                         eventType,
-				Data:                         string(jsonData),
-				Metadata:                     string(jsonMetadata),
-				ExpectedStreamSequenceNumber: pbExpectedStreamSequenceNumber,
-			},
-		},
+	var aggregateType, aggregateID string
+
+	var events []*rangedbpb.SaveEventRequest
+	for _, eventRecord := range eventRecords {
+		if aggregateType != "" && aggregateType != eventRecord.Event.AggregateType() {
+			return fmt.Errorf("unmatched aggregate type")
+		}
+
+		if aggregateID != "" && aggregateID != eventRecord.Event.AggregateID() {
+			return fmt.Errorf("unmatched aggregate ID")
+		}
+
+		aggregateType = eventRecord.Event.AggregateType()
+		aggregateID = eventRecord.Event.AggregateID()
+
+		jsonData, err := json.Marshal(eventRecord.Event)
+		if err != nil {
+			return err
+		}
+
+		jsonMetadata, err := json.Marshal(eventRecord.Metadata)
+		if err != nil {
+			return err
+		}
+
+		events = append(events, &rangedbpb.SaveEventRequest{
+			Type:     eventRecord.Event.EventType(),
+			Data:     string(jsonData),
+			Metadata: string(jsonMetadata),
+		})
 	}
 
-	_, err = s.client.SaveEvents(context.Background(), request)
+	request := &rangedbpb.SaveEventsRequest{
+		AggregateType:                aggregateType,
+		AggregateID:                  aggregateID,
+		Events:                       events,
+		ExpectedStreamSequenceNumber: pbExpectedStreamSequenceNumber,
+	}
+
+	_, err := s.client.SaveEvents(context.Background(), request)
 	if err != nil {
 		if strings.Contains(err.Error(), "unable to save to store: unexpected sequence number") {
 			return rangedb.NewUnexpectedSequenceNumberFromString(err.Error())

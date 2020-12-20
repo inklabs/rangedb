@@ -2,6 +2,7 @@ package inmemorystore
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"sync"
@@ -140,12 +141,24 @@ func (s *inMemoryStore) saveEvents(expectedStreamSequenceNumber *uint64, eventRe
 
 	var pendingEventsData [][]byte
 	var totalSavedEvents int
+	var aggregateType, aggregateID string
 
 	s.mux.Lock()
 	for _, eventRecord := range eventRecords {
+		if aggregateType != "" && aggregateType != eventRecord.Event.AggregateType() {
+			return fmt.Errorf("unmatched aggregate type")
+		}
+
+		if aggregateID != "" && aggregateID != eventRecord.Event.AggregateID() {
+			return fmt.Errorf("unmatched aggregate ID")
+		}
+
+		aggregateType = eventRecord.Event.AggregateType()
+		aggregateID = eventRecord.Event.AggregateID()
+
 		data, err := s.saveEvent(
-			eventRecord.Event.AggregateType(),
-			eventRecord.Event.AggregateID(),
+			aggregateType,
+			aggregateID,
 			eventRecord.Event.EventType(),
 			shortuuid.New().String(),
 			nextExpectedStreamSequenceNumber,

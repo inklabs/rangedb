@@ -27,10 +27,8 @@ func Test_WebsocketApi_SubscribeToAllEvents_ReadsEventsOverWebsocket(t *testing.
 	store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 	event1 := &rangedbtest.ThingWasDone{ID: "6595a5c206c746c3a9d9006c7df5784e", Number: 1}
 	event2 := &rangedbtest.ThingWasDone{ID: "8cc839e1fd3545b7a0fe67808d84cbd4", Number: 2}
-	require.NoError(t, store.Save(
-		&rangedb.EventRecord{Event: event1},
-		&rangedb.EventRecord{Event: event2},
-	))
+	require.NoError(t, store.Save(&rangedb.EventRecord{Event: event1}))
+	require.NoError(t, store.Save(&rangedb.EventRecord{Event: event2}))
 	api := rangedbws.New(rangedbws.WithStore(store))
 	server := httptest.NewServer(api)
 	defer server.Close()

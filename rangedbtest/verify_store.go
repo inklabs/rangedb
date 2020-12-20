@@ -33,6 +33,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			require.NoError(t, store.Save(
 				&rangedb.EventRecord{Event: eventA1},
 				&rangedb.EventRecord{Event: eventA2},
+			))
+			require.NoError(t, store.Save(
 				&rangedb.EventRecord{Event: eventB},
 			))
 
@@ -107,6 +109,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			require.NoError(t, store.Save(
 				&rangedb.EventRecord{Event: eventA1},
 				&rangedb.EventRecord{Event: eventA2},
+			))
+			require.NoError(t, store.Save(
 				&rangedb.EventRecord{Event: eventB},
 			))
 			ctx := context.Background()
@@ -145,6 +149,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				&rangedb.EventRecord{Event: eventA2},
 				&rangedb.EventRecord{Event: eventA3},
 				&rangedb.EventRecord{Event: eventA4},
+			))
+			require.NoError(t, store.Save(
 				&rangedb.EventRecord{Event: eventB},
 			))
 			ctx := context.Background()
@@ -183,12 +189,10 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			thingWasDoneA1 := &ThingWasDone{ID: "A", Number: 200}
 			thingWasDoneB0 := &ThingWasDone{ID: "B", Number: 300}
 			AnotherWasCompleteX0 := &AnotherWasComplete{ID: "X"}
-			require.NoError(t, store.Save(
-				&rangedb.EventRecord{Event: thingWasDoneA0},
-				&rangedb.EventRecord{Event: thingWasDoneB0},
-				&rangedb.EventRecord{Event: thingWasDoneA1},
-				&rangedb.EventRecord{Event: AnotherWasCompleteX0},
-			))
+			require.NoError(t, store.Save(&rangedb.EventRecord{Event: thingWasDoneA0}))
+			require.NoError(t, store.Save(&rangedb.EventRecord{Event: thingWasDoneB0}))
+			require.NoError(t, store.Save(&rangedb.EventRecord{Event: thingWasDoneA1}))
+			require.NoError(t, store.Save(&rangedb.EventRecord{Event: AnotherWasCompleteX0}))
 			ctx := context.Background()
 
 			// When
@@ -331,6 +335,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			require.NoError(t, store.Save(
 				&rangedb.EventRecord{Event: eventA1},
 				&rangedb.EventRecord{Event: eventA2},
+			))
+			require.NoError(t, store.Save(
 				&rangedb.EventRecord{Event: eventB},
 			))
 			ctx := context.Background()
@@ -389,6 +395,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			require.NoError(t, store.Save(
 				&rangedb.EventRecord{Event: eventA1},
 				&rangedb.EventRecord{Event: eventA2},
+			))
+			require.NoError(t, store.Save(
 				&rangedb.EventRecord{Event: eventB},
 			))
 			ctx := context.Background()
@@ -660,6 +668,40 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			assert.Equal(t, 1, countSubscriber2.TotalEvents())
 			assert.Equal(t, 2, countSubscriber2.TotalThingWasDone())
 		})
+
+		t.Run("does not allow saving multiple events from different aggregate type", func(t *testing.T) {
+			// Given
+			store := newStore(t, sequentialclock.New())
+			store.Bind(ThingWasDone{})
+			eventA := &ThingWasDone{ID: "A", Number: 1}
+			eventB := &AnotherWasComplete{ID: "B"}
+
+			// When
+			err := store.Save(
+				&rangedb.EventRecord{Event: eventA},
+				&rangedb.EventRecord{Event: eventB},
+			)
+
+			// Then
+			require.EqualError(t, err, "unmatched aggregate type")
+		})
+
+		t.Run("does not allow saving multiple events from different streams", func(t *testing.T) {
+			// Given
+			store := newStore(t, sequentialclock.New())
+			store.Bind(ThingWasDone{})
+			eventA := &ThingWasDone{ID: "A", Number: 1}
+			eventB := &ThingWasDone{ID: "B", Number: 2}
+
+			// When
+			err := store.Save(
+				&rangedb.EventRecord{Event: eventA},
+				&rangedb.EventRecord{Event: eventB},
+			)
+
+			// Then
+			require.EqualError(t, err, "unmatched aggregate ID")
+		})
 	})
 
 	t.Run("Subscriber dispatches command that results in saving another event", func(t *testing.T) {
@@ -748,6 +790,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			require.NoError(t, store.Save(
 				&rangedb.EventRecord{Event: eventA1},
 				&rangedb.EventRecord{Event: eventA2},
+			))
+			require.NoError(t, store.Save(
 				&rangedb.EventRecord{Event: eventB},
 			))
 
@@ -869,6 +913,42 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			assert.Equal(t, expectedRecord, <-store.EventsStartingWith(ctx, 0))
 			assert.Equal(t, expectedRecord, <-store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event1)))
 			assert.Equal(t, expectedRecord, <-store.EventsByAggregateTypesStartingWith(ctx, 0, event1.AggregateType()))
+		})
+
+		t.Run("does not allow saving multiple events from different aggregate type", func(t *testing.T) {
+			// Given
+			store := newStore(t, sequentialclock.New())
+			store.Bind(ThingWasDone{})
+			eventA := &ThingWasDone{ID: "A", Number: 1}
+			eventB := &AnotherWasComplete{ID: "B"}
+
+			// When
+			err := store.OptimisticSave(
+				0,
+				&rangedb.EventRecord{Event: eventA},
+				&rangedb.EventRecord{Event: eventB},
+			)
+
+			// Then
+			require.EqualError(t, err, "unmatched aggregate type")
+		})
+
+		t.Run("does not allow saving multiple events from different streams", func(t *testing.T) {
+			// Given
+			store := newStore(t, sequentialclock.New())
+			store.Bind(ThingWasDone{})
+			eventA := &ThingWasDone{ID: "A", Number: 1}
+			eventB := &ThingWasDone{ID: "B", Number: 2}
+
+			// When
+			err := store.OptimisticSave(
+				0,
+				&rangedb.EventRecord{Event: eventA},
+				&rangedb.EventRecord{Event: eventB},
+			)
+
+			// Then
+			require.EqualError(t, err, "unmatched aggregate ID")
 		})
 	})
 }
