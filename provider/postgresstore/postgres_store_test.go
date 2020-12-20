@@ -77,7 +77,7 @@ func Test_Failures(t *testing.T) {
 		require.NoError(t, err)
 
 		// When
-		err = store.Save(rangedbtest.FloatWasDone{Number: math.Inf(1)}, nil)
+		err = store.Save(&rangedb.EventRecord{Event: rangedbtest.FloatWasDone{Number: math.Inf(1)}})
 
 		// Then
 		assert.EqualError(t, err, "json: unsupported value: +Inf")
@@ -89,7 +89,7 @@ func Test_Failures(t *testing.T) {
 		require.NoError(t, err)
 
 		// When
-		err = store.Save(rangedbtest.ThingWasDone{}, math.Inf(-1))
+		err = store.Save(&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{}, Metadata: math.Inf(-1)})
 
 		// Then
 		assert.EqualError(t, err, "json: unsupported value: -Inf")

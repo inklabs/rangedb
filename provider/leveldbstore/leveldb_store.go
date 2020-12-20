@@ -119,7 +119,6 @@ func (s *levelDbStore) saveEvents(expectedStreamSequenceNumber *uint64, eventRec
 	nextExpectedStreamSequenceNumber := expectedStreamSequenceNumber
 
 	var pendingEventsData [][]byte
-	var totalSavedEvents int
 	var aggregateType, aggregateID string
 
 	s.mux.Lock()
@@ -160,7 +159,6 @@ func (s *levelDbStore) saveEvents(expectedStreamSequenceNumber *uint64, eventRec
 			return err
 		}
 
-		totalSavedEvents++
 		pendingEventsData = append(pendingEventsData, data)
 
 		if nextExpectedStreamSequenceNumber != nil {
