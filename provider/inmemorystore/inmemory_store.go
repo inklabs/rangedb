@@ -146,10 +146,12 @@ func (s *inMemoryStore) saveEvents(expectedStreamSequenceNumber *uint64, eventRe
 	s.mux.Lock()
 	for _, eventRecord := range eventRecords {
 		if aggregateType != "" && aggregateType != eventRecord.Event.AggregateType() {
+			s.mux.Unlock()
 			return fmt.Errorf("unmatched aggregate type")
 		}
 
 		if aggregateID != "" && aggregateID != eventRecord.Event.AggregateID() {
+			s.mux.Unlock()
 			return fmt.Errorf("unmatched aggregate ID")
 		}
 

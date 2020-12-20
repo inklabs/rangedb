@@ -79,11 +79,13 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			store.Bind(ThingWasDone{})
 			const totalEvents = totalEventsToRequireBigEndian
 			events := make([]rangedb.Event, totalEvents)
+			var eventRecords []*rangedb.EventRecord
 			for i := 0; i < totalEvents; i++ {
 				event := &ThingWasDone{ID: "A", Number: i}
 				events[i] = event
-				require.NoError(t, store.Save(&rangedb.EventRecord{Event: event}))
+				eventRecords = append(eventRecords, &rangedb.EventRecord{Event: event})
 			}
+			require.NoError(t, store.Save(eventRecords...))
 			ctx := context.Background()
 
 			// When

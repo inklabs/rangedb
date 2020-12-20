@@ -65,7 +65,7 @@ func Test_Failures(t *testing.T) {
 		})
 
 		// When
-		err = store.Save(rangedbtest.ThingWasDone{}, nil)
+		err = store.Save(&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{}})
 
 		// Then
 		assert.EqualError(t, err, "failingSerializer.Serialize")
@@ -88,8 +88,7 @@ func Test_Failures(t *testing.T) {
 			}
 		})
 		event := rangedbtest.ThingWasDone{}
-		err = store.Save(event, nil)
-		require.NoError(t, err)
+		require.NoError(t, store.Save(&rangedb.EventRecord{Event: event}))
 		ctx := context.Background()
 
 		// When
