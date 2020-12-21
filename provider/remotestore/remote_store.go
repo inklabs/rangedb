@@ -103,7 +103,7 @@ func (s *remoteStore) saveEvents(expectedStreamSequenceNumber *uint64, eventReco
 
 	var aggregateType, aggregateID string
 
-	var events []*rangedbpb.SaveEventRequest
+	var events []*rangedbpb.Event
 	for _, eventRecord := range eventRecords {
 		if aggregateType != "" && aggregateType != eventRecord.Event.AggregateType() {
 			return fmt.Errorf("unmatched aggregate type")
@@ -126,7 +126,7 @@ func (s *remoteStore) saveEvents(expectedStreamSequenceNumber *uint64, eventReco
 			return err
 		}
 
-		events = append(events, &rangedbpb.SaveEventRequest{
+		events = append(events, &rangedbpb.Event{
 			Type:     eventRecord.Event.EventType(),
 			Data:     string(jsonData),
 			Metadata: string(jsonMetadata),

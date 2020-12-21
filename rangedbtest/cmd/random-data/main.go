@@ -66,11 +66,11 @@ func main() {
 	fmt.Printf("Sent %d events\n", totalEvents)
 }
 
-func getRandomEvents() []*rangedbpb.SaveEventRequest {
+func getRandomEvents() []*rangedbpb.Event {
 	total := rand.Intn(99) + 1
-	events := make([]*rangedbpb.SaveEventRequest, total)
+	events := make([]*rangedbpb.Event, total)
 	for i := range events {
-		events[i] = &rangedbpb.SaveEventRequest{
+		events[i] = &rangedbpb.Event{
 			Type:     "FooBar",
 			Data:     fmt.Sprintf(`{"number":%d}`, i),
 			Metadata: "",

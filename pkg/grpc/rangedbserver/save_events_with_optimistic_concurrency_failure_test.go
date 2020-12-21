@@ -54,7 +54,7 @@ func ExampleRangeDBServer_SaveEvents_withOptimisticConcurrencyFailure() {
 		AggregateType:                "thing",
 		AggregateID:                  "141b39d2b9854f8093ef79dc47dae6af",
 		ExpectedStreamSequenceNumber: &rangedbpb.Uint64Value{Value: 2},
-		Events: []*rangedbpb.SaveEventRequest{
+		Events: []*rangedbpb.Event{
 			{
 				Type:     "ThingWasDone",
 				Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,

@@ -44,7 +44,7 @@ message SaveEventsRequest {
   Uint64Value ExpectedStreamSequenceNumber = 1;
   string AggregateType = 2;
   string AggregateID = 3;
-  repeated SaveEventRequest Events = 4;
+  repeated Event Events = 4;
 }
 
 message SaveEventResponse {
@@ -67,7 +67,7 @@ message Uint64Value {
   uint64 value = 1;
 }
 
-message SaveEventRequest {
+message Event {
   string Type = 1;
   string Data = 2;
   string Metadata = 3;

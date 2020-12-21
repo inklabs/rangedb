@@ -395,7 +395,7 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 		request := &rangedbpb.SaveEventsRequest{
 			AggregateType: "thing",
 			AggregateID:   "b5ef2296339d4ad1887f1deb486f7821",
-			Events: []*rangedbpb.SaveEventRequest{
+			Events: []*rangedbpb.Event{
 				{
 					Type:     "ThingWasDone",
 					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
@@ -457,7 +457,7 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 		request := &rangedbpb.SaveEventsRequest{
 			AggregateType: "thing",
 			AggregateID:   "b5ef2296339d4ad1887f1deb486f7821",
-			Events: []*rangedbpb.SaveEventRequest{
+			Events: []*rangedbpb.Event{
 				{
 					Type:     "ThingWasDone",
 					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
@@ -490,7 +490,7 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 		request := &rangedbpb.SaveEventsRequest{
 			AggregateType: "thing",
 			AggregateID:   "b5ef2296339d4ad1887f1deb486f7821",
-			Events: []*rangedbpb.SaveEventRequest{
+			Events: []*rangedbpb.Event{
 				{
 					Type:     "ThingWasDone",
 					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
@@ -524,7 +524,7 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 		request := &rangedbpb.SaveEventsRequest{
 			AggregateType: "thing",
 			AggregateID:   "b5ef2296339d4ad1887f1deb486f7821",
-			Events: []*rangedbpb.SaveEventRequest{
+			Events: []*rangedbpb.Event{
 				{
 					Type:     "ThingWasDone",
 					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
