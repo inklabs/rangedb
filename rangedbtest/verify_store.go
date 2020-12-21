@@ -855,104 +855,104 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			assert.Equal(t, uint64(1), sequenceNumberErr.Expected)
 			assert.Equal(t, uint64(0), sequenceNumberErr.NextSequenceNumber)
 		})
-		//
-		//	t.Run("fails on 2nd event without persisting 1st event", func(t *testing.T) {
-		//		// Given
-		//		shortuuid.SetRand(100)
-		//		store := newStore(t, sequentialclock.New())
-		//		store.Bind(&ThingWasDone{})
-		//		event1 := ThingWasDone{ID: "A", Number: 1}
-		//		failingEvent := NewEventThatWillFailUnmarshal("thing", "A")
-		//
-		//		// When
-		//		err := store.OptimisticSave(
-		//			0,
-		//			&rangedb.EventRecord{Event: event1},
-		//			&rangedb.EventRecord{Event: failingEvent},
-		//		)
-		//
-		//		// Then
-		//		require.Error(t, err)
-		//		ctx := context.Background()
-		//		allRecords := store.EventsStartingWith(ctx, 0)
-		//		assert.Equal(t, (*rangedb.Record)(nil), <-allRecords)
-		//		streamRecords := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event1))
-		//		assert.Equal(t, (*rangedb.Record)(nil), <-streamRecords)
-		//		aggregateTypeRecords := store.EventsByAggregateTypesStartingWith(ctx, 0, event1.AggregateType())
-		//		assert.Equal(t, (*rangedb.Record)(nil), <-aggregateTypeRecords)
-		//	})
-		//
-		//	t.Run("fails on 2nd event without persisting 1st event, with one previously saved event", func(t *testing.T) {
-		//		// Given
-		//		shortuuid.SetRand(100)
-		//		store := newStore(t, sequentialclock.New())
-		//		store.Bind(&ThingWasDone{})
-		//		event1 := &ThingWasDone{ID: "A", Number: 1}
-		//		event2 := &ThingWasDone{ID: "A", Number: 2}
-		//		failingEvent := NewEventThatWillFailUnmarshal("thing", "A")
-		//		require.NoError(t, store.Save(&rangedb.EventRecord{Event: event1}))
-		//
-		//		// When
-		//		err := store.OptimisticSave(
-		//			0,
-		//			&rangedb.EventRecord{Event: event2},
-		//			&rangedb.EventRecord{Event: failingEvent},
-		//		)
-		//
-		//		// Then
-		//		require.Error(t, err)
-		//		ctx := context.Background()
-		//		expectedRecord := &rangedb.Record{
-		//			AggregateType:        event1.AggregateType(),
-		//			AggregateID:          event1.AggregateID(),
-		//			GlobalSequenceNumber: 0,
-		//			StreamSequenceNumber: 0,
-		//			EventType:            event1.EventType(),
-		//			EventID:              "d2ba8e70072943388203c438d4e94bf3",
-		//			InsertTimestamp:      0,
-		//			Data:                 event1,
-		//			Metadata:             nil,
-		//		}
-		//		assert.Equal(t, expectedRecord, <-store.EventsStartingWith(ctx, 0))
-		//		assert.Equal(t, expectedRecord, <-store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event1)))
-		//		assert.Equal(t, expectedRecord, <-store.EventsByAggregateTypesStartingWith(ctx, 0, event1.AggregateType()))
-		//	})
-		//
-		//	t.Run("does not allow saving multiple events from different aggregate type", func(t *testing.T) {
-		//		// Given
-		//		store := newStore(t, sequentialclock.New())
-		//		store.Bind(ThingWasDone{})
-		//		eventA := &ThingWasDone{ID: "A", Number: 1}
-		//		eventB := &AnotherWasComplete{ID: "B"}
-		//
-		//		// When
-		//		err := store.OptimisticSave(
-		//			0,
-		//			&rangedb.EventRecord{Event: eventA},
-		//			&rangedb.EventRecord{Event: eventB},
-		//		)
-		//
-		//		// Then
-		//		require.EqualError(t, err, "unmatched aggregate type")
-		//	})
-		//
-		//	t.Run("does not allow saving multiple events from different streams", func(t *testing.T) {
-		//		// Given
-		//		store := newStore(t, sequentialclock.New())
-		//		store.Bind(ThingWasDone{})
-		//		eventA := &ThingWasDone{ID: "A", Number: 1}
-		//		eventB := &ThingWasDone{ID: "B", Number: 2}
-		//
-		//		// When
-		//		err := store.OptimisticSave(
-		//			0,
-		//			&rangedb.EventRecord{Event: eventA},
-		//			&rangedb.EventRecord{Event: eventB},
-		//		)
-		//
-		//		// Then
-		//		require.EqualError(t, err, "unmatched aggregate ID")
-		//	})
+
+		t.Run("fails on 2nd event without persisting 1st event", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			store := newStore(t, sequentialclock.New())
+			store.Bind(&ThingWasDone{})
+			event1 := ThingWasDone{ID: "A", Number: 1}
+			failingEvent := NewEventThatWillFailUnmarshal("thing", "A")
+
+			// When
+			err := store.OptimisticSave(
+				0,
+				&rangedb.EventRecord{Event: event1},
+				&rangedb.EventRecord{Event: failingEvent},
+			)
+
+			// Then
+			require.Error(t, err)
+			ctx := context.Background()
+			allRecords := store.EventsStartingWith(ctx, 0)
+			assert.Equal(t, (*rangedb.Record)(nil), <-allRecords)
+			streamRecords := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event1))
+			assert.Equal(t, (*rangedb.Record)(nil), <-streamRecords)
+			aggregateTypeRecords := store.EventsByAggregateTypesStartingWith(ctx, 0, event1.AggregateType())
+			assert.Equal(t, (*rangedb.Record)(nil), <-aggregateTypeRecords)
+		})
+
+		t.Run("fails on 2nd event without persisting 1st event, with one previously saved event", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			store := newStore(t, sequentialclock.New())
+			store.Bind(&ThingWasDone{})
+			event1 := &ThingWasDone{ID: "A", Number: 1}
+			event2 := &ThingWasDone{ID: "A", Number: 2}
+			failingEvent := NewEventThatWillFailUnmarshal("thing", "A")
+			require.NoError(t, store.Save(&rangedb.EventRecord{Event: event1}))
+
+			// When
+			err := store.OptimisticSave(
+				0,
+				&rangedb.EventRecord{Event: event2},
+				&rangedb.EventRecord{Event: failingEvent},
+			)
+
+			// Then
+			require.Error(t, err)
+			ctx := context.Background()
+			expectedRecord := &rangedb.Record{
+				AggregateType:        event1.AggregateType(),
+				AggregateID:          event1.AggregateID(),
+				GlobalSequenceNumber: 0,
+				StreamSequenceNumber: 0,
+				EventType:            event1.EventType(),
+				EventID:              "d2ba8e70072943388203c438d4e94bf3",
+				InsertTimestamp:      0,
+				Data:                 event1,
+				Metadata:             nil,
+			}
+			assert.Equal(t, expectedRecord, <-store.EventsStartingWith(ctx, 0))
+			assert.Equal(t, expectedRecord, <-store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event1)))
+			assert.Equal(t, expectedRecord, <-store.EventsByAggregateTypesStartingWith(ctx, 0, event1.AggregateType()))
+		})
+
+		t.Run("does not allow saving multiple events from different aggregate type", func(t *testing.T) {
+			// Given
+			store := newStore(t, sequentialclock.New())
+			store.Bind(ThingWasDone{})
+			eventA := &ThingWasDone{ID: "A", Number: 1}
+			eventB := &AnotherWasComplete{ID: "B"}
+
+			// When
+			err := store.OptimisticSave(
+				0,
+				&rangedb.EventRecord{Event: eventA},
+				&rangedb.EventRecord{Event: eventB},
+			)
+
+			// Then
+			require.EqualError(t, err, "unmatched aggregate type")
+		})
+
+		t.Run("does not allow saving multiple events from different streams", func(t *testing.T) {
+			// Given
+			store := newStore(t, sequentialclock.New())
+			store.Bind(ThingWasDone{})
+			eventA := &ThingWasDone{ID: "A", Number: 1}
+			eventB := &ThingWasDone{ID: "B", Number: 2}
+
+			// When
+			err := store.OptimisticSave(
+				0,
+				&rangedb.EventRecord{Event: eventA},
+				&rangedb.EventRecord{Event: eventB},
+			)
+
+			// Then
+			require.EqualError(t, err, "unmatched aggregate ID")
+		})
 	})
 }
 
