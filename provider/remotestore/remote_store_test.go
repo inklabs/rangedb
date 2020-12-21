@@ -23,6 +23,7 @@ func Test_RemoteStore_VerifyStoreInterface(t *testing.T) {
 		inMemoryStore := inmemorystore.New(
 			inmemorystore.WithClock(clock),
 		)
+		rangedbtest.BindEvents(inMemoryStore)
 
 		bufListener := bufconn.Listen(7)
 		server := grpc.NewServer()
@@ -46,6 +47,9 @@ func Test_RemoteStore_VerifyStoreInterface(t *testing.T) {
 			require.NoError(t, conn.Close())
 		})
 
-		return remotestore.New(conn)
+		store := remotestore.New(conn)
+		rangedbtest.BindEvents(store)
+
+		return store
 	})
 }

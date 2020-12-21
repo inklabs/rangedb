@@ -39,6 +39,7 @@ func Test_Postgres_VerifyStoreInterface(t *testing.T) {
 			postgresstore.WithClock(clock),
 		)
 		require.NoError(t, err)
+		rangedbtest.BindEvents(store)
 
 		t.Cleanup(func() {
 			db, err := sql.Open("postgres", config.DataSourceName())

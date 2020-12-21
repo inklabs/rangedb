@@ -33,6 +33,7 @@ func Test_LevelDB_VerifyStoreInterface(t *testing.T) {
 			leveldbstore.WithClock(clk),
 		)
 		require.NoError(t, err)
+		rangedbtest.BindEvents(store)
 
 		return store
 	})

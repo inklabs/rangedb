@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 	"sync"
 
@@ -226,15 +225,12 @@ func (s *postgresStore) saveEvents(expectedStreamSequenceNumber *uint64, eventRe
 		"INSERT INTO record (AggregateType,AggregateID,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata) VALUES %s RETURNING GlobalSequenceNumber;",
 		strings.Join(valueStrings, ","))
 
-	log.Print(sqlStatement)
-
 	globalSequenceNumber := uint64(0)
 	err = transaction.QueryRow(sqlStatement, valueArgs...).Scan(&globalSequenceNumber)
 	if err != nil {
 		err = transaction.Rollback()
 		return err
 	}
-	log.Print(globalSequenceNumber)
 
 	err = transaction.Commit()
 	if err != nil {

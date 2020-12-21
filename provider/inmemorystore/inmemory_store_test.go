@@ -20,6 +20,7 @@ func Test_InMemory_VerifyStoreInterface(t *testing.T) {
 		store := inmemorystore.New(
 			inmemorystore.WithClock(clock),
 		)
+		rangedbtest.BindEvents(store)
 
 		return store
 	})

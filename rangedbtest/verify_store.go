@@ -27,7 +27,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			// Given
 			shortuuid.SetRand(100)
 			store := newStore(t, sequentialclock.New())
-			store.Bind(ThingWasDone{})
 			eventA1 := &ThingWasDone{ID: "A", Number: 1}
 			eventA2 := &ThingWasDone{ID: "A", Number: 2}
 			eventB := &ThingWasDone{ID: "B", Number: 3}
@@ -77,7 +76,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			const totalEventsToRequireBigEndian = 257
 			shortuuid.SetRand(100)
 			store := newStore(t, sequentialclock.New())
-			store.Bind(ThingWasDone{})
 			const totalEvents = totalEventsToRequireBigEndian
 			events := make([]rangedb.Event, totalEvents)
 			var eventRecords []*rangedb.EventRecord
@@ -105,7 +103,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			// Given
 			shortuuid.SetRand(100)
 			store := newStore(t, sequentialclock.New())
-			store.Bind(ThingWasDone{})
 			eventA1 := &ThingWasDone{ID: "A", Number: 1}
 			eventA2 := &ThingWasDone{ID: "A", Number: 2}
 			eventB := &ThingWasDone{ID: "B", Number: 3}
@@ -141,7 +138,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			// Given
 			shortuuid.SetRand(100)
 			store := newStore(t, sequentialclock.New())
-			store.Bind(ThingWasDone{})
 			eventA1 := &ThingWasDone{ID: "A", Number: 1}
 			eventA2 := &ThingWasDone{ID: "A", Number: 2}
 			eventA3 := &ThingWasDone{ID: "A", Number: 3}
@@ -187,7 +183,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			// Given
 			shortuuid.SetRand(100)
 			store := newStore(t, sequentialclock.New())
-			store.Bind(ThingWasDone{}, AnotherWasComplete{})
 			thingWasDoneA0 := &ThingWasDone{ID: "A", Number: 100}
 			thingWasDoneA1 := &ThingWasDone{ID: "A", Number: 200}
 			thingWasDoneB0 := &ThingWasDone{ID: "B", Number: 300}
@@ -257,7 +252,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			// Given
 			shortuuid.SetRand(100)
 			store := newStore(t, sequentialclock.New())
-			store.Bind(ThingWasDone{})
 			event1 := &ThingWasDone{ID: "A", Number: 1}
 			event2 := &ThingWasDone{ID: "A", Number: 2}
 			require.NoError(t, store.Save(
@@ -289,7 +283,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			// Given
 			shortuuid.SetRand(100)
 			store := newStore(t, sequentialclock.New())
-			store.Bind(ThingWasDone{})
 			event1 := &ThingWasDone{ID: "A", Number: 1}
 			event2 := &ThingWasDone{ID: "A", Number: 2}
 			event3 := &ThingWasDone{ID: "A", Number: 3}
@@ -331,7 +324,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			shortuuid.SetRand(100)
 			uuid.SetRand(rand.New(rand.NewSource(100)))
 			store := newStore(t, sequentialclock.New())
-			store.Bind(ThingWasDone{})
 			eventA1 := &ThingWasDone{ID: "A", Number: 1}
 			eventA2 := &ThingWasDone{ID: "A", Number: 2}
 			eventB := &ThingWasDone{ID: "B", Number: 3}
@@ -391,7 +383,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			// Given
 			shortuuid.SetRand(100)
 			store := newStore(t, sequentialclock.New())
-			store.Bind(ThingWasDone{}, AnotherWasComplete{})
 			eventA1 := &ThingWasDone{ID: "A", Number: 1}
 			eventA2 := &ThingWasDone{ID: "A", Number: 2}
 			eventB := &AnotherWasComplete{ID: "B"}
@@ -447,7 +438,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			shortuuid.SetRand(100)
 			const aggregateID = "0e421791334146a7a0576c5b9f6649c9"
 			store := newStore(t, sequentialclock.New())
-			store.Bind(ThingWasDone{})
 			event := &ThingWasDone{ID: aggregateID, Number: 1}
 
 			// When
@@ -480,7 +470,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			shortuuid.SetRand(100)
 			const aggregateID = "0e421791334146a7a0576c5b9f6649c9"
 			store := newStore(t, sequentialclock.New())
-			store.Bind(ThingWasDone{})
 			event1 := &ThingWasDone{ID: aggregateID, Number: 1}
 			event2 := &ThingWasDone{ID: aggregateID, Number: 2}
 
@@ -535,7 +524,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			shortuuid.SetRand(100)
 			const aggregateID = "95eb3409cf6e4d909d41cca0c70ec812"
 			store := newStore(t, sequentialclock.New())
-			store.Bind(ThingWasDone{})
 			event := &ThingWasDone{ID: aggregateID, Number: 1}
 
 			// When
@@ -565,7 +553,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			shortuuid.SetRand(100)
 			const aggregateID = "95eb3409cf6e4d909d41cca0c70ec812"
 			store := newStore(t, sequentialclock.New())
-			store.Bind(ThingWasDone{})
 			event1 := &ThingWasDone{ID: aggregateID, Number: 2}
 			require.NoError(t, store.Save(&rangedb.EventRecord{Event: event1}))
 			event2 := &ThingWasDone{ID: aggregateID, Number: 3}
@@ -592,7 +579,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			shortuuid.SetRand(100)
 			const aggregateID = "95eb3409cf6e4d909d41cca0c70ec812"
 			store := newStore(t, sequentialclock.New())
-			store.Bind(ThingWasDone{})
 			event1 := &ThingWasDone{ID: aggregateID, Number: 2}
 			require.NoError(t, store.Save(&rangedb.EventRecord{Event: event1}))
 			event2 := &ThingWasDone{ID: aggregateID, Number: 3}
@@ -621,7 +607,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			shortuuid.SetRand(100)
 			const aggregateID = "95eb3409cf6e4d909d41cca0c70ec812"
 			store := newStore(t, sequentialclock.New())
-			store.Bind(ThingWasDone{})
 			event1 := ThingWasDone{ID: aggregateID, Number: 2}
 			require.NoError(t, store.Save(&rangedb.EventRecord{Event: event1}))
 			event2 := ThingWasDone{ID: aggregateID, Number: 3}
@@ -650,7 +635,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			shortuuid.SetRand(100)
 			const aggregateID = "95eb3409cf6e4d909d41cca0c70ec812"
 			store := newStore(t, sequentialclock.New())
-			store.Bind(ThingWasDone{})
 			event1 := ThingWasDone{ID: aggregateID, Number: 2}
 			require.NoError(t, store.Save(&rangedb.EventRecord{Event: event1}))
 			event2 := ThingWasDone{ID: aggregateID, Number: 3}
@@ -673,10 +657,9 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			assert.Equal(t, 2, countSubscriber2.TotalThingWasDone())
 		})
 
-		t.Run("does not allow saving multiple events from different aggregate type", func(t *testing.T) {
+		t.Run("does not allow saving multiple events from different aggregate types", func(t *testing.T) {
 			// Given
 			store := newStore(t, sequentialclock.New())
-			store.Bind(ThingWasDone{})
 			eventA := &ThingWasDone{ID: "A", Number: 1}
 			eventB := &AnotherWasComplete{ID: "B"}
 
@@ -693,7 +676,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		t.Run("does not allow saving multiple events from different streams", func(t *testing.T) {
 			// Given
 			store := newStore(t, sequentialclock.New())
-			store.Bind(ThingWasDone{})
 			eventA := &ThingWasDone{ID: "A", Number: 1}
 			eventB := &ThingWasDone{ID: "B", Number: 2}
 
@@ -713,7 +695,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		shortuuid.SetRand(100)
 		const aggregateID = "95eb3409cf6e4d909d41cca0c70ec812"
 		store := newStore(t, sequentialclock.New())
-		store.Bind(ThingWasDone{}, AnotherWasComplete{})
 		event := ThingWasDone{ID: aggregateID, Number: 2}
 		triggerProcessManager := newTriggerProcessManager(store.Save)
 		ctx := context.Background()
@@ -759,7 +740,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		// Given
 		shortuuid.SetRand(100)
 		store := newStore(t, sequentialclock.New())
-		store.Bind(&ThingWasDone{})
 		event := ThingWasDone{ID: "A", Number: 1}
 		require.NoError(t, store.Save(&rangedb.EventRecord{Event: event}))
 		ctx := context.Background()
@@ -787,7 +767,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		t.Run("with 2 events in a stream", func(t *testing.T) {
 			// Given
 			store := newStore(t, sequentialclock.New())
-			store.Bind(ThingWasDone{})
 			eventA1 := &ThingWasDone{ID: "A", Number: 1}
 			eventA2 := &ThingWasDone{ID: "A", Number: 2}
 			eventB := &ThingWasDone{ID: "B", Number: 3}
@@ -812,7 +791,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			// Given
 			shortuuid.SetRand(100)
 			store := newStore(t, sequentialclock.New())
-			store.Bind(&ThingWasDone{})
 			event := ThingWasDone{ID: "A", Number: 1}
 
 			// When
@@ -841,7 +819,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			// Given
 			shortuuid.SetRand(100)
 			store := newStore(t, sequentialclock.New())
-			store.Bind(&ThingWasDone{})
 			event := ThingWasDone{ID: "A", Number: 1}
 
 			// When
@@ -861,7 +838,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			// Given
 			shortuuid.SetRand(100)
 			store := newStore(t, sequentialclock.New())
-			store.Bind(&ThingWasDone{})
 			event1 := ThingWasDone{ID: "A", Number: 1}
 			failingEvent := NewEventThatWillFailUnmarshal("thing", "A")
 
@@ -887,7 +863,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			// Given
 			shortuuid.SetRand(100)
 			store := newStore(t, sequentialclock.New())
-			store.Bind(&ThingWasDone{})
 			event1 := &ThingWasDone{ID: "A", Number: 1}
 			event2 := &ThingWasDone{ID: "A", Number: 2}
 			failingEvent := NewEventThatWillFailUnmarshal("thing", "A")
@@ -919,10 +894,9 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			assert.Equal(t, expectedRecord, <-store.EventsByAggregateTypesStartingWith(ctx, 0, event1.AggregateType()))
 		})
 
-		t.Run("does not allow saving multiple events from different aggregate type", func(t *testing.T) {
+		t.Run("does not allow saving multiple events from different aggregate types", func(t *testing.T) {
 			// Given
 			store := newStore(t, sequentialclock.New())
-			store.Bind(ThingWasDone{})
 			eventA := &ThingWasDone{ID: "A", Number: 1}
 			eventB := &AnotherWasComplete{ID: "B"}
 
@@ -940,7 +914,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		t.Run("does not allow saving multiple events from different streams", func(t *testing.T) {
 			// Given
 			store := newStore(t, sequentialclock.New())
-			store.Bind(ThingWasDone{})
 			eventA := &ThingWasDone{ID: "A", Number: 1}
 			eventB := &ThingWasDone{ID: "B", Number: 2}
 
