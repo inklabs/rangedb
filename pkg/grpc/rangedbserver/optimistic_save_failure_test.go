@@ -7,6 +7,7 @@ import (
 	"net"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/inklabs/rangedb/pkg/clock/provider/sequentialclock"
@@ -17,7 +18,7 @@ import (
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 )
 
-func ExampleRangeDBServer_SaveEvents_withOptimisticConcurrency() {
+func ExampleRangeDBServer_OptimisticSave_withOptimisticConcurrencyFailure() {
 	// Given
 	shortuuid.SetRand(100)
 	inMemoryStore := inmemorystore.New(
@@ -49,10 +50,10 @@ func ExampleRangeDBServer_SaveEvents_withOptimisticConcurrency() {
 	// Setup gRPC client
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
 	ctx := context.Background()
-	request := &rangedbpb.SaveEventsRequest{
+	request := &rangedbpb.OptimisticSaveRequest{
 		AggregateType:                "thing",
 		AggregateID:                  "141b39d2b9854f8093ef79dc47dae6af",
-		ExpectedStreamSequenceNumber: &rangedbpb.Uint64Value{Value: 0},
+		ExpectedStreamSequenceNumber: 2,
 		Events: []*rangedbpb.Event{
 			{
 				Type:     "ThingWasDone",
@@ -68,16 +69,21 @@ func ExampleRangeDBServer_SaveEvents_withOptimisticConcurrency() {
 	}
 
 	// When
-	response, err := rangeDBClient.SaveEvents(ctx, request)
+	_, err = rangeDBClient.OptimisticSave(ctx, request)
 	PrintError(err)
 
-	body, err := json.Marshal(response)
-	PrintError(err)
+	for _, detail := range status.Convert(err).Details() {
+		failureResponse := detail.(*rangedbpb.SaveFailureResponse)
 
-	fmt.Println(jsontools.PrettyJSON(body))
+		body, err := json.Marshal(failureResponse)
+		PrintError(err)
+
+		fmt.Println(jsontools.PrettyJSON(body))
+	}
 
 	// Output:
+	// rpc error: code = Internal desc = unable to save to store: unexpected sequence number: 2, next: 0
 	// {
-	//   "EventsSaved": 2
+	//   "Message": "unable to save to store: unexpected sequence number: 2, next: 0"
 	// }
 }

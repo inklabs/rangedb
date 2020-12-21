@@ -1,5 +1,5 @@
 #!/bin/bash
 
-go build github.com/golang/protobuf/protoc-gen-go
-protoc rangedb.proto -I. --go_out=plugins=grpc:./rangedbpb --plugin=./protoc-gen-go
-rm ./protoc-gen-go
+go install google.golang.org/protobuf/cmd/protoc-gen-go \
+         google.golang.org/grpc/cmd/protoc-gen-go-grpc
+protoc -I=. --go_out=./rangedbpb --go-grpc_out=./rangedbpb ./rangedb.proto

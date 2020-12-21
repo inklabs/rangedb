@@ -18,7 +18,7 @@ import (
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 )
 
-func ExampleRangeDBServer_SaveEvents_withOptimisticConcurrencyFailure() {
+func ExampleRangeDBServer_Save_failureResponse() {
 	// Given
 	shortuuid.SetRand(100)
 	inMemoryStore := inmemorystore.New(
@@ -50,10 +50,9 @@ func ExampleRangeDBServer_SaveEvents_withOptimisticConcurrencyFailure() {
 	// Setup gRPC client
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
 	ctx := context.Background()
-	request := &rangedbpb.SaveEventsRequest{
-		AggregateType:                "thing",
-		AggregateID:                  "141b39d2b9854f8093ef79dc47dae6af",
-		ExpectedStreamSequenceNumber: &rangedbpb.Uint64Value{Value: 2},
+	request := &rangedbpb.SaveRequest{
+		AggregateType: "thing",
+		AggregateID:   "141b39d2b9854f8093ef79dc47dae6af",
 		Events: []*rangedbpb.Event{
 			{
 				Type:     "ThingWasDone",
@@ -62,18 +61,18 @@ func ExampleRangeDBServer_SaveEvents_withOptimisticConcurrencyFailure() {
 			},
 			{
 				Type:     "ThingWasDone",
-				Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":200}`,
+				Data:     `{invalid-json`,
 				Metadata: "",
 			},
 		},
 	}
 
 	// When
-	_, err = rangeDBClient.SaveEvents(ctx, request)
-	PrintError(err)
+	_, err = rangeDBClient.Save(ctx, request)
+	fmt.Println(err)
 
 	for _, detail := range status.Convert(err).Details() {
-		failureResponse := detail.(*rangedbpb.SaveEventFailureResponse)
+		failureResponse := detail.(*rangedbpb.SaveFailureResponse)
 
 		body, err := json.Marshal(failureResponse)
 		PrintError(err)
@@ -82,8 +81,8 @@ func ExampleRangeDBServer_SaveEvents_withOptimisticConcurrencyFailure() {
 	}
 
 	// Output:
-	// rpc error: code = Internal desc = unable to save to store: unexpected sequence number: 2, next: 0
+	// rpc error: code = InvalidArgument desc = unable to read event data: invalid character 'i' looking for beginning of object key string
 	// {
-	//   "Message": "unable to save to store: unexpected sequence number: 2, next: 0"
+	//   "Message": "unable to read event data: invalid character 'i' looking for beginning of object key string"
 	// }
 }

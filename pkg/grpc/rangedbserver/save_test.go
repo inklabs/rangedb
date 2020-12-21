@@ -17,7 +17,7 @@ import (
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 )
 
-func ExampleRangeDBServer_SaveEvents() {
+func ExampleRangeDBServer_Save() {
 	// Given
 	shortuuid.SetRand(100)
 	inMemoryStore := inmemorystore.New(
@@ -49,7 +49,7 @@ func ExampleRangeDBServer_SaveEvents() {
 	// Setup gRPC client
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
 	ctx := context.Background()
-	request := &rangedbpb.SaveEventsRequest{
+	request := &rangedbpb.SaveRequest{
 		AggregateType: "thing",
 		AggregateID:   "141b39d2b9854f8093ef79dc47dae6af",
 		Events: []*rangedbpb.Event{
@@ -67,7 +67,7 @@ func ExampleRangeDBServer_SaveEvents() {
 	}
 
 	// When
-	response, err := rangeDBClient.SaveEvents(ctx, request)
+	response, err := rangeDBClient.Save(ctx, request)
 	PrintError(err)
 
 	body, err := json.Marshal(response)

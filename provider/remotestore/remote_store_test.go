@@ -46,8 +46,6 @@ func Test_RemoteStore_VerifyStoreInterface(t *testing.T) {
 			require.NoError(t, conn.Close())
 		})
 
-		store := remotestore.New(conn)
-
-		return store
+		return remotestore.New(conn)
 	})
 }

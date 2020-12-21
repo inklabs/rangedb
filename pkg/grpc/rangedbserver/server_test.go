@@ -392,7 +392,7 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 		rangeDBClient := getClient(t, store)
 		ctx := context.Background()
-		request := &rangedbpb.SaveEventsRequest{
+		request := &rangedbpb.SaveRequest{
 			AggregateType: "thing",
 			AggregateID:   "b5ef2296339d4ad1887f1deb486f7821",
 			Events: []*rangedbpb.Event{
@@ -409,7 +409,7 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 		}
 
 		// When
-		response, err := rangeDBClient.SaveEvents(ctx, request)
+		response, err := rangeDBClient.Save(ctx, request)
 		require.NoError(t, err)
 
 		// Then
@@ -454,7 +454,7 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 		rangeDBClient := getClient(t, store)
 		ctx := context.Background()
-		request := &rangedbpb.SaveEventsRequest{
+		request := &rangedbpb.SaveRequest{
 			AggregateType: "thing",
 			AggregateID:   "b5ef2296339d4ad1887f1deb486f7821",
 			Events: []*rangedbpb.Event{
@@ -471,12 +471,12 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 		}
 
 		// When
-		response, err := rangeDBClient.SaveEvents(ctx, request)
+		response, err := rangeDBClient.Save(ctx, request)
 
 		// Then
 		require.EqualError(t, err, "rpc error: code = InvalidArgument desc = unable to read event data: invalid character 'i' looking for beginning of object key string")
 		log.Println(response)
-		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveEventFailureResponse)
+		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveFailureResponse)
 		require.True(t, ok)
 		assert.Equal(t, "unable to read event data: invalid character 'i' looking for beginning of object key string", errorResponse.Message)
 	})
@@ -487,7 +487,7 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 		rangeDBClient := getClient(t, store)
 		ctx := context.Background()
-		request := &rangedbpb.SaveEventsRequest{
+		request := &rangedbpb.SaveRequest{
 			AggregateType: "thing",
 			AggregateID:   "b5ef2296339d4ad1887f1deb486f7821",
 			Events: []*rangedbpb.Event{
@@ -505,12 +505,12 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 		}
 
 		// When
-		response, err := rangeDBClient.SaveEvents(ctx, request)
+		response, err := rangeDBClient.Save(ctx, request)
 
 		// Then
 		require.EqualError(t, err, "rpc error: code = InvalidArgument desc = unable to read event metadata: invalid character 'i' looking for beginning of object key string")
 		log.Println(response)
-		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveEventFailureResponse)
+		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveFailureResponse)
 		require.True(t, ok)
 		assert.Equal(t, "unable to read event metadata: invalid character 'i' looking for beginning of object key string", errorResponse.Message)
 	})
@@ -521,7 +521,7 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 		store := rangedbtest.NewFailingEventStore()
 		rangeDBClient := getClient(t, store)
 		ctx := context.Background()
-		request := &rangedbpb.SaveEventsRequest{
+		request := &rangedbpb.SaveRequest{
 			AggregateType: "thing",
 			AggregateID:   "b5ef2296339d4ad1887f1deb486f7821",
 			Events: []*rangedbpb.Event{
@@ -539,12 +539,12 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 		}
 
 		// When
-		response, err := rangeDBClient.SaveEvents(ctx, request)
+		response, err := rangeDBClient.Save(ctx, request)
 
 		// Then
 		require.EqualError(t, err, "rpc error: code = Internal desc = unable to save to store: failingEventStore.Save")
 		log.Println(response)
-		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveEventFailureResponse)
+		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveFailureResponse)
 		require.True(t, ok)
 		assert.Equal(t, "unable to save to store: failingEventStore.Save", errorResponse.Message)
 	})

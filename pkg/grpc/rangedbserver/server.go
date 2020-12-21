@@ -27,6 +27,7 @@ type rangeDBServer struct {
 	aggregateTypeConnections map[string]map[PbRecordSender]*uint64
 
 	broadcastMutex sync.Mutex
+	rangedbpb.UnimplementedRangeDBServer
 }
 
 // Option defines functional option parameters for rangeDBServer.
@@ -110,7 +111,7 @@ func (s *rangeDBServer) EventsByAggregateType(req *rangedbpb.EventsByAggregateTy
 	return nil
 }
 
-func (s *rangeDBServer) SaveEvents(_ context.Context, req *rangedbpb.SaveEventsRequest) (*rangedbpb.SaveEventResponse, error) {
+func (s *rangeDBServer) OptimisticSave(_ context.Context, req *rangedbpb.OptimisticSaveRequest) (*rangedbpb.SaveResponse, error) {
 	var eventRecords []*rangedb.EventRecord
 
 	for _, event := range req.Events {
@@ -119,7 +120,7 @@ func (s *rangeDBServer) SaveEvents(_ context.Context, req *rangedbpb.SaveEventsR
 		if err != nil {
 			message := fmt.Sprintf("unable to read event data: %v", err)
 			st := status.New(codes.InvalidArgument, message)
-			st, _ = st.WithDetails(&rangedbpb.SaveEventFailureResponse{
+			st, _ = st.WithDetails(&rangedbpb.SaveFailureResponse{
 				Message: message,
 			})
 			return nil, st.Err()
@@ -131,7 +132,7 @@ func (s *rangeDBServer) SaveEvents(_ context.Context, req *rangedbpb.SaveEventsR
 			if err != nil {
 				message := fmt.Sprintf("unable to read event metadata: %v", err)
 				st := status.New(codes.InvalidArgument, message)
-				st, _ = st.WithDetails(&rangedbpb.SaveEventFailureResponse{
+				st, _ = st.WithDetails(&rangedbpb.SaveFailureResponse{
 					Message: message,
 				})
 				return nil, st.Err()
@@ -144,25 +145,68 @@ func (s *rangeDBServer) SaveEvents(_ context.Context, req *rangedbpb.SaveEventsR
 		})
 	}
 
-	var saveErr error
-	var expectedSequenceNumber *uint64
-	if req.ExpectedStreamSequenceNumber != nil {
-		expectedSequenceNumber = &req.ExpectedStreamSequenceNumber.Value
-		saveErr = s.store.OptimisticSave(*expectedSequenceNumber, eventRecords...)
-	} else {
-		saveErr = s.store.Save(eventRecords...)
-	}
+	saveErr := s.store.OptimisticSave(req.ExpectedStreamSequenceNumber, eventRecords...)
 
 	if saveErr != nil {
 		message := fmt.Sprintf("unable to save to store: %v", saveErr)
 		st := status.New(codes.Internal, message)
-		st, _ = st.WithDetails(&rangedbpb.SaveEventFailureResponse{
+		st, _ = st.WithDetails(&rangedbpb.SaveFailureResponse{
 			Message: message,
 		})
 		return nil, st.Err()
 	}
 
-	return &rangedbpb.SaveEventResponse{
+	return &rangedbpb.SaveResponse{
+		EventsSaved: uint32(len(eventRecords)),
+	}, nil
+}
+
+func (s *rangeDBServer) Save(_ context.Context, req *rangedbpb.SaveRequest) (*rangedbpb.SaveResponse, error) {
+	var eventRecords []*rangedb.EventRecord
+
+	for _, event := range req.Events {
+		var data interface{}
+		err := json.Unmarshal([]byte(event.Data), &data)
+		if err != nil {
+			message := fmt.Sprintf("unable to read event data: %v", err)
+			st := status.New(codes.InvalidArgument, message)
+			st, _ = st.WithDetails(&rangedbpb.SaveFailureResponse{
+				Message: message,
+			})
+			return nil, st.Err()
+		}
+
+		var metadata interface{}
+		if event.Metadata != "" {
+			err = json.Unmarshal([]byte(event.Metadata), &metadata)
+			if err != nil {
+				message := fmt.Sprintf("unable to read event metadata: %v", err)
+				st := status.New(codes.InvalidArgument, message)
+				st, _ = st.WithDetails(&rangedbpb.SaveFailureResponse{
+					Message: message,
+				})
+				return nil, st.Err()
+			}
+		}
+
+		eventRecords = append(eventRecords, &rangedb.EventRecord{
+			Event:    rangedb.NewRawEvent(req.AggregateType, req.AggregateID, event.Type, data),
+			Metadata: metadata,
+		})
+	}
+
+	saveErr := s.store.Save(eventRecords...)
+
+	if saveErr != nil {
+		message := fmt.Sprintf("unable to save to store: %v", saveErr)
+		st := status.New(codes.Internal, message)
+		st, _ = st.WithDetails(&rangedbpb.SaveFailureResponse{
+			Message: message,
+		})
+		return nil, st.Err()
+	}
+
+	return &rangedbpb.SaveResponse{
 		EventsSaved: uint32(len(eventRecords)),
 	}, nil
 }

@@ -89,19 +89,6 @@ func (s *remoteStore) EventsByStreamStartingWith(ctx context.Context, eventNumbe
 }
 
 func (s *remoteStore) OptimisticSave(expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) error {
-	return s.saveEvents(&expectedStreamSequenceNumber, eventRecords...)
-}
-
-func (s *remoteStore) Save(eventRecords ...*rangedb.EventRecord) error {
-	return s.saveEvents(nil, eventRecords...)
-}
-
-func (s *remoteStore) saveEvents(expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) error {
-	var pbExpectedStreamSequenceNumber *rangedbpb.Uint64Value
-	if expectedStreamSequenceNumber != nil {
-		pbExpectedStreamSequenceNumber = &rangedbpb.Uint64Value{Value: *expectedStreamSequenceNumber}
-	}
-
 	var aggregateType, aggregateID string
 
 	var events []*rangedbpb.Event
@@ -134,14 +121,65 @@ func (s *remoteStore) saveEvents(expectedStreamSequenceNumber *uint64, eventReco
 		})
 	}
 
-	request := &rangedbpb.SaveEventsRequest{
+	request := &rangedbpb.OptimisticSaveRequest{
 		AggregateType:                aggregateType,
 		AggregateID:                  aggregateID,
 		Events:                       events,
-		ExpectedStreamSequenceNumber: pbExpectedStreamSequenceNumber,
+		ExpectedStreamSequenceNumber: expectedStreamSequenceNumber,
 	}
 
-	_, err := s.client.SaveEvents(context.Background(), request)
+	_, err := s.client.OptimisticSave(context.Background(), request)
+	if err != nil {
+		if strings.Contains(err.Error(), "unable to save to store: unexpected sequence number") {
+			return rangedberror.NewUnexpectedSequenceNumberFromString(err.Error())
+		}
+
+		return err
+	}
+
+	return nil
+}
+
+func (s *remoteStore) Save(eventRecords ...*rangedb.EventRecord) error {
+	var aggregateType, aggregateID string
+
+	var events []*rangedbpb.Event
+	for _, eventRecord := range eventRecords {
+		if aggregateType != "" && aggregateType != eventRecord.Event.AggregateType() {
+			return fmt.Errorf("unmatched aggregate type")
+		}
+
+		if aggregateID != "" && aggregateID != eventRecord.Event.AggregateID() {
+			return fmt.Errorf("unmatched aggregate ID")
+		}
+
+		aggregateType = eventRecord.Event.AggregateType()
+		aggregateID = eventRecord.Event.AggregateID()
+
+		jsonData, err := json.Marshal(eventRecord.Event)
+		if err != nil {
+			return err
+		}
+
+		jsonMetadata, err := json.Marshal(eventRecord.Metadata)
+		if err != nil {
+			return err
+		}
+
+		events = append(events, &rangedbpb.Event{
+			Type:     eventRecord.Event.EventType(),
+			Data:     string(jsonData),
+			Metadata: string(jsonMetadata),
+		})
+	}
+
+	request := &rangedbpb.SaveRequest{
+		AggregateType: aggregateType,
+		AggregateID:   aggregateID,
+		Events:        events,
+	}
+
+	_, err := s.client.Save(context.Background(), request)
 	if err != nil {
 		if strings.Contains(err.Error(), "unable to save to store: unexpected sequence number") {
 			return rangedberror.NewUnexpectedSequenceNumberFromString(err.Error())

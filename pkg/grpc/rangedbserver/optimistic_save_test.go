@@ -7,7 +7,6 @@ import (
 	"net"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/status"
 	"google.golang.org/grpc/test/bufconn"
 
 	"github.com/inklabs/rangedb/pkg/clock/provider/sequentialclock"
@@ -18,7 +17,7 @@ import (
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 )
 
-func ExampleRangeDBServer_SaveEvents_failureResponse() {
+func ExampleRangeDBServer_OptimisticSave() {
 	// Given
 	shortuuid.SetRand(100)
 	inMemoryStore := inmemorystore.New(
@@ -50,9 +49,10 @@ func ExampleRangeDBServer_SaveEvents_failureResponse() {
 	// Setup gRPC client
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
 	ctx := context.Background()
-	request := &rangedbpb.SaveEventsRequest{
-		AggregateType: "thing",
-		AggregateID:   "141b39d2b9854f8093ef79dc47dae6af",
+	request := &rangedbpb.OptimisticSaveRequest{
+		AggregateType:                "thing",
+		AggregateID:                  "141b39d2b9854f8093ef79dc47dae6af",
+		ExpectedStreamSequenceNumber: 0,
 		Events: []*rangedbpb.Event{
 			{
 				Type:     "ThingWasDone",
@@ -61,28 +61,23 @@ func ExampleRangeDBServer_SaveEvents_failureResponse() {
 			},
 			{
 				Type:     "ThingWasDone",
-				Data:     `{invalid-json`,
+				Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":200}`,
 				Metadata: "",
 			},
 		},
 	}
 
 	// When
-	_, err = rangeDBClient.SaveEvents(ctx, request)
-	fmt.Println(err)
+	response, err := rangeDBClient.OptimisticSave(ctx, request)
+	PrintError(err)
 
-	for _, detail := range status.Convert(err).Details() {
-		failureResponse := detail.(*rangedbpb.SaveEventFailureResponse)
+	body, err := json.Marshal(response)
+	PrintError(err)
 
-		body, err := json.Marshal(failureResponse)
-		PrintError(err)
-
-		fmt.Println(jsontools.PrettyJSON(body))
-	}
+	fmt.Println(jsontools.PrettyJSON(body))
 
 	// Output:
-	// rpc error: code = InvalidArgument desc = unable to read event data: invalid character 'i' looking for beginning of object key string
 	// {
-	//   "Message": "unable to read event data: invalid character 'i' looking for beginning of object key string"
+	//   "EventsSaved": 2
 	// }
 }

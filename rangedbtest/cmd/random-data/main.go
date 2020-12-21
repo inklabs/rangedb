@@ -37,13 +37,13 @@ func main() {
 		defer close(done)
 
 		for {
-			request := &rangedbpb.SaveEventsRequest{
+			request := &rangedbpb.SaveRequest{
 				AggregateType: "foo",
 				AggregateID:   shortuuid.New().String(),
 				Events:        getRandomEvents(),
 			}
 
-			response, err := rangeDBClient.SaveEvents(ctx, request)
+			response, err := rangeDBClient.Save(ctx, request)
 			if err != nil {
 				log.Println(err)
 				return
