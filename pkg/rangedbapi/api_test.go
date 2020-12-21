@@ -257,7 +257,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		// Then
 		assert.Equal(t, http.StatusBadRequest, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		assert.Equal(t, `{"status":"Failed"}`, response.Body.String())
+		assert.Equal(t, `{"status":"Failed", "message": "invalid json request body"}`, response.Body.String())
 	})
 }
 

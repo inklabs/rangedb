@@ -157,9 +157,6 @@ func (a *api) eventsByAggregateType(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
-	aggregateType := mux.Vars(r)["aggregateType"]
-	aggregateID := mux.Vars(r)["aggregateID"]
-
 	if r.Header.Get("Content-Type") != "application/json" {
 		http.Error(w, "invalid content type", http.StatusBadRequest)
 		return
@@ -167,29 +164,9 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	// TODO: Replace with proper json input for events, no aggregate details
-	// api_test.SaveEventRequest
-	// [
-	//		{
-	//			"eventType": "ThingWasDone",
-	//			"data":{
-	//				"id": "0a403cfe0e8c4284b2107e12bbe19881",
-	//				"number": 100
-	//			},
-	//			"metadata":null
-	//		}
-	//	]
-	records, errors := a.jsonRecordIoStream.Read(r.Body)
-	eventRecords, err := getEventRecords(aggregateType, aggregateID, records, errors)
+	eventRecords, err := getEventRecords(r)
 	if err != nil {
-		if _, ok := err.(*invalidInput); ok {
-			w.WriteHeader(http.StatusBadRequest)
-			_, _ = fmt.Fprintf(w, `{"status":"Failed"}`)
-			return
-		}
-
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = fmt.Fprintf(w, `{"status":"Failed"}`)
+		writeBadRequest(w, "invalid json request body")
 		return
 	}
 
@@ -198,8 +175,7 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 	if expectedStreamSequenceNumberInput != "" {
 		expectedStreamSequenceNumber, err := strconv.ParseUint(expectedStreamSequenceNumberInput, 10, 64)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			_, _ = fmt.Fprintf(w, `{"status":"Failed", "message": "invalid ExpectedStreamSequenceNumber"}`)
+			writeBadRequest(w, "invalid ExpectedStreamSequenceNumber")
 			return
 		}
 		saveErr = a.store.OptimisticSave(expectedStreamSequenceNumber, eventRecords...)
@@ -209,8 +185,7 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 
 	if saveErr != nil {
 		if unexpectedErr, ok := saveErr.(*rangedb.UnexpectedSequenceNumber); ok {
-			w.WriteHeader(http.StatusBadRequest)
-			_, _ = fmt.Fprintf(w, `{"status":"Failed", "message": "%s"}`, unexpectedErr.Error())
+			writeBadRequest(w, unexpectedErr.Error())
 			return
 		}
 
@@ -223,29 +198,34 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 	_, _ = fmt.Fprintf(w, `{"status":"OK"}`)
 }
 
-func getEventRecords(aggregateType, aggregateID string, records <-chan *rangedb.Record, errors <-chan error) ([]*rangedb.EventRecord, error) {
-	var eventRecords []*rangedb.EventRecord
+func writeBadRequest(w http.ResponseWriter, message string) {
+	w.WriteHeader(http.StatusBadRequest)
+	_, _ = fmt.Fprintf(w, `{"status":"Failed", "message": "%s"}`, message)
+}
 
-	for {
-		select {
-		case record, ok := <-records:
-			if !ok {
-				return eventRecords, nil
-			}
+func getEventRecords(r *http.Request) ([]*rangedb.EventRecord, error) {
+	aggregateType := mux.Vars(r)["aggregateType"]
+	aggregateID := mux.Vars(r)["aggregateID"]
 
-			eventRecords = append(eventRecords, &rangedb.EventRecord{
-				Event:    rangedb.NewRawEvent(aggregateType, aggregateID, record.EventType, record.Data),
-				Metadata: record.Metadata,
-			})
-
-		case err, ok := <-errors:
-			if !ok {
-				return eventRecords, nil
-			}
-
-			return nil, newInvalidInput(err)
-		}
+	var events []struct {
+		EventType string      `json:"eventType"`
+		Data      interface{} `json:"data"`
+		Metadata  interface{} `json:"metadata"`
 	}
+	err := json.NewDecoder(r.Body).Decode(&events)
+	if err != nil {
+		return nil, fmt.Errorf("invalid json request body: %v", err)
+	}
+
+	var eventRecords []*rangedb.EventRecord
+	for _, event := range events {
+		eventRecords = append(eventRecords, &rangedb.EventRecord{
+			Event:    rangedb.NewRawEvent(aggregateType, aggregateID, event.EventType, event.Data),
+			Metadata: event.Metadata,
+		})
+	}
+
+	return eventRecords, nil
 }
 
 func (a *api) AggregateTypeStatsProjection() *projection.AggregateTypeStats {
