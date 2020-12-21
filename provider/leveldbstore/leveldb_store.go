@@ -11,6 +11,7 @@ import (
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
 
 	"github.com/inklabs/rangedb"
@@ -248,7 +249,7 @@ func (s *levelDbStore) Subscribe(subscribers ...rangedb.RecordSubscriber) {
 }
 
 func (s *levelDbStore) TotalEventsInStream(streamName string) uint64 {
-	return s.getNextStreamSequenceNumber(nil, streamName)
+	return s.getNextStreamSequenceNumber(s.db, streamName)
 }
 
 func (s *levelDbStore) notifySubscribers(record *rangedb.Record) {
@@ -366,21 +367,20 @@ func bytesToUint64(input []byte) uint64 {
 	return number
 }
 
-func (s *levelDbStore) getNextGlobalSequenceNumber(transaction *leveldb.Transaction) uint64 {
-	return s.getNextSequenceNumber(transaction, allEventsPrefix)
+type dbNewIterable interface {
+	NewIterator(slice *util.Range, ro *opt.ReadOptions) iterator.Iterator
 }
 
-func (s *levelDbStore) getNextStreamSequenceNumber(transaction *leveldb.Transaction, stream string) uint64 {
-	return s.getNextSequenceNumber(transaction, stream+separator)
+func (s *levelDbStore) getNextGlobalSequenceNumber(iterable dbNewIterable) uint64 {
+	return s.getNextSequenceNumber(iterable, allEventsPrefix)
 }
 
-func (s *levelDbStore) getNextSequenceNumber(transaction *leveldb.Transaction, key string) uint64 {
-	var iter iterator.Iterator
-	if transaction != nil {
-		iter = transaction.NewIterator(util.BytesPrefix([]byte(key)), nil)
-	} else {
-		iter = s.db.NewIterator(util.BytesPrefix([]byte(key)), nil)
-	}
+func (s *levelDbStore) getNextStreamSequenceNumber(iterable dbNewIterable, stream string) uint64 {
+	return s.getNextSequenceNumber(iterable, stream+separator)
+}
+
+func (s *levelDbStore) getNextSequenceNumber(iterable dbNewIterable, key string) uint64 {
+	iter := iterable.NewIterator(util.BytesPrefix([]byte(key)), nil)
 	iter.Last()
 
 	keySize := len(key)
