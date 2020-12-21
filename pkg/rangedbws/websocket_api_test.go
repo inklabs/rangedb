@@ -84,7 +84,7 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
 		api := rangedbws.New(rangedbws.WithStore(store))
-		request := httptest.NewRequest("GET", "/events", nil)
+		request := httptest.NewRequest(http.MethodGet, "/events", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -99,7 +99,7 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
 		api := rangedbws.New(rangedbws.WithStore(store))
-		request := httptest.NewRequest("GET", "/events/thing", nil)
+		request := httptest.NewRequest(http.MethodGet, "/events/thing", nil)
 		response := httptest.NewRecorder()
 
 		// When

@@ -22,7 +22,7 @@ func Test_Index(t *testing.T) {
 	templateManager, err := memorytemplate.New(rangedbui.GetTemplates())
 	require.NoError(t, err)
 	ui := rangedbui.New(templateManager, nil, nil)
-	request := httptest.NewRequest("GET", "/", nil)
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	response := httptest.NewRecorder()
 
 	// When
@@ -42,7 +42,7 @@ func Test_ListAggregateTypes(t *testing.T) {
 		templateManager, err := memorytemplate.New(rangedbui.GetTemplates())
 		require.NoError(t, err)
 		ui := rangedbui.New(templateManager, aggregateTypeStats, store)
-		request := httptest.NewRequest("GET", "/aggregate-types", nil)
+		request := httptest.NewRequest(http.MethodGet, "/aggregate-types", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -59,7 +59,7 @@ func Test_ListAggregateTypes(t *testing.T) {
 		// Given
 		templateManager := filesystemtemplate.New("./templates")
 		ui := rangedbui.New(templateManager, aggregateTypeStats, store)
-		request := httptest.NewRequest("GET", "/aggregate-types", nil)
+		request := httptest.NewRequest(http.MethodGet, "/aggregate-types", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -89,7 +89,7 @@ func Test_AggregateType(t *testing.T) {
 
 	t.Run("renders events by aggregate type", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest("GET", "/e/thing", nil)
+		request := httptest.NewRequest(http.MethodGet, "/e/thing", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -106,7 +106,7 @@ func Test_AggregateType(t *testing.T) {
 
 	t.Run("renders events by aggregate type, one record per page, 1st page", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest("GET", "/e/thing?itemsPerPage=1&page=1", nil)
+		request := httptest.NewRequest(http.MethodGet, "/e/thing?itemsPerPage=1&page=1", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -125,7 +125,7 @@ func Test_AggregateType(t *testing.T) {
 
 	t.Run("renders events by aggregate type, one record per page, 2nd page", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest("GET", "/e/thing?itemsPerPage=1&page=2", nil)
+		request := httptest.NewRequest(http.MethodGet, "/e/thing?itemsPerPage=1&page=2", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -159,7 +159,7 @@ func Test_Stream(t *testing.T) {
 
 	t.Run("renders events by stream", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest("GET", "/e/thing/f6b6f8ed682c4b5180f625e53b3c4bac", nil)
+		request := httptest.NewRequest(http.MethodGet, "/e/thing/f6b6f8ed682c4b5180f625e53b3c4bac", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -175,7 +175,7 @@ func Test_Stream(t *testing.T) {
 
 	t.Run("renders events by stream, one record per page, 1st page", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest("GET", "/e/thing/f6b6f8ed682c4b5180f625e53b3c4bac?itemsPerPage=1&page=1", nil)
+		request := httptest.NewRequest(http.MethodGet, "/e/thing/f6b6f8ed682c4b5180f625e53b3c4bac?itemsPerPage=1&page=1", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -198,7 +198,7 @@ func Test_ServesStaticAssets(t *testing.T) {
 	templateManager, err := memorytemplate.New(rangedbui.GetTemplates())
 	require.NoError(t, err)
 	ui := rangedbui.New(templateManager, nil, nil)
-	request := httptest.NewRequest("GET", "/static/css/foundation-6.5.3.min.css", nil)
+	request := httptest.NewRequest(http.MethodGet, "/static/css/foundation-6.5.3.min.css", nil)
 	response := httptest.NewRecorder()
 
 	// When

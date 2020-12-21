@@ -30,7 +30,7 @@ import (
 func TestApi_HealthCheck(t *testing.T) {
 	// Given
 	api := rangedbapi.New()
-	request := httptest.NewRequest("GET", "/health-check", nil)
+	request := httptest.NewRequest(http.MethodGet, "/health-check", nil)
 
 	t.Run("regular response", func(t *testing.T) {
 		// Given
@@ -310,7 +310,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 
 	t.Run("get all events as json", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest("GET", "/events.json", nil)
+		request := httptest.NewRequest(http.MethodGet, "/events.json", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -381,7 +381,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 
 	t.Run("get events by stream as ndjson", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest("GET", "/events/thing/f187760f4d8c4d1c9d9cf17b66766abd.ndjson", nil)
+		request := httptest.NewRequest(http.MethodGet, "/events/thing/f187760f4d8c4d1c9d9cf17b66766abd.ndjson", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -422,7 +422,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 
 	t.Run("get events by stream as msgpack", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest("GET", "/events/thing/f187760f4d8c4d1c9d9cf17b66766abd.msgpack", nil)
+		request := httptest.NewRequest(http.MethodGet, "/events/thing/f187760f4d8c4d1c9d9cf17b66766abd.msgpack", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -469,7 +469,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 
 	t.Run("get events by aggregate type", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest("GET", "/events/thing.json", nil)
+		request := httptest.NewRequest(http.MethodGet, "/events/thing.json", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -527,7 +527,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 
 	t.Run("get events by aggregate types", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest("GET", "/events/thing,another.json", nil)
+		request := httptest.NewRequest(http.MethodGet, "/events/thing,another.json", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -614,7 +614,7 @@ func TestApi_ListAggregates(t *testing.T) {
 		rangedbapi.WithStore(store),
 		rangedbapi.WithBaseUri("http://0.0.0.0:8080"),
 	)
-	request := httptest.NewRequest("GET", "/list-aggregate-types", nil)
+	request := httptest.NewRequest(http.MethodGet, "/list-aggregate-types", nil)
 	response := httptest.NewRecorder()
 
 	// When
