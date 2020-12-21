@@ -49,9 +49,9 @@ message OptimisticSaveRequest {
 }
 
 message SaveRequest {
-  string AggregateType = 2;
-  string AggregateID = 3;
-  repeated Event Events = 4;
+  string AggregateType = 1;
+  string AggregateID = 2;
+  repeated Event Events = 3;
 }
 
 message SaveResponse {
