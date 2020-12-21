@@ -15,6 +15,7 @@ import (
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/projection"
+	"github.com/inklabs/rangedb/pkg/rangedberror"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/provider/jsonrecordiostream"
 	"github.com/inklabs/rangedb/provider/msgpackrecordiostream"
@@ -184,7 +185,7 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if saveErr != nil {
-		if unexpectedErr, ok := saveErr.(*rangedb.UnexpectedSequenceNumber); ok {
+		if unexpectedErr, ok := saveErr.(*rangedberror.UnexpectedSequenceNumber); ok {
 			writeBadRequest(w, unexpectedErr.Error())
 			return
 		}

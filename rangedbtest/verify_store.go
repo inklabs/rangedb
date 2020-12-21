@@ -14,6 +14,7 @@ import (
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
 	"github.com/inklabs/rangedb/pkg/clock/provider/sequentialclock"
+	"github.com/inklabs/rangedb/pkg/rangedberror"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 )
 
@@ -849,8 +850,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			// Then
 			require.NotNil(t, err)
 			assert.Contains(t, err.Error(), "unexpected sequence number: 1, next: 0")
-			assert.IsType(t, &rangedb.UnexpectedSequenceNumber{}, err)
-			sequenceNumberErr, ok := err.(*rangedb.UnexpectedSequenceNumber)
+			assert.IsType(t, &rangedberror.UnexpectedSequenceNumber{}, err)
+			sequenceNumberErr, ok := err.(*rangedberror.UnexpectedSequenceNumber)
 			assert.True(t, ok)
 			assert.Equal(t, uint64(1), sequenceNumberErr.Expected)
 			assert.Equal(t, uint64(0), sequenceNumberErr.NextSequenceNumber)

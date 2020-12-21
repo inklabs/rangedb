@@ -17,6 +17,7 @@ import (
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
 	"github.com/inklabs/rangedb/pkg/clock/provider/systemclock"
+	"github.com/inklabs/rangedb/pkg/rangedberror"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
@@ -190,7 +191,7 @@ func (s *levelDbStore) saveEvent(transaction *leveldb.Transaction,
 	nextSequenceNumber := s.getNextStreamSequenceNumber(transaction, stream)
 
 	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber != nextSequenceNumber {
-		return nil, &rangedb.UnexpectedSequenceNumber{
+		return nil, &rangedberror.UnexpectedSequenceNumber{
 			Expected:           *expectedStreamSequenceNumber,
 			NextSequenceNumber: nextSequenceNumber,
 		}

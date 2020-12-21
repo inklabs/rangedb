@@ -13,6 +13,7 @@ import (
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/grpc/rangedbpb"
+	"github.com/inklabs/rangedb/pkg/rangedberror"
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
 
@@ -143,7 +144,7 @@ func (s *remoteStore) saveEvents(expectedStreamSequenceNumber *uint64, eventReco
 	_, err := s.client.SaveEvents(context.Background(), request)
 	if err != nil {
 		if strings.Contains(err.Error(), "unable to save to store: unexpected sequence number") {
-			return rangedb.NewUnexpectedSequenceNumberFromString(err.Error())
+			return rangedberror.NewUnexpectedSequenceNumberFromString(err.Error())
 		}
 
 		return err

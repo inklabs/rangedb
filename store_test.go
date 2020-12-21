@@ -130,31 +130,3 @@ type dummyRecordSubscriber struct {
 func (f *dummyRecordSubscriber) broadcast(r *rangedb.Record) {
 	f.GlobalSequenceNumber = r.GlobalSequenceNumber
 }
-
-func TestUnexpectedSequenceNumber_NewFromString(t *testing.T) {
-	t.Run("normal error", func(t *testing.T) {
-		// Given
-		input := "unable to save to store: unexpected sequence number: 1, next: 0"
-
-		// When
-		actual := rangedb.NewUnexpectedSequenceNumberFromString(input)
-
-		// Then
-		require.NotNil(t, actual)
-		assert.Equal(t, uint64(1), actual.Expected)
-		assert.Equal(t, uint64(0), actual.NextSequenceNumber)
-	})
-
-	t.Run("exotic error", func(t *testing.T) {
-		// Given
-		input := "some rpc error: unable to save to store: unexpected sequence number: 1, next: 0"
-
-		// When
-		actual := rangedb.NewUnexpectedSequenceNumberFromString(input)
-
-		// Then
-		require.NotNil(t, actual)
-		assert.Equal(t, uint64(1), actual.Expected)
-		assert.Equal(t, uint64(0), actual.NextSequenceNumber)
-	})
-}
