@@ -37,13 +37,13 @@ func main() {
 		defer close(done)
 
 		for {
-			request := &rangedbpb.SaveEventsRequest{
+			request := &rangedbpb.SaveRequest{
 				AggregateType: "foo",
 				AggregateID:   shortuuid.New().String(),
 				Events:        getRandomEvents(),
 			}
 
-			response, err := rangeDBClient.SaveEvents(ctx, request)
+			response, err := rangeDBClient.Save(ctx, request)
 			if err != nil {
 				log.Println(err)
 				return
@@ -71,7 +71,6 @@ func getRandomEvents() []*rangedbpb.Event {
 	events := make([]*rangedbpb.Event, total)
 	for i := range events {
 		events[i] = &rangedbpb.Event{
-			ID:       shortuuid.New().String(),
 			Type:     "FooBar",
 			Data:     fmt.Sprintf(`{"number":%d}`, i),
 			Metadata: "",

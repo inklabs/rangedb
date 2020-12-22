@@ -6,12 +6,13 @@ option go_package = ".;rangedbpb";
 
 service RangeDB {
   rpc Events(EventsRequest) returns (stream Record) {}
-  rpc EventsByStream(EventsByStreamRequest) returns (stream Record) {}
   rpc EventsByAggregateType(EventsByAggregateTypeRequest) returns (stream Record) {}
+  rpc EventsByStream(EventsByStreamRequest) returns (stream Record) {}
+  rpc OptimisticSave(OptimisticSaveRequest) returns (SaveResponse) {}
+  rpc Save(SaveRequest) returns (SaveResponse) {}
   rpc SubscribeToLiveEvents(SubscribeToLiveEventsRequest) returns (stream Record) {}
   rpc SubscribeToEvents(SubscribeToEventsRequest) returns (stream Record) {}
   rpc SubscribeToEventsByAggregateType(SubscribeToEventsByAggregateTypeRequest) returns (stream Record) {}
-  rpc SaveEvents(SaveEventsRequest) returns (SaveEventResponse) {}
   rpc TotalEventsInStream(TotalEventsInStreamRequest) returns (TotalEventsInStreamResponse) {}
 }
 
@@ -40,18 +41,25 @@ message SubscribeToEventsByAggregateTypeRequest {
   uint64 startingWithEventNumber = 2;
 }
 
-message SaveEventsRequest {
+message OptimisticSaveRequest {
+  uint64 ExpectedStreamSequenceNumber = 1;
+  string AggregateType = 2;
+  string AggregateID = 3;
+  repeated Event Events = 4;
+}
+
+message SaveRequest {
   string AggregateType = 1;
   string AggregateID = 2;
   repeated Event Events = 3;
 }
 
-message SaveEventResponse {
+message SaveResponse {
   uint32 EventsSaved = 1;
 }
 
-message SaveEventFailureResponse {
-  uint32 EventsSaved = 1;
+message SaveFailureResponse {
+  string Message = 1;
 }
 
 message TotalEventsInStreamRequest {
@@ -63,10 +71,9 @@ message TotalEventsInStreamResponse {
 }
 
 message Event {
-  string ID = 1;
-  string Type = 2;
-  string Data = 3;
-  string Metadata = 4;
+  string Type = 1;
+  string Data = 2;
+  string Metadata = 3;
 }
 
 message Record {

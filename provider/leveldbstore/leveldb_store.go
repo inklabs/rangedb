@@ -11,11 +11,13 @@ import (
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 	"github.com/syndtr/goleveldb/leveldb/util"
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
 	"github.com/inklabs/rangedb/pkg/clock/provider/systemclock"
+	"github.com/inklabs/rangedb/pkg/rangedberror"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
@@ -107,30 +109,99 @@ func (s *levelDbStore) EventsByStreamStartingWith(ctx context.Context, eventNumb
 	return s.getEventsByPrefixStartingWith(ctx, stream, eventNumber)
 }
 
-func (s *levelDbStore) Save(event rangedb.Event, metadata interface{}) error {
-	return s.SaveEvent(
-		event.AggregateType(),
-		event.AggregateID(),
-		event.EventType(),
-		shortuuid.New().String(),
-		event,
-		metadata,
-	)
+func (s *levelDbStore) OptimisticSave(expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) error {
+	return s.saveEvents(&expectedStreamSequenceNumber, eventRecords...)
 }
 
-func (s *levelDbStore) SaveEvent(aggregateType, aggregateID, eventType, eventID string, event, metadata interface{}) error {
-	s.mux.Lock()
+func (s *levelDbStore) Save(eventRecords ...*rangedb.EventRecord) error {
+	return s.saveEvents(nil, eventRecords...)
+}
 
-	if eventID == "" {
-		eventID = shortuuid.New().String()
+func (s *levelDbStore) saveEvents(expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) error {
+	nextExpectedStreamSequenceNumber := expectedStreamSequenceNumber
+
+	var pendingEventsData [][]byte
+	var aggregateType, aggregateID string
+
+	s.mux.Lock()
+	transaction, err := s.db.OpenTransaction()
+	if err != nil {
+		return err
 	}
 
+	for _, eventRecord := range eventRecords {
+		if aggregateType != "" && aggregateType != eventRecord.Event.AggregateType() {
+			transaction.Discard()
+			s.mux.Unlock()
+			return fmt.Errorf("unmatched aggregate type")
+		}
+
+		if aggregateID != "" && aggregateID != eventRecord.Event.AggregateID() {
+			transaction.Discard()
+			s.mux.Unlock()
+			return fmt.Errorf("unmatched aggregate ID")
+		}
+
+		aggregateType = eventRecord.Event.AggregateType()
+		aggregateID = eventRecord.Event.AggregateID()
+
+		data, err := s.saveEvent(
+			transaction,
+			aggregateType,
+			aggregateID,
+			eventRecord.Event.EventType(),
+			shortuuid.New().String(),
+			nextExpectedStreamSequenceNumber,
+			eventRecord.Event,
+			eventRecord.Metadata,
+		)
+		if err != nil {
+			transaction.Discard()
+			s.mux.Unlock()
+			return err
+		}
+
+		pendingEventsData = append(pendingEventsData, data)
+
+		if nextExpectedStreamSequenceNumber != nil {
+			*nextExpectedStreamSequenceNumber++
+		}
+	}
+	err = transaction.Commit()
+	if err != nil {
+		return err
+	}
+	s.mux.Unlock()
+
+	for _, data := range pendingEventsData {
+		deSerializedRecord, _ := s.serializer.Deserialize(data)
+		s.notifySubscribers(deSerializedRecord)
+	}
+
+	return nil
+}
+
+//saveEvent persists a single event without locking the mutex, or notifying subscribers.
+func (s *levelDbStore) saveEvent(transaction *leveldb.Transaction,
+	aggregateType, aggregateID, eventType, eventID string,
+	expectedStreamSequenceNumber *uint64,
+	event, metadata interface{}) ([]byte, error) {
+
 	stream := rangedb.GetStream(aggregateType, aggregateID)
+	nextSequenceNumber := s.getNextStreamSequenceNumber(transaction, stream)
+
+	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber != nextSequenceNumber {
+		return nil, &rangedberror.UnexpectedSequenceNumber{
+			Expected:           *expectedStreamSequenceNumber,
+			NextSequenceNumber: nextSequenceNumber,
+		}
+	}
+
 	record := &rangedb.Record{
 		AggregateType:        aggregateType,
 		AggregateID:          aggregateID,
-		GlobalSequenceNumber: s.getNextGlobalSequenceNumber(),
-		StreamSequenceNumber: s.getNextStreamSequenceNumber(stream),
+		GlobalSequenceNumber: s.getNextGlobalSequenceNumber(transaction),
+		StreamSequenceNumber: nextSequenceNumber,
 		EventType:            eventType,
 		EventID:              eventID,
 		InsertTimestamp:      uint64(s.clock.Now().Unix()),
@@ -141,8 +212,7 @@ func (s *levelDbStore) SaveEvent(aggregateType, aggregateID, eventType, eventID 
 	batch := new(leveldb.Batch)
 	data, err := s.serializer.Serialize(record)
 	if err != nil {
-		s.mux.Unlock()
-		return err
+		return nil, err
 	}
 
 	streamKey := getKeyWithNumber(stream+separator, record.StreamSequenceNumber)
@@ -154,15 +224,12 @@ func (s *levelDbStore) SaveEvent(aggregateType, aggregateID, eventType, eventID 
 	allEventsKey := getKeyWithNumber(allEventsPrefix, record.GlobalSequenceNumber)
 	batch.Put(allEventsKey, streamKey)
 
-	err = s.db.Write(batch, nil)
-	s.mux.Unlock()
-
-	if err == nil {
-		deSerializedRecord, _ := s.serializer.Deserialize(data)
-		s.notifySubscribers(deSerializedRecord)
+	err = transaction.Write(batch, nil)
+	if err != nil {
+		return nil, err
 	}
 
-	return err
+	return data, nil
 }
 
 func (s *levelDbStore) SubscribeStartingWith(ctx context.Context, eventNumber uint64, subscribers ...rangedb.RecordSubscriber) {
@@ -183,7 +250,7 @@ func (s *levelDbStore) Subscribe(subscribers ...rangedb.RecordSubscriber) {
 }
 
 func (s *levelDbStore) TotalEventsInStream(streamName string) uint64 {
-	return s.getNextStreamSequenceNumber(streamName)
+	return s.getNextStreamSequenceNumber(s.db, streamName)
 }
 
 func (s *levelDbStore) notifySubscribers(record *rangedb.Record) {
@@ -301,16 +368,20 @@ func bytesToUint64(input []byte) uint64 {
 	return number
 }
 
-func (s *levelDbStore) getNextGlobalSequenceNumber() uint64 {
-	return s.getNextSequenceNumber(allEventsPrefix)
+type dbNewIterable interface {
+	NewIterator(slice *util.Range, ro *opt.ReadOptions) iterator.Iterator
 }
 
-func (s *levelDbStore) getNextStreamSequenceNumber(stream string) uint64 {
-	return s.getNextSequenceNumber(stream + separator)
+func (s *levelDbStore) getNextGlobalSequenceNumber(iterable dbNewIterable) uint64 {
+	return s.getNextSequenceNumber(iterable, allEventsPrefix)
 }
 
-func (s *levelDbStore) getNextSequenceNumber(key string) uint64 {
-	iter := s.db.NewIterator(util.BytesPrefix([]byte(key)), nil)
+func (s *levelDbStore) getNextStreamSequenceNumber(iterable dbNewIterable, stream string) uint64 {
+	return s.getNextSequenceNumber(iterable, stream+separator)
+}
+
+func (s *levelDbStore) getNextSequenceNumber(iterable dbNewIterable, key string) uint64 {
+	iter := iterable.NewIterator(util.BytesPrefix([]byte(key)), nil)
 	iter.Last()
 
 	keySize := len(key)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
@@ -18,7 +19,7 @@ import (
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 )
 
-func ExampleRangeDBServer_SaveEvents_failureResponse() {
+func ExampleRangeDBServer_OptimisticSave_withOptimisticConcurrencyFailure() {
 	// Given
 	shortuuid.SetRand(100)
 	inMemoryStore := inmemorystore.New(
@@ -35,46 +36,46 @@ func ExampleRangeDBServer_SaveEvents_failureResponse() {
 	}()
 
 	// Setup gRPC connection
-	conn, err := grpc.Dial(
-		"",
-		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-			return bufListener.Dial()
-		}),
-		grpc.WithInsecure(),
-	)
+	dialer := grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+		return bufListener.Dial()
+	})
+	connCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	conn, err := grpc.DialContext(connCtx, "bufnet", dialer, grpc.WithInsecure(), grpc.WithBlock())
 	PrintError(err)
 
-	defer server.Stop()
-	defer Close(conn)
+	defer func() {
+		Close(conn)
+		cancel()
+		server.Stop()
+	}()
 
 	// Setup gRPC client
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
 	ctx := context.Background()
-	request := &rangedbpb.SaveEventsRequest{
-		AggregateType: "thing",
-		AggregateID:   "141b39d2b9854f8093ef79dc47dae6af",
+	request := &rangedbpb.OptimisticSaveRequest{
+		AggregateType:                "thing",
+		AggregateID:                  "141b39d2b9854f8093ef79dc47dae6af",
+		ExpectedStreamSequenceNumber: 2,
 		Events: []*rangedbpb.Event{
 			{
-				ID:       "2b1bb91150db464a8723cae30def7996",
 				Type:     "ThingWasDone",
 				Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
 				Metadata: "",
 			},
 			{
-				ID:       "c8df652d85f2419e83ad6ef3afa49b08",
 				Type:     "ThingWasDone",
-				Data:     `{invalid-json`,
+				Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":200}`,
 				Metadata: "",
 			},
 		},
 	}
 
 	// When
-	_, err = rangeDBClient.SaveEvents(ctx, request)
-	fmt.Println(err)
+	_, err = rangeDBClient.OptimisticSave(ctx, request)
+	PrintError(err)
 
 	for _, detail := range status.Convert(err).Details() {
-		failureResponse := detail.(*rangedbpb.SaveEventFailureResponse)
+		failureResponse := detail.(*rangedbpb.SaveFailureResponse)
 
 		body, err := json.Marshal(failureResponse)
 		PrintError(err)
@@ -83,8 +84,8 @@ func ExampleRangeDBServer_SaveEvents_failureResponse() {
 	}
 
 	// Output:
-	// rpc error: code = InvalidArgument desc = unable to read event data: invalid character 'i' looking for beginning of object key string
+	// rpc error: code = Internal desc = unable to save to store: unexpected sequence number: 2, next: 0
 	// {
-	//   "EventsSaved": 1
+	//   "Message": "unable to save to store: unexpected sequence number: 2, next: 0"
 	// }
 }

@@ -20,6 +20,7 @@ func Test_InMemory_VerifyStoreInterface(t *testing.T) {
 		store := inmemorystore.New(
 			inmemorystore.WithClock(clock),
 		)
+		rangedbtest.BindEvents(store)
 
 		return store
 	})
@@ -33,7 +34,7 @@ func Test_Failures(t *testing.T) {
 		)
 
 		// When
-		err := store.Save(rangedbtest.ThingWasDone{}, nil)
+		err := store.Save(&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{}})
 
 		// Then
 		assert.EqualError(t, err, "failingSerializer.Serialize")
@@ -48,7 +49,7 @@ func Test_Failures(t *testing.T) {
 			inmemorystore.WithLogger(logger),
 		)
 		event := rangedbtest.ThingWasDone{}
-		err := store.Save(event, nil)
+		err := store.Save(&rangedb.EventRecord{Event: event})
 		require.NoError(t, err)
 		ctx := context.Background()
 

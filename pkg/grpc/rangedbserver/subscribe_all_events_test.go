@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 
+	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock/provider/sequentialclock"
 	"github.com/inklabs/rangedb/pkg/grpc/rangedbpb"
 	"github.com/inklabs/rangedb/pkg/grpc/rangedbserver"
@@ -35,17 +37,18 @@ func ExampleRangeDBServer_SubscribeToEvents() {
 	}()
 
 	// Setup gRPC connection
-	conn, err := grpc.Dial(
-		"",
-		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-			return bufListener.Dial()
-		}),
-		grpc.WithInsecure(),
-	)
+	dialer := grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+		return bufListener.Dial()
+	})
+	connCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	conn, err := grpc.DialContext(connCtx, "bufnet", dialer, grpc.WithInsecure(), grpc.WithBlock())
 	PrintError(err)
 
-	defer server.Stop()
-	defer Close(conn)
+	defer func() {
+		Close(conn)
+		cancel()
+		server.Stop()
+	}()
 
 	// Setup gRPC client
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
@@ -58,10 +61,12 @@ func ExampleRangeDBServer_SubscribeToEvents() {
 	events, err := rangeDBClient.SubscribeToEvents(ctx, request)
 	PrintError(err)
 
-	PrintError(
-		inMemoryStore.Save(rangedbtest.ThingWasDone{ID: "52e247a7c0a54a65906e006dac9be108", Number: 100}, nil),
-		inMemoryStore.Save(rangedbtest.AnotherWasComplete{ID: "a3d9faa7614a46b388c6dce9984b6620"}, nil),
-	)
+	PrintError(inMemoryStore.Save(
+		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "52e247a7c0a54a65906e006dac9be108", Number: 100}},
+	))
+	PrintError(inMemoryStore.Save(
+		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a3d9faa7614a46b388c6dce9984b6620"}},
+	))
 
 	for i := 0; i < 2; i++ {
 		record, err := events.Recv()

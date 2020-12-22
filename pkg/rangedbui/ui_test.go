@@ -22,7 +22,7 @@ func Test_Index(t *testing.T) {
 	templateManager, err := memorytemplate.New(rangedbui.GetTemplates())
 	require.NoError(t, err)
 	ui := rangedbui.New(templateManager, nil, nil)
-	request := httptest.NewRequest("GET", "/", nil)
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	response := httptest.NewRecorder()
 
 	// When
@@ -35,14 +35,14 @@ func Test_Index(t *testing.T) {
 
 func Test_ListAggregateTypes(t *testing.T) {
 	// Given
-	store, aggregateTypeStats := storeWithTwoEvents()
+	store, aggregateTypeStats := storeWithTwoEvents(t)
 
 	t.Run("works with memory loader", func(t *testing.T) {
 		// Given
 		templateManager, err := memorytemplate.New(rangedbui.GetTemplates())
 		require.NoError(t, err)
 		ui := rangedbui.New(templateManager, aggregateTypeStats, store)
-		request := httptest.NewRequest("GET", "/aggregate-types", nil)
+		request := httptest.NewRequest(http.MethodGet, "/aggregate-types", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -59,7 +59,7 @@ func Test_ListAggregateTypes(t *testing.T) {
 		// Given
 		templateManager := filesystemtemplate.New("./templates")
 		ui := rangedbui.New(templateManager, aggregateTypeStats, store)
-		request := httptest.NewRequest("GET", "/aggregate-types", nil)
+		request := httptest.NewRequest(http.MethodGet, "/aggregate-types", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -77,17 +77,19 @@ func Test_AggregateType(t *testing.T) {
 	// Given
 	templateManager, err := memorytemplate.New(rangedbui.GetTemplates())
 	require.NoError(t, err)
-	store, aggregateTypeStats := storeWithTwoEvents()
-	_ = store.Save(rangedbtest.ThingWasDone{
-		ID:     "1ce1d596e54744b3b878d579ccc31d81",
-		Number: 0,
-	}, nil)
+	store, aggregateTypeStats := storeWithTwoEvents(t)
+	require.NoError(t, store.Save(
+		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{
+			ID:     "1ce1d596e54744b3b878d579ccc31d81",
+			Number: 0,
+		}},
+	))
 
 	ui := rangedbui.New(templateManager, aggregateTypeStats, store)
 
 	t.Run("renders events by aggregate type", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest("GET", "/e/thing", nil)
+		request := httptest.NewRequest(http.MethodGet, "/e/thing", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -104,7 +106,7 @@ func Test_AggregateType(t *testing.T) {
 
 	t.Run("renders events by aggregate type, one record per page, 1st page", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest("GET", "/e/thing?itemsPerPage=1&page=1", nil)
+		request := httptest.NewRequest(http.MethodGet, "/e/thing?itemsPerPage=1&page=1", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -123,7 +125,7 @@ func Test_AggregateType(t *testing.T) {
 
 	t.Run("renders events by aggregate type, one record per page, 2nd page", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest("GET", "/e/thing?itemsPerPage=1&page=2", nil)
+		request := httptest.NewRequest(http.MethodGet, "/e/thing?itemsPerPage=1&page=2", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -146,16 +148,18 @@ func Test_Stream(t *testing.T) {
 	// Given
 	templateManager, err := memorytemplate.New(rangedbui.GetTemplates())
 	require.NoError(t, err)
-	store, aggregateTypeStats := storeWithTwoEvents()
-	_ = store.Save(rangedbtest.ThingWasDone{
-		ID:     "f6b6f8ed682c4b5180f625e53b3c4bac",
-		Number: 0,
-	}, nil)
+	store, aggregateTypeStats := storeWithTwoEvents(t)
+	require.NoError(t, store.Save(
+		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{
+			ID:     "f6b6f8ed682c4b5180f625e53b3c4bac",
+			Number: 0,
+		}},
+	))
 	ui := rangedbui.New(templateManager, aggregateTypeStats, store)
 
 	t.Run("renders events by stream", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest("GET", "/e/thing/f6b6f8ed682c4b5180f625e53b3c4bac", nil)
+		request := httptest.NewRequest(http.MethodGet, "/e/thing/f6b6f8ed682c4b5180f625e53b3c4bac", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -171,7 +175,7 @@ func Test_Stream(t *testing.T) {
 
 	t.Run("renders events by stream, one record per page, 1st page", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest("GET", "/e/thing/f6b6f8ed682c4b5180f625e53b3c4bac?itemsPerPage=1&page=1", nil)
+		request := httptest.NewRequest(http.MethodGet, "/e/thing/f6b6f8ed682c4b5180f625e53b3c4bac?itemsPerPage=1&page=1", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -194,7 +198,7 @@ func Test_ServesStaticAssets(t *testing.T) {
 	templateManager, err := memorytemplate.New(rangedbui.GetTemplates())
 	require.NoError(t, err)
 	ui := rangedbui.New(templateManager, nil, nil)
-	request := httptest.NewRequest("GET", "/static/css/foundation-6.5.3.min.css", nil)
+	request := httptest.NewRequest(http.MethodGet, "/static/css/foundation-6.5.3.min.css", nil)
 	response := httptest.NewRecorder()
 
 	// When
@@ -205,19 +209,22 @@ func Test_ServesStaticAssets(t *testing.T) {
 	assert.Equal(t, "text/css; charset=utf-8", response.Header().Get("Content-Type"))
 }
 
-func storeWithTwoEvents() (rangedb.Store, *projection.AggregateTypeStats) {
+func storeWithTwoEvents(t *testing.T) (rangedb.Store, *projection.AggregateTypeStats) {
 	store := inmemorystore.New()
 	aggregateTypeStats := projection.NewAggregateTypeStats()
 	store.Subscribe(aggregateTypeStats)
 
-	_ = store.Save(rangedbtest.ThingWasDone{
-		ID:     "f6b6f8ed682c4b5180f625e53b3c4bac",
-		Number: 0,
-	}, nil)
-
-	_ = store.Save(rangedbtest.AnotherWasComplete{
-		ID: "5e4a649230924041a7ccf18887ccc153",
-	}, nil)
+	require.NoError(t, store.Save(
+		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{
+			ID:     "f6b6f8ed682c4b5180f625e53b3c4bac",
+			Number: 0,
+		}},
+	))
+	require.NoError(t, store.Save(
+		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{
+			ID: "5e4a649230924041a7ccf18887ccc153",
+		}},
+	))
 
 	return store, aggregateTypeStats
 }

@@ -2,11 +2,12 @@ package rangedb
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 )
 
-const Version = "0.4.1-dev"
+const Version = "0.5.0-dev"
 
 // Record contains event data and metadata.
 type Record struct {
@@ -21,6 +22,11 @@ type Record struct {
 	Metadata             interface{} `msgpack:"m" json:"metadata"`
 }
 
+type EventRecord struct {
+	Event    Event
+	Metadata interface{}
+}
+
 type EventBinder interface {
 	Bind(events ...Event)
 }
@@ -31,8 +37,8 @@ type Store interface {
 	EventsStartingWith(ctx context.Context, eventNumber uint64) <-chan *Record
 	EventsByAggregateTypesStartingWith(ctx context.Context, eventNumber uint64, aggregateTypes ...string) <-chan *Record
 	EventsByStreamStartingWith(ctx context.Context, eventNumber uint64, streamName string) <-chan *Record
-	Save(event Event, metadata interface{}) error
-	SaveEvent(aggregateType, aggregateID, eventType, eventID string, event, metadata interface{}) error
+	OptimisticSave(expectedStreamSequenceNumber uint64, eventRecords ...*EventRecord) error
+	Save(eventRecords ...*EventRecord) error
 	Subscribe(subscribers ...RecordSubscriber)
 	SubscribeStartingWith(ctx context.Context, eventNumber uint64, subscribers ...RecordSubscriber)
 	TotalEventsInStream(streamName string) uint64
@@ -106,4 +112,36 @@ func ReadNRecords(totalEvents uint64, f func(context.Context) <-chan *Record) []
 	done()
 
 	return records
+}
+
+type rawEvent struct {
+	aggregateType string
+	aggregateID   string
+	eventType     string
+	data          interface{}
+}
+
+func NewRawEvent(aggregateType, aggregateID, eventType string, data interface{}) Event {
+	return &rawEvent{
+		aggregateType: aggregateType,
+		aggregateID:   aggregateID,
+		eventType:     eventType,
+		data:          data,
+	}
+}
+
+func (e rawEvent) AggregateID() string {
+	return e.aggregateID
+}
+
+func (e rawEvent) AggregateType() string {
+	return e.aggregateType
+}
+
+func (e rawEvent) EventType() string {
+	return e.eventType
+}
+
+func (e rawEvent) MarshalJSON() ([]byte, error) {
+	return json.Marshal(e.data)
 }

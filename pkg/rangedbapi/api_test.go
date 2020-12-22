@@ -21,6 +21,7 @@ import (
 	"github.com/inklabs/rangedb/pkg/jsontools"
 	"github.com/inklabs/rangedb/pkg/projection"
 	"github.com/inklabs/rangedb/pkg/rangedbapi"
+	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/provider/msgpackrecordiostream"
 	"github.com/inklabs/rangedb/rangedbtest"
@@ -29,7 +30,7 @@ import (
 func TestApi_HealthCheck(t *testing.T) {
 	// Given
 	api := rangedbapi.New()
-	request := httptest.NewRequest("GET", "/health-check", nil)
+	request := httptest.NewRequest(http.MethodGet, "/health-check", nil)
 
 	t.Run("regular response", func(t *testing.T) {
 		// Given
@@ -64,7 +65,6 @@ func TestApi_SaveEvents(t *testing.T) {
 	// Given
 	singleJsonEvent := `[
 		{
-			"eventID": "b93bd54592394c999fad7095e2b4840e",
 			"eventType": "ThingWasDone",
 			"data":{
 				"id": "0a403cfe0e8c4284b2107e12bbe19881",
@@ -80,7 +80,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		const aggregateType = "thing"
 		api := rangedbapi.New()
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
-		request := httptest.NewRequest("POST", saveUri, strings.NewReader(singleJsonEvent))
+		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(singleJsonEvent))
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 
@@ -93,13 +93,114 @@ func TestApi_SaveEvents(t *testing.T) {
 		assert.Equal(t, `{"status":"OK"}`, response.Body.String())
 	})
 
+	t.Run("saves from json with expected stream sequence number", func(t *testing.T) {
+		// Given
+		jsonEvent := `[
+			{
+				"eventType": "ThingWasDone",
+				"data":{
+					"id": "0a403cfe0e8c4284b2107e12bbe19881",
+					"number": 100
+				},
+				"metadata":null
+			}
+		]`
+
+		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
+		const aggregateType = "thing"
+		api := rangedbapi.New()
+		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
+		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(jsonEvent))
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("ExpectedStreamSequenceNumber", "0")
+		response := httptest.NewRecorder()
+
+		// When
+		api.ServeHTTP(response, request)
+
+		// Then
+		assert.Equal(t, http.StatusCreated, response.Code)
+		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
+		assert.Equal(t, `{"status":"OK"}`, response.Body.String())
+	})
+
+	t.Run("saves 2 events from json with expected stream sequence number", func(t *testing.T) {
+		// Given
+		jsonEvent := `[
+			{
+				"eventType": "ThingWasDone",
+				"data":{
+					"id": "0a403cfe0e8c4284b2107e12bbe19881",
+					"number": 100
+				},
+				"metadata":null
+			},
+			{
+				"eventType": "ThingWasDone",
+				"data":{
+					"id": "0a403cfe0e8c4284b2107e12bbe19881",
+					"number": 100
+				},
+				"metadata":null
+			}
+		]`
+
+		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
+		const aggregateType = "thing"
+		api := rangedbapi.New()
+		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
+		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(jsonEvent))
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("ExpectedStreamSequenceNumber", "0")
+		response := httptest.NewRecorder()
+
+		// When
+		api.ServeHTTP(response, request)
+
+		// Then
+		assert.Equal(t, http.StatusCreated, response.Code)
+		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
+		assert.Equal(t, `{"status":"OK"}`, response.Body.String())
+	})
+
+	t.Run("fails to save from json with wrong expected stream sequence number", func(t *testing.T) {
+		// Given
+		jsonEvent := `[
+			{
+				"eventType": "ThingWasDone",
+				"data":{
+					"id": "0a403cfe0e8c4284b2107e12bbe19881",
+					"number": 100
+				},
+				"metadata":null
+			}
+		]`
+
+		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
+		const aggregateType = "thing"
+		api := rangedbapi.New()
+		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
+		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(jsonEvent))
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("ExpectedStreamSequenceNumber", "1")
+		response := httptest.NewRecorder()
+
+		// When
+		api.ServeHTTP(response, request)
+
+		// Then
+		assert.Equal(t, http.StatusBadRequest, response.Code)
+		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
+		assert.Equal(t, `{"status":"Failed", "message": "unexpected sequence number: 1, next: 0"}`, response.Body.String())
+	})
+
 	t.Run("fails when content type not set", func(t *testing.T) {
 		// Given
 		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
 		const aggregateType = "thing"
 		api := rangedbapi.New()
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
-		request := httptest.NewRequest("POST", saveUri, strings.NewReader(singleJsonEvent))
+		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(singleJsonEvent))
 		response := httptest.NewRecorder()
 
 		// When
@@ -115,9 +216,8 @@ func TestApi_SaveEvents(t *testing.T) {
 		const aggregateID = "cbba5f386b2d4924ac34d1b9e9217d67"
 		const aggregateType = "thing"
 		api := rangedbapi.New(rangedbapi.WithStore(rangedbtest.NewFailingEventStore()))
-		expectedJson := `[
+		jsonBody := `[
 		{
-			"eventID": "b93bd54592394c999fad7095e2b4840e",
 			"eventType": "ThingWasDone",
 			"data":{
 				"Name": "Thing Test",
@@ -127,7 +227,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		}
 	]`
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
-		request := httptest.NewRequest("POST", saveUri, strings.NewReader(expectedJson))
+		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(jsonBody))
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 
@@ -147,7 +247,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		api := rangedbapi.New(rangedbapi.WithStore(rangedbtest.NewFailingEventStore()))
 		invalidJson := `x`
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
-		request := httptest.NewRequest("POST", saveUri, strings.NewReader(invalidJson))
+		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(invalidJson))
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 
@@ -157,7 +257,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		// Then
 		assert.Equal(t, http.StatusBadRequest, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		assert.Equal(t, `{"status":"Failed"}`, response.Body.String())
+		assert.Equal(t, `{"status":"Failed", "message": "invalid json request body"}`, response.Body.String())
 	})
 }
 
@@ -169,9 +269,9 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 	const aggregateID2 = "5b36ae984b724685917b69ae47968be1"
 	const aggregateID3 = "9bc181144cef4fd19da1f32a17363997"
 
+	shortuuid.SetRand(100)
 	saveEvents(t, api, "thing", aggregateID1,
-		SaveEventsRequest{
-			EventId:   "27e9965ce0ce4b65a38d1e0b7768ba27",
+		SaveEventRequest{
 			EventType: "ThingWasDone",
 			Data: rangedbtest.ThingWasDone{
 				ID:     aggregateID1,
@@ -179,8 +279,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 			},
 			Metadata: nil,
 		},
-		SaveEventsRequest{
-			EventId:   "27e9965ce0ce4b65a38d1e0b7768ba27",
+		SaveEventRequest{
 			EventType: "ThingWasDone",
 			Data: rangedbtest.ThingWasDone{
 				ID:     aggregateID1,
@@ -190,8 +289,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 		},
 	)
 	saveEvents(t, api, "thing", aggregateID2,
-		SaveEventsRequest{
-			EventId:   "ac376375a0834b0bae47b9246ed570c8",
+		SaveEventRequest{
 			EventType: "ThingWasDone",
 			Data: rangedbtest.ThingWasDone{
 				ID:     aggregateID2,
@@ -201,8 +299,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 		},
 	)
 	saveEvents(t, api, "another", aggregateID3,
-		SaveEventsRequest{
-			EventId:   "d3d25ad1340e42ce89b809ef77ee67c7",
+		SaveEventRequest{
 			EventType: "AnotherWasComplete",
 			Data: rangedbtest.AnotherWasComplete{
 				ID: aggregateID3,
@@ -213,7 +310,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 
 	t.Run("get all events as json", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest("GET", "/events.json", nil)
+		request := httptest.NewRequest(http.MethodGet, "/events.json", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -229,7 +326,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber": 0,
 				"sequenceNumber": 0,
 				"insertTimestamp": 0,
-				"eventID": "27e9965ce0ce4b65a38d1e0b7768ba27",
+				"eventID": "d2ba8e70072943388203c438d4e94bf3",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -243,7 +340,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber": 1,
 				"sequenceNumber": 1,
 				"insertTimestamp": 1,
-				"eventID": "27e9965ce0ce4b65a38d1e0b7768ba27",
+				"eventID": "99cbd88bbcaf482ba1cc96ed12541707",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -257,7 +354,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber": 2,
 				"sequenceNumber": 0,
 				"insertTimestamp": 2,
-				"eventID": "ac376375a0834b0bae47b9246ed570c8",
+				"eventID": "2e9e6918af10498cb7349c89a351fdb7",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "5b36ae984b724685917b69ae47968be1",
@@ -271,7 +368,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber": 3,
 				"sequenceNumber": 0,
 				"insertTimestamp": 3,
-				"eventID": "d3d25ad1340e42ce89b809ef77ee67c7",
+				"eventID": "5042958739514c948f776fc9f820bca0",
 				"eventType": "AnotherWasComplete",
 				"data":{
 					"id": "9bc181144cef4fd19da1f32a17363997"
@@ -284,7 +381,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 
 	t.Run("get events by stream as ndjson", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest("GET", "/events/thing/f187760f4d8c4d1c9d9cf17b66766abd.ndjson", nil)
+		request := httptest.NewRequest(http.MethodGet, "/events/thing/f187760f4d8c4d1c9d9cf17b66766abd.ndjson", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -325,7 +422,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 
 	t.Run("get events by stream as msgpack", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest("GET", "/events/thing/f187760f4d8c4d1c9d9cf17b66766abd.msgpack", nil)
+		request := httptest.NewRequest(http.MethodGet, "/events/thing/f187760f4d8c4d1c9d9cf17b66766abd.msgpack", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -340,7 +437,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 			GlobalSequenceNumber: 0,
 			StreamSequenceNumber: 0,
 			InsertTimestamp:      0,
-			EventID:              "27e9965ce0ce4b65a38d1e0b7768ba27",
+			EventID:              "d2ba8e70072943388203c438d4e94bf3",
 			EventType:            "ThingWasDone",
 			Data: map[string]interface{}{
 				"id":     aggregateID1,
@@ -354,7 +451,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 			GlobalSequenceNumber: 1,
 			StreamSequenceNumber: 1,
 			InsertTimestamp:      1,
-			EventID:              "27e9965ce0ce4b65a38d1e0b7768ba27",
+			EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
 			EventType:            "ThingWasDone",
 			Data: map[string]interface{}{
 				"id":     aggregateID1,
@@ -372,7 +469,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 
 	t.Run("get events by aggregate type", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest("GET", "/events/thing.json", nil)
+		request := httptest.NewRequest(http.MethodGet, "/events/thing.json", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -388,7 +485,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber":0,
 				"sequenceNumber":0,
 				"insertTimestamp":0,
-				"eventID": "27e9965ce0ce4b65a38d1e0b7768ba27",
+				"eventID": "d2ba8e70072943388203c438d4e94bf3",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -402,7 +499,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber":1,
 				"sequenceNumber":1,
 				"insertTimestamp":1,
-				"eventID": "27e9965ce0ce4b65a38d1e0b7768ba27",
+				"eventID": "99cbd88bbcaf482ba1cc96ed12541707",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -416,7 +513,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber": 2,
 				"sequenceNumber": 0,
 				"insertTimestamp": 2,
-				"eventID": "ac376375a0834b0bae47b9246ed570c8",
+				"eventID": "2e9e6918af10498cb7349c89a351fdb7",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "5b36ae984b724685917b69ae47968be1",
@@ -430,7 +527,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 
 	t.Run("get events by aggregate types", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest("GET", "/events/thing,another.json", nil)
+		request := httptest.NewRequest(http.MethodGet, "/events/thing,another.json", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -446,7 +543,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber":0,
 				"sequenceNumber":0,
 				"insertTimestamp":0,
-				"eventID": "27e9965ce0ce4b65a38d1e0b7768ba27",
+				"eventID": "d2ba8e70072943388203c438d4e94bf3",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -460,7 +557,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber":1,
 				"sequenceNumber":1,
 				"insertTimestamp":1,
-				"eventID": "27e9965ce0ce4b65a38d1e0b7768ba27",
+				"eventID": "99cbd88bbcaf482ba1cc96ed12541707",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -474,7 +571,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber": 2,
 				"sequenceNumber": 0,
 				"insertTimestamp": 2,
-				"eventID": "ac376375a0834b0bae47b9246ed570c8",
+				"eventID": "2e9e6918af10498cb7349c89a351fdb7",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "5b36ae984b724685917b69ae47968be1",
@@ -488,7 +585,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber": 3,
 				"sequenceNumber": 0,
 				"insertTimestamp": 3,
-				"eventID": "d3d25ad1340e42ce89b809ef77ee67c7",
+				"eventID": "5042958739514c948f776fc9f820bca0",
 				"eventType": "AnotherWasComplete",
 				"data":{
 					"id": "9bc181144cef4fd19da1f32a17363997"
@@ -506,14 +603,18 @@ func TestApi_ListAggregates(t *testing.T) {
 	event1 := rangedbtest.ThingWasDone{ID: "A", Number: 1}
 	event2 := rangedbtest.ThingWasDone{ID: "A", Number: 2}
 	event3 := rangedbtest.AnotherWasComplete{ID: "B"}
-	require.NoError(t, store.Save(event1, nil))
-	require.NoError(t, store.Save(event2, nil))
-	require.NoError(t, store.Save(event3, nil))
+	require.NoError(t, store.Save(
+		&rangedb.EventRecord{Event: event1},
+		&rangedb.EventRecord{Event: event2},
+	))
+	require.NoError(t, store.Save(
+		&rangedb.EventRecord{Event: event3},
+	))
 	api := rangedbapi.New(
 		rangedbapi.WithStore(store),
 		rangedbapi.WithBaseUri("http://0.0.0.0:8080"),
 	)
-	request := httptest.NewRequest("GET", "/list-aggregate-types", nil)
+	request := httptest.NewRequest(http.MethodGet, "/list-aggregate-types", nil)
 	response := httptest.NewRecorder()
 
 	// When
@@ -564,12 +665,12 @@ func assertJsonEqual(t *testing.T, expectedJson, actualJson string) {
 	assert.Equal(t, jsontools.PrettyJSONString(expectedJson), jsontools.PrettyJSONString(actualJson))
 }
 
-func saveEvents(t *testing.T, api http.Handler, aggregateType, aggregateID string, requests ...SaveEventsRequest) {
+func saveEvents(t *testing.T, api http.Handler, aggregateType, aggregateID string, requests ...SaveEventRequest) {
 	saveJson, err := json.Marshal(requests)
 	require.NoError(t, err)
 
 	saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
-	saveRequest := httptest.NewRequest("POST", saveUri, bytes.NewReader(saveJson))
+	saveRequest := httptest.NewRequest(http.MethodPost, saveUri, bytes.NewReader(saveJson))
 	saveRequest.Header.Set("Content-Type", "application/json")
 	saveResponse := httptest.NewRecorder()
 
@@ -586,8 +687,7 @@ func readGzippedBody(t *testing.T, body io.Reader) string {
 	return string(actualBody)
 }
 
-type SaveEventsRequest struct {
-	EventId   string      `msgpack:"e" json:"eventID"`
+type SaveEventRequest struct {
 	EventType string      `msgpack:"t" json:"eventType"`
 	Data      interface{} `msgpack:"d" json:"data"`
 	Metadata  interface{} `msgpack:"m" json:"metadata"`

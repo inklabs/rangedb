@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
@@ -44,7 +45,7 @@ func TestTestCase_Then(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
 		store.Bind(NoopEvent{})
-		dispatcher := stubEventDispatcher(store, NoopEvent{ID: "xyz"})
+		dispatcher := stubEventDispatcher(t, store, NoopEvent{ID: "xyz"})
 		testCase := bdd.New(store, dispatcher)
 		testCase.Given()
 		testCase.When(NoopCommand{})
@@ -59,7 +60,7 @@ func TestTestCase_Then(t *testing.T) {
 	t.Run("fails from unbound event", func(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
-		dispatcher := stubEventDispatcher(store, NoopEvent{ID: "xyz"})
+		dispatcher := stubEventDispatcher(t, store, NoopEvent{ID: "xyz"})
 		testCase := bdd.New(store, dispatcher)
 		testCase.Given()
 		testCase.When(NoopCommand{})
@@ -123,10 +124,10 @@ func assertFailed(t *testing.T, tt func(*testing.T)) {
 }
 
 func noopDispatcher(_ bdd.Command) {}
-func stubEventDispatcher(store rangedb.Store, events ...rangedb.Event) func(bdd.Command) {
+func stubEventDispatcher(t *testing.T, store rangedb.Store, events ...rangedb.Event) func(bdd.Command) {
 	return func(_ bdd.Command) {
 		for _, event := range events {
-			_ = store.Save(event, nil)
+			require.NoError(t, store.Save(&rangedb.EventRecord{Event: event}))
 		}
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/handlers"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/projection"
+	"github.com/inklabs/rangedb/pkg/rangedberror"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/provider/jsonrecordiostream"
 	"github.com/inklabs/rangedb/provider/msgpackrecordiostream"
@@ -156,9 +158,6 @@ func (a *api) eventsByAggregateType(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
-	aggregateType := mux.Vars(r)["aggregateType"]
-	aggregateID := mux.Vars(r)["aggregateID"]
-
 	if r.Header.Get("Content-Type") != "application/json" {
 		http.Error(w, "invalid content type", http.StatusBadRequest)
 		return
@@ -166,13 +165,28 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	records, errors := a.jsonRecordIoStream.Read(r.Body)
-
-	err := a.saveRecords(aggregateType, aggregateID, records, errors)
+	eventRecords, err := getEventRecords(r)
 	if err != nil {
-		if _, ok := err.(*invalidInput); ok {
-			w.WriteHeader(http.StatusBadRequest)
-			_, _ = fmt.Fprintf(w, `{"status":"Failed"}`)
+		writeBadRequest(w, "invalid json request body")
+		return
+	}
+
+	var saveErr error
+	expectedStreamSequenceNumberInput := r.Header.Get("ExpectedStreamSequenceNumber")
+	if expectedStreamSequenceNumberInput != "" {
+		expectedStreamSequenceNumber, err := strconv.ParseUint(expectedStreamSequenceNumberInput, 10, 64)
+		if err != nil {
+			writeBadRequest(w, "invalid ExpectedStreamSequenceNumber")
+			return
+		}
+		saveErr = a.store.OptimisticSave(expectedStreamSequenceNumber, eventRecords...)
+	} else {
+		saveErr = a.store.Save(eventRecords...)
+	}
+
+	if saveErr != nil {
+		if unexpectedErr, ok := saveErr.(*rangedberror.UnexpectedSequenceNumber); ok {
+			writeBadRequest(w, unexpectedErr.Error())
 			return
 		}
 
@@ -185,38 +199,38 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 	_, _ = fmt.Fprintf(w, `{"status":"OK"}`)
 }
 
-func (a *api) AggregateTypeStatsProjection() *projection.AggregateTypeStats {
-	return a.projections.aggregateTypeStats
+func writeBadRequest(w http.ResponseWriter, message string) {
+	w.WriteHeader(http.StatusBadRequest)
+	_, _ = fmt.Fprintf(w, `{"status":"Failed", "message": "%s"}`, message)
 }
 
-func (a *api) saveRecords(aggregateType, aggregateID string, records <-chan *rangedb.Record, errors <-chan error) error {
-	for {
-		select {
-		case record, ok := <-records:
-			if !ok {
-				return nil
-			}
+func getEventRecords(r *http.Request) ([]*rangedb.EventRecord, error) {
+	aggregateType := mux.Vars(r)["aggregateType"]
+	aggregateID := mux.Vars(r)["aggregateID"]
 
-			err := a.store.SaveEvent(
-				aggregateType,
-				aggregateID,
-				record.EventType,
-				record.EventID,
-				record.Data,
-				record.Metadata,
-			)
-			if err != nil {
-				return fmt.Errorf("unable to save event: %v", err)
-			}
-
-		case err, ok := <-errors:
-			if !ok {
-				return nil
-			}
-
-			return newInvalidInput(err)
-		}
+	var events []struct {
+		EventType string      `json:"eventType"`
+		Data      interface{} `json:"data"`
+		Metadata  interface{} `json:"metadata"`
 	}
+	err := json.NewDecoder(r.Body).Decode(&events)
+	if err != nil {
+		return nil, fmt.Errorf("invalid json request body: %v", err)
+	}
+
+	var eventRecords []*rangedb.EventRecord
+	for _, event := range events {
+		eventRecords = append(eventRecords, &rangedb.EventRecord{
+			Event:    rangedb.NewRawEvent(aggregateType, aggregateID, event.EventType, event.Data),
+			Metadata: event.Metadata,
+		})
+	}
+
+	return eventRecords, nil
+}
+
+func (a *api) AggregateTypeStatsProjection() *projection.AggregateTypeStats {
+	return a.projections.aggregateTypeStats
 }
 
 func (a *api) listAggregateTypes(w http.ResponseWriter, _ *http.Request) {

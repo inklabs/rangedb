@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock/provider/sequentialclock"
 	"github.com/inklabs/rangedb/pkg/jsontools"
 	"github.com/inklabs/rangedb/pkg/rangedbws"
@@ -26,11 +27,11 @@ func Test_WebsocketApi_SubscribeToAllEvents_ReadsEventsOverWebsocket(t *testing.
 	store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 	event1 := &rangedbtest.ThingWasDone{ID: "6595a5c206c746c3a9d9006c7df5784e", Number: 1}
 	event2 := &rangedbtest.ThingWasDone{ID: "8cc839e1fd3545b7a0fe67808d84cbd4", Number: 2}
-	require.NoError(t, store.Save(event1, nil))
-	require.NoError(t, store.Save(event2, nil))
+	require.NoError(t, store.Save(&rangedb.EventRecord{Event: event1}))
+	require.NoError(t, store.Save(&rangedb.EventRecord{Event: event2}))
 	api := rangedbws.New(rangedbws.WithStore(store))
 	server := httptest.NewServer(api)
-	defer server.Close()
+	t.Cleanup(server.Close)
 
 	url := "ws" + strings.TrimPrefix(server.URL, "http") + "/events"
 	socket, response, err := websocket.DefaultDialer.Dial(url, nil)
@@ -83,7 +84,7 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
 		api := rangedbws.New(rangedbws.WithStore(store))
-		request := httptest.NewRequest("GET", "/events", nil)
+		request := httptest.NewRequest(http.MethodGet, "/events", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -98,7 +99,7 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
 		api := rangedbws.New(rangedbws.WithStore(store))
-		request := httptest.NewRequest("GET", "/events/thing", nil)
+		request := httptest.NewRequest(http.MethodGet, "/events/thing", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -113,10 +114,12 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
 		event := &rangedbtest.ThingWasDone{ID: "372b47686e1b43d29d2fd48f2a0e83f0", Number: 1}
-		require.NoError(t, store.Save(event, nil))
+		require.NoError(t, store.Save(
+			&rangedb.EventRecord{Event: event},
+		))
 		api := rangedbws.New(rangedbws.WithStore(store))
 		server := httptest.NewServer(api)
-		defer server.Close()
+		t.Cleanup(server.Close)
 
 		url := "ws" + strings.TrimPrefix(server.URL, "http") + "/events"
 		socket, response, err := websocket.DefaultDialer.Dial(url, nil)
@@ -130,11 +133,9 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 
 	})
 }
+
 func closeOrFail(t *testing.T, c io.Closer) {
-	err := c.Close()
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, c.Close())
 }
 
 func assertJsonEqual(t *testing.T, expectedJson, actualJson string) {

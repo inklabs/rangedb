@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/projection"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/rangedbtest"
@@ -25,9 +26,9 @@ func TestAggregateTypeStats(t *testing.T) {
 		event3 := rangedbtest.AnotherWasComplete{ID: "C"}
 
 		// When
-		require.NoError(t, store.Save(event1, nil))
-		require.NoError(t, store.Save(event2, nil))
-		require.NoError(t, store.Save(event3, nil))
+		require.NoError(t, store.Save(&rangedb.EventRecord{Event: event1}))
+		require.NoError(t, store.Save(&rangedb.EventRecord{Event: event2}))
+		require.NoError(t, store.Save(&rangedb.EventRecord{Event: event3}))
 
 		// Then
 		assert.Equal(t, uint64(3), aggregateTypeStats.TotalEvents())
@@ -46,9 +47,9 @@ func TestAggregateTypeStats(t *testing.T) {
 		event1 := rangedbtest.ThingWasDone{ID: "A", Number: 1}
 		event2 := rangedbtest.ThingWasDone{ID: "B", Number: 2}
 		event3 := rangedbtest.AnotherWasComplete{ID: "C"}
-		require.NoError(t, store.Save(event1, nil))
-		require.NoError(t, store.Save(event2, nil))
-		require.NoError(t, store.Save(event3, nil))
+		require.NoError(t, store.Save(&rangedb.EventRecord{Event: event1}))
+		require.NoError(t, store.Save(&rangedb.EventRecord{Event: event2}))
+		require.NoError(t, store.Save(&rangedb.EventRecord{Event: event3}))
 		snapshotStore := inmemorySnapshotStore{}
 		require.NoError(t, snapshotStore.Save(aggregateTypeStats))
 		aggregateTypeStats2 := projection.NewAggregateTypeStats()
