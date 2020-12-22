@@ -561,21 +561,26 @@ func getClient(t *testing.T, store rangedb.Store) rangedbpb.RangeDBClient {
 	server := grpc.NewServer()
 	rangeDBServer := rangedbserver.New(rangedbserver.WithStore(store))
 	rangedbpb.RegisterRangeDBServer(server, rangeDBServer)
+
+	go func() {
+		if err := server.Serve(bufListener); err != nil {
+			log.Printf("panic [%s] %v", t.Name(), err)
+			t.Fail()
+		}
+	}()
+
 	dialer := grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 		return bufListener.Dial()
 	})
-	ctx := context.Background()
-	conn, err := grpc.DialContext(ctx, "", dialer, grpc.WithInsecure())
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	conn, err := grpc.DialContext(ctx, "bufnet", dialer, grpc.WithInsecure(), grpc.WithBlock())
 	require.NoError(t, err)
 
 	t.Cleanup(func() {
-		server.Stop()
 		require.NoError(t, conn.Close())
+		cancel()
+		server.Stop()
 	})
-
-	go func() {
-		require.NoError(t, server.Serve(bufListener))
-	}()
 
 	return rangedbpb.NewRangeDBClient(conn)
 }

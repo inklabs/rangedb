@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
@@ -35,17 +36,18 @@ func ExampleRangeDBServer_Save_failureResponse() {
 	}()
 
 	// Setup gRPC connection
-	conn, err := grpc.Dial(
-		"",
-		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-			return bufListener.Dial()
-		}),
-		grpc.WithInsecure(),
-	)
+	dialer := grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+		return bufListener.Dial()
+	})
+	connCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	conn, err := grpc.DialContext(connCtx, "bufnet", dialer, grpc.WithInsecure(), grpc.WithBlock())
 	PrintError(err)
 
-	defer server.Stop()
-	defer Close(conn)
+	defer func() {
+		Close(conn)
+		cancel()
+		server.Stop()
+	}()
 
 	// Setup gRPC client
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)

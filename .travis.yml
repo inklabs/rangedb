@@ -1,7 +1,7 @@
 language: go
 
 go:
-  - "1.14.3"
+  - "1.15.6"
 
 sudo: false
 
@@ -20,7 +20,7 @@ before_script:
   - ./cc-test-reporter before-build
 
 script:
-  - PG_HOST=127.0.0.1 PG_USER=postgres PG_DBNAME=travis_ci_test go test -race -coverprofile c.out.tmp ./...
+  - PG_HOST=127.0.0.1 PG_USER=postgres PG_DBNAME=travis_ci_test go test -v -race -coverprofile c.out.tmp ./...
   - cat c.out.tmp | grep -v "_vfsdata.go" | grep -v "_gen.go" | grep -v ".pb.go" > c.out
   - go tool cover -func c.out
 

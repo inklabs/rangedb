@@ -31,7 +31,7 @@ func Test_WebsocketApi_SubscribeToAllEvents_ReadsEventsOverWebsocket(t *testing.
 	require.NoError(t, store.Save(&rangedb.EventRecord{Event: event2}))
 	api := rangedbws.New(rangedbws.WithStore(store))
 	server := httptest.NewServer(api)
-	defer server.Close()
+	t.Cleanup(server.Close)
 
 	url := "ws" + strings.TrimPrefix(server.URL, "http") + "/events"
 	socket, response, err := websocket.DefaultDialer.Dial(url, nil)
@@ -119,7 +119,7 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		))
 		api := rangedbws.New(rangedbws.WithStore(store))
 		server := httptest.NewServer(api)
-		defer server.Close()
+		t.Cleanup(server.Close)
 
 		url := "ws" + strings.TrimPrefix(server.URL, "http") + "/events"
 		socket, response, err := websocket.DefaultDialer.Dial(url, nil)
@@ -133,11 +133,9 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 
 	})
 }
+
 func closeOrFail(t *testing.T, c io.Closer) {
-	err := c.Close()
-	if err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, c.Close())
 }
 
 func assertJsonEqual(t *testing.T, expectedJson, actualJson string) {
