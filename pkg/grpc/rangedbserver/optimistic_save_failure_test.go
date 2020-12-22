@@ -51,7 +51,8 @@ func ExampleRangeDBServer_OptimisticSave_withOptimisticConcurrencyFailure() {
 
 	// Setup gRPC client
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
-	ctx := context.Background()
+	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
+	defer done()
 	request := &rangedbpb.OptimisticSaveRequest{
 		AggregateType:                "thing",
 		AggregateID:                  "141b39d2b9854f8093ef79dc47dae6af",

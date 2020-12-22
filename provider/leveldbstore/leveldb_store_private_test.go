@@ -2,7 +2,6 @@ package leveldbstore
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"log"
 	"os"
@@ -35,7 +34,7 @@ func Test_Private_AllEvents_FailsWhenLookupRecordIsMissing(t *testing.T) {
 	require.NoError(t, store.Save(&rangedb.EventRecord{Event: event}))
 	err = store.db.Delete(getKeyWithNumber("thing!A!", 0), nil)
 	require.NoError(t, err)
-	ctx := context.Background()
+	ctx := rangedbtest.TimeoutContext(t)
 
 	// When
 	events := store.EventsStartingWith(ctx, 0)
@@ -48,7 +47,7 @@ func Test_Private_AllEvents_FailsWhenLookupRecordIsMissing(t *testing.T) {
 func Test_Private_AllEvents_FailsWhenLookupRecordIsCorrupt(t *testing.T) {
 	// Given
 	logBuffer, store, _ := getStoreWithCorruptRecord(t)
-	ctx := context.Background()
+	ctx := rangedbtest.TimeoutContext(t)
 
 	// When
 	events := store.EventsStartingWith(ctx, 0)

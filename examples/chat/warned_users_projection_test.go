@@ -1,7 +1,6 @@
 package chat_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,6 +9,7 @@ import (
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/examples/chat"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
+	"github.com/inklabs/rangedb/rangedbtest"
 )
 
 func TestWarnedUsersProjection(t *testing.T) {
@@ -35,7 +35,8 @@ func TestWarnedUsersProjection(t *testing.T) {
 			}},
 		))
 		warnedUsers := chat.NewWarnedUsersProjection()
-		store.SubscribeStartingWith(context.Background(), 0, warnedUsers)
+		ctx := rangedbtest.TimeoutContext(t)
+		store.SubscribeStartingWith(ctx, 0, warnedUsers)
 
 		// When
 		totalWarnings := warnedUsers.TotalWarnings(userID)

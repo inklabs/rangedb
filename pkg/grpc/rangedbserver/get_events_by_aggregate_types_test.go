@@ -59,7 +59,8 @@ func ExampleRangeDBServer_EventsByAggregateType() {
 
 	// Setup gRPC client
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
-	ctx := context.Background()
+	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
+	defer done()
 	request := &rangedbpb.EventsByAggregateTypeRequest{
 		StartingWithEventNumber: 0,
 		AggregateTypes:          []string{"thing", "another"},

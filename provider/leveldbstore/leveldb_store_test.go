@@ -2,8 +2,8 @@ package leveldbstore_test
 
 import (
 	"bytes"
-	"context"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -19,11 +19,9 @@ import (
 )
 
 func Test_LevelDB_VerifyStoreInterface(t *testing.T) {
-	cnt := 0
 	rangedbtest.VerifyStore(t, func(t *testing.T, clk clock.Clock) rangedb.Store {
-		cnt++
-		dbPath := filepath.Join(os.TempDir(), fmt.Sprintf("testevents-%d", cnt))
-		require.NoError(t, os.RemoveAll(dbPath))
+		dbPath, err := ioutil.TempDir("", "test-events-")
+		require.NoError(t, err)
 
 		t.Cleanup(func() {
 			require.NoError(t, os.RemoveAll(dbPath))
@@ -90,7 +88,7 @@ func Test_Failures(t *testing.T) {
 		})
 		event := rangedbtest.ThingWasDone{}
 		require.NoError(t, store.Save(&rangedb.EventRecord{Event: event}))
-		ctx := context.Background()
+		ctx := rangedbtest.TimeoutContext(t)
 
 		// When
 		events := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event))

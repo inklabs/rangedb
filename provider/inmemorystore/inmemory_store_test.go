@@ -2,7 +2,6 @@ package inmemorystore_test
 
 import (
 	"bytes"
-	"context"
 	"log"
 	"testing"
 
@@ -51,7 +50,7 @@ func Test_Failures(t *testing.T) {
 		event := rangedbtest.ThingWasDone{}
 		err := store.Save(&rangedb.EventRecord{Event: event})
 		require.NoError(t, err)
-		ctx := context.Background()
+		ctx := rangedbtest.TimeoutContext(t)
 
 		// When
 		events := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event))

@@ -5,7 +5,6 @@ import (
 	"log"
 	"net"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -42,13 +41,12 @@ func Test_RemoteStore_VerifyStoreInterface(t *testing.T) {
 		dialer := grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 			return bufListener.Dial()
 		})
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx := rangedbtest.TimeoutContext(t)
 		conn, err := grpc.DialContext(ctx, "bufnet", dialer, grpc.WithInsecure(), grpc.WithBlock())
 		require.NoError(t, err)
 
 		t.Cleanup(func() {
 			require.NoError(t, conn.Close())
-			cancel()
 			server.Stop()
 		})
 

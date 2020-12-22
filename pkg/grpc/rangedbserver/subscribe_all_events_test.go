@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 
 	"google.golang.org/grpc"
@@ -52,7 +53,8 @@ func ExampleRangeDBServer_SubscribeToEvents() {
 
 	// Setup gRPC client
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
-	ctx, done := context.WithCancel(context.Background())
+	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
+	defer done()
 	request := &rangedbpb.SubscribeToEventsRequest{
 		StartingWithEventNumber: 0,
 	}
@@ -61,23 +63,31 @@ func ExampleRangeDBServer_SubscribeToEvents() {
 	events, err := rangeDBClient.SubscribeToEvents(ctx, request)
 	PrintError(err)
 
-	PrintError(inMemoryStore.Save(
-		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "52e247a7c0a54a65906e006dac9be108", Number: 100}},
-	))
-	PrintError(inMemoryStore.Save(
-		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a3d9faa7614a46b388c6dce9984b6620"}},
-	))
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+	go func() {
+		PrintError(inMemoryStore.Save(
+			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "52e247a7c0a54a65906e006dac9be108", Number: 100}},
+		))
+		PrintError(inMemoryStore.Save(
+			&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a3d9faa7614a46b388c6dce9984b6620"}},
+		))
+		wg.Done()
+	}()
 
-	for i := 0; i < 2; i++ {
-		record, err := events.Recv()
-		PrintError(err)
+	go func() {
+		for i := 0; i < 2; i++ {
+			record, err := events.Recv()
+			PrintError(err)
 
-		body, err := json.Marshal(record)
-		PrintError(err)
+			body, err := json.Marshal(record)
+			PrintError(err)
 
-		fmt.Println(jsontools.PrettyJSON(body))
-	}
-	done()
+			fmt.Println(jsontools.PrettyJSON(body))
+		}
+		wg.Done()
+	}()
+	wg.Wait()
 
 	// Output:
 	// {
