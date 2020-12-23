@@ -27,6 +27,7 @@ func ExampleRangeDBServer_Events() {
 	inMemoryStore := inmemorystore.New(
 		inmemorystore.WithClock(sequentialclock.New()),
 	)
+	rangedbtest.BindEvents(inMemoryStore)
 	PrintError(inMemoryStore.Save(
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "605f20348fb940e386c171d51c877bf1", Number: 100}},
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "605f20348fb940e386c171d51c877bf1", Number: 200}},
@@ -56,6 +57,7 @@ func ExampleRangeDBServer_Events() {
 		Close(conn)
 		cancel()
 		server.Stop()
+		rangeDBServer.Stop()
 	}()
 
 	// Setup gRPC client

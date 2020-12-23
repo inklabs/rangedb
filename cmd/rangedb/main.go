@@ -100,6 +100,9 @@ func main() {
 
 	<-stop
 
+	fmt.Println("Shutting down RangeDB gRPC server")
+	rangeDBServer.Stop()
+
 	fmt.Println("Shutting down gRPC server")
 	gRPCServer.Stop()
 

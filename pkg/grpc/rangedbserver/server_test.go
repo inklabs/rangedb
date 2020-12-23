@@ -536,6 +536,7 @@ func getClient(t *testing.T, store rangedb.Store) rangedbpb.RangeDBClient {
 	t.Cleanup(func() {
 		require.NoError(t, conn.Close())
 		server.Stop()
+		rangeDBServer.Stop()
 	})
 
 	return rangedbpb.NewRangeDBClient(conn)

@@ -15,19 +15,23 @@ import (
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 )
 
+const recordBuffSize = 500
+
 type streamSender interface {
 	Send(*rangedbpb.Record) error
 }
 
 type rangeDBServer struct {
-	store rangedb.Store
+	rangedbpb.UnimplementedRangeDBServer
+	store           rangedb.Store
+	bufferedRecords chan *rangedb.Record
+	stopChan        chan struct{}
 
 	sync                     sync.RWMutex
 	allEventConnections      map[PbRecordSender]*uint64
 	aggregateTypeConnections map[string]map[PbRecordSender]*uint64
 
 	broadcastMutex sync.Mutex
-	rangedbpb.UnimplementedRangeDBServer
 }
 
 // Option defines functional option parameters for rangeDBServer.
@@ -44,8 +48,10 @@ func WithStore(store rangedb.Store) Option {
 func New(options ...Option) *rangeDBServer {
 	server := &rangeDBServer{
 		store:                    inmemorystore.New(),
+		stopChan:                 make(chan struct{}),
 		allEventConnections:      make(map[PbRecordSender]*uint64),
 		aggregateTypeConnections: make(map[string]map[PbRecordSender]*uint64),
+		bufferedRecords:          make(chan *rangedb.Record, recordBuffSize),
 	}
 
 	for _, option := range options {
@@ -53,14 +59,35 @@ func New(options ...Option) *rangeDBServer {
 	}
 
 	server.initProjections()
+	go server.startBroadcaster()
 
 	return server
 }
 
 func (s *rangeDBServer) initProjections() {
 	s.store.Subscribe(
-		rangedb.RecordSubscriberFunc(s.broadcastRecord),
+		rangedb.RecordSubscriberFunc(s.accept),
 	)
+}
+
+func (s *rangeDBServer) startBroadcaster() {
+	for {
+		select {
+		case <-s.stopChan:
+			return
+
+		default:
+			s.broadcastRecord(<-s.bufferedRecords)
+		}
+	}
+}
+
+func (s *rangeDBServer) accept(record *rangedb.Record) {
+	s.bufferedRecords <- record
+}
+
+func (s *rangeDBServer) Stop() {
+	close(s.stopChan)
 }
 
 func (s *rangeDBServer) Events(req *rangedbpb.EventsRequest, stream rangedbpb.RangeDB_EventsServer) error {
@@ -329,11 +356,7 @@ func (s *rangeDBServer) broadcastRecord(record *rangedb.Record) {
 		}
 	}
 
-	for aggregateType, connections := range s.aggregateTypeConnections {
-		if record.AggregateType != aggregateType {
-			continue
-		}
-
+	if connections, ok := s.aggregateTypeConnections[record.AggregateType]; ok {
 		for connection, latestGlobalSequenceNumber := range connections {
 			if latestGlobalSequenceNumber != nil && pbRecord.GlobalSequenceNumber <= *latestGlobalSequenceNumber {
 				continue

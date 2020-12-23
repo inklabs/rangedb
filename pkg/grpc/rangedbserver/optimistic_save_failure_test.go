@@ -17,6 +17,7 @@ import (
 	"github.com/inklabs/rangedb/pkg/jsontools"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
+	"github.com/inklabs/rangedb/rangedbtest"
 )
 
 func ExampleRangeDBServer_OptimisticSave_withOptimisticConcurrencyFailure() {
@@ -25,6 +26,7 @@ func ExampleRangeDBServer_OptimisticSave_withOptimisticConcurrencyFailure() {
 	inMemoryStore := inmemorystore.New(
 		inmemorystore.WithClock(sequentialclock.New()),
 	)
+	rangedbtest.BindEvents(inMemoryStore)
 
 	// Setup gRPC server
 	bufListener := bufconn.Listen(7)
@@ -47,6 +49,7 @@ func ExampleRangeDBServer_OptimisticSave_withOptimisticConcurrencyFailure() {
 		Close(conn)
 		cancel()
 		server.Stop()
+		rangeDBServer.Stop()
 	}()
 
 	// Setup gRPC client

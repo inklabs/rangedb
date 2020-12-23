@@ -27,6 +27,10 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 	inMemoryStore := inmemorystore.New(
 		inmemorystore.WithClock(sequentialclock.New()),
 	)
+	rangedbtest.BindEvents(inMemoryStore)
+	PrintError(inMemoryStore.Save(
+		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "9f5b723b51fe4703883bde0d6d6f3fa9", Number: 1}},
+	))
 
 	// Setup gRPC server
 	bufListener := bufconn.Listen(7)
@@ -49,6 +53,7 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 		Close(conn)
 		cancel()
 		server.Stop()
+		rangeDBServer.Stop()
 	}()
 
 	// Setup gRPC client
@@ -65,22 +70,10 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 	PrintError(err)
 
 	wg := &sync.WaitGroup{}
-	wg.Add(2)
-	go func() {
-		PrintError(inMemoryStore.Save(
-			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "52e247a7c0a54a65906e006dac9be108", Number: 100}},
-		))
-		PrintError(inMemoryStore.Save(
-			&rangedb.EventRecord{Event: rangedbtest.ThatWasDone{ID: "de33dd02222f443b86861a9fb4574ce9"}},
-		))
-		PrintError(inMemoryStore.Save(
-			&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a3d9faa7614a46b388c6dce9984b6620"}},
-		))
-		wg.Done()
-	}()
+	wg.Add(1)
 
 	go func() {
-		for i := 0; i < 2; i++ {
+		for i := 0; i < 3; i++ {
 			record, err := events.Recv()
 			PrintError(err)
 
@@ -91,23 +84,44 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 		}
 		wg.Done()
 	}()
+
+	PrintError(inMemoryStore.Save(
+		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "52e247a7c0a54a65906e006dac9be108", Number: 2}},
+	))
+	PrintError(inMemoryStore.Save(
+		&rangedb.EventRecord{Event: rangedbtest.ThatWasDone{ID: "de33dd02222f443b86861a9fb4574ce9"}},
+	))
+	PrintError(inMemoryStore.Save(
+		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a3d9faa7614a46b388c6dce9984b6620"}},
+	))
+
 	wg.Wait()
 
 	// Output:
 	// {
 	//   "AggregateType": "thing",
-	//   "AggregateID": "52e247a7c0a54a65906e006dac9be108",
+	//   "AggregateID": "9f5b723b51fe4703883bde0d6d6f3fa9",
 	//   "EventID": "d2ba8e70072943388203c438d4e94bf3",
 	//   "EventType": "ThingWasDone",
-	//   "Data": "{\"id\":\"52e247a7c0a54a65906e006dac9be108\",\"number\":100}",
+	//   "Data": "{\"id\":\"9f5b723b51fe4703883bde0d6d6f3fa9\",\"number\":1}",
+	//   "Metadata": "null"
+	// }
+	// {
+	//   "AggregateType": "thing",
+	//   "AggregateID": "52e247a7c0a54a65906e006dac9be108",
+	//   "GlobalSequenceNumber": 1,
+	//   "InsertTimestamp": 1,
+	//   "EventID": "99cbd88bbcaf482ba1cc96ed12541707",
+	//   "EventType": "ThingWasDone",
+	//   "Data": "{\"id\":\"52e247a7c0a54a65906e006dac9be108\",\"number\":2}",
 	//   "Metadata": "null"
 	// }
 	// {
 	//   "AggregateType": "another",
 	//   "AggregateID": "a3d9faa7614a46b388c6dce9984b6620",
-	//   "GlobalSequenceNumber": 2,
-	//   "InsertTimestamp": 2,
-	//   "EventID": "2e9e6918af10498cb7349c89a351fdb7",
+	//   "GlobalSequenceNumber": 3,
+	//   "InsertTimestamp": 3,
+	//   "EventID": "5042958739514c948f776fc9f820bca0",
 	//   "EventType": "AnotherWasComplete",
 	//   "Data": "{\"id\":\"a3d9faa7614a46b388c6dce9984b6620\"}",
 	//   "Metadata": "null"

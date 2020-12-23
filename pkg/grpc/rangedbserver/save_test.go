@@ -46,6 +46,7 @@ func ExampleRangeDBServer_Save() {
 		Close(conn)
 		cancel()
 		server.Stop()
+		rangeDBServer.Stop()
 	}()
 
 	// Setup gRPC client
