@@ -79,7 +79,6 @@ func Test_Private_broadcastRecord(t *testing.T) {
 		api.broadcastRecord(record)
 
 		// Then
-		api.broadcastMutex.Lock()
 		assert.Equal(t, "unable to marshal record: json: unsupported value: +Inf\n", logBuffer.String())
 	})
 
