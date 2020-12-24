@@ -47,8 +47,8 @@ func Test_RemoteStore_VerifyStoreInterface(t *testing.T) {
 
 		t.Cleanup(func() {
 			require.NoError(t, conn.Close())
-			server.Stop()
 			rangeDBServer.Stop()
+			server.Stop()
 		})
 
 		store := remotestore.New(conn)

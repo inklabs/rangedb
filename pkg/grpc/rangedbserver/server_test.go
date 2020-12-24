@@ -516,7 +516,9 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 func getClient(t *testing.T, store rangedb.Store) rangedbpb.RangeDBClient {
 	bufListener := bufconn.Listen(7)
 	server := grpc.NewServer()
+	t.Cleanup(server.Stop)
 	rangeDBServer := rangedbserver.New(rangedbserver.WithStore(store))
+	t.Cleanup(rangeDBServer.Stop)
 	rangedbpb.RegisterRangeDBServer(server, rangeDBServer)
 
 	go func() {
@@ -532,11 +534,8 @@ func getClient(t *testing.T, store rangedb.Store) rangedbpb.RangeDBClient {
 	ctx := rangedbtest.TimeoutContext(t)
 	conn, err := grpc.DialContext(ctx, "bufnet", dialer, grpc.WithInsecure(), grpc.WithBlock())
 	require.NoError(t, err)
-
 	t.Cleanup(func() {
 		require.NoError(t, conn.Close())
-		server.Stop()
-		rangeDBServer.Stop()
 	})
 
 	return rangedbpb.NewRangeDBClient(conn)

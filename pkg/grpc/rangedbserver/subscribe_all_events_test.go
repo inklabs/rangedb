@@ -32,7 +32,9 @@ func ExampleRangeDBServer_SubscribeToEvents() {
 	// Setup gRPC server
 	bufListener := bufconn.Listen(7)
 	server := grpc.NewServer()
+	defer server.Stop()
 	rangeDBServer := rangedbserver.New(rangedbserver.WithStore(inMemoryStore))
+	defer rangeDBServer.Stop()
 	rangedbpb.RegisterRangeDBServer(server, rangeDBServer)
 	go func() {
 		PrintError(server.Serve(bufListener))
@@ -43,15 +45,10 @@ func ExampleRangeDBServer_SubscribeToEvents() {
 		return bufListener.Dial()
 	})
 	connCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	conn, err := grpc.DialContext(connCtx, "bufnet", dialer, grpc.WithInsecure(), grpc.WithBlock())
 	PrintError(err)
-
-	defer func() {
-		Close(conn)
-		cancel()
-		server.Stop()
-		rangeDBServer.Stop()
-	}()
+	defer Close(conn)
 
 	// Setup gRPC client
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
@@ -65,7 +62,7 @@ func ExampleRangeDBServer_SubscribeToEvents() {
 	events, err := rangeDBClient.SubscribeToEvents(ctx, request)
 	PrintError(err)
 
-	wg := &sync.WaitGroup{}
+	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
 		for i := 0; i < 2; i++ {

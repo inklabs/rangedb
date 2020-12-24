@@ -22,6 +22,7 @@ func Example_streamAllEvents() {
 	shortuuid.SetRand(100)
 	inMemoryStore := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 	websocketApi := rangedbws.New(rangedbws.WithStore(inMemoryStore))
+	defer websocketApi.Stop()
 
 	server := httptest.NewServer(websocketApi)
 	defer server.Close()
@@ -31,7 +32,7 @@ func Example_streamAllEvents() {
 	socket, _, err := websocket.DefaultDialer.Dial(websocketUrl, nil)
 	PrintError(err)
 
-	wg := &sync.WaitGroup{}
+	var wg sync.WaitGroup
 	wg.Add(1)
 
 	go func() {

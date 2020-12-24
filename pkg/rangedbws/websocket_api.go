@@ -17,15 +17,21 @@ import (
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 )
 
+const recordBuffSize = 100
+
+type void struct{}
+
 type websocketAPI struct {
-	store    rangedb.Store
-	handler  http.Handler
-	upgrader *websocket.Upgrader
-	logger   *log.Logger
+	store           rangedb.Store
+	handler         http.Handler
+	upgrader        *websocket.Upgrader
+	logger          *log.Logger
+	bufferedRecords chan *rangedb.Record
+	stopChan        chan void
 
 	sync                     sync.RWMutex
-	allEventConnections      map[*websocket.Conn]struct{}
-	aggregateTypeConnections map[string]map[*websocket.Conn]struct{}
+	allEventConnections      map[*websocket.Conn]void
+	aggregateTypeConnections map[string]map[*websocket.Conn]void
 
 	broadcastMutex sync.Mutex
 }
@@ -56,8 +62,10 @@ func New(options ...Option) *websocketAPI {
 			WriteBufferSize: 1024,
 		},
 		logger:                   log.New(ioutil.Discard, "", 0),
-		allEventConnections:      make(map[*websocket.Conn]struct{}),
-		aggregateTypeConnections: make(map[string]map[*websocket.Conn]struct{}),
+		bufferedRecords:          make(chan *rangedb.Record, recordBuffSize),
+		stopChan:                 make(chan void),
+		allEventConnections:      make(map[*websocket.Conn]void),
+		aggregateTypeConnections: make(map[string]map[*websocket.Conn]void),
 	}
 
 	for _, option := range options {
@@ -66,6 +74,7 @@ func New(options ...Option) *websocketAPI {
 
 	api.initRoutes()
 	api.initProjections()
+	go api.startBroadcaster()
 
 	return api
 }
@@ -79,8 +88,28 @@ func (a *websocketAPI) initRoutes() {
 
 func (a *websocketAPI) initProjections() {
 	a.store.Subscribe(
-		rangedb.RecordSubscriberFunc(a.broadcastRecord),
+		rangedb.RecordSubscriberFunc(a.accept),
 	)
+}
+
+func (a *websocketAPI) startBroadcaster() {
+	for {
+		select {
+		case <-a.stopChan:
+			return
+
+		default:
+			a.broadcastRecord(<-a.bufferedRecords)
+		}
+	}
+}
+
+func (a *websocketAPI) accept(record *rangedb.Record) {
+	a.bufferedRecords <- record
+}
+
+func (a *websocketAPI) Stop() {
+	close(a.stopChan)
 }
 
 func (a *websocketAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -164,7 +193,7 @@ func (a *websocketAPI) SubscribeToEventsByAggregateTypes(w http.ResponseWriter, 
 
 func (a *websocketAPI) subscribeToAllEvents(conn *websocket.Conn) {
 	a.sync.Lock()
-	a.allEventConnections[conn] = struct{}{}
+	a.allEventConnections[conn] = void{}
 	a.sync.Unlock()
 }
 
@@ -182,10 +211,10 @@ func (a *websocketAPI) subscribeToAggregateTypes(conn *websocket.Conn, aggregate
 
 	for _, aggregateType := range aggregateTypes {
 		if _, ok := a.aggregateTypeConnections[aggregateType]; !ok {
-			a.aggregateTypeConnections[aggregateType] = make(map[*websocket.Conn]struct{})
+			a.aggregateTypeConnections[aggregateType] = make(map[*websocket.Conn]void)
 		}
 
-		a.aggregateTypeConnections[aggregateType][conn] = struct{}{}
+		a.aggregateTypeConnections[aggregateType][conn] = void{}
 	}
 
 	a.sync.Unlock()
@@ -205,32 +234,32 @@ func (a *websocketAPI) unsubscribeFromAggregateTypes(conn *websocket.Conn, aggre
 
 func (a *websocketAPI) broadcastRecord(record *rangedb.Record) {
 	a.broadcastMutex.Lock()
-	go func() {
-		defer a.broadcastMutex.Unlock()
+	defer a.broadcastMutex.Unlock()
 
-		jsonEvent, err := json.Marshal(record)
+	jsonEvent, err := json.Marshal(record)
+	if err != nil {
+		a.logger.Printf("unable to marshal record: %v", err)
+		return
+	}
+
+	a.sync.RLock()
+	defer a.sync.RUnlock()
+
+	for connection := range a.allEventConnections {
+		err := a.sendMessage(connection, jsonEvent)
 		if err != nil {
-			a.logger.Printf("unable to marshal record: %v", err)
-			return
+			log.Printf("unable to send record to WebSocket client: %v", err)
 		}
+	}
 
-		a.sync.RLock()
-		defer a.sync.RUnlock()
-
-		for connection := range a.allEventConnections {
-			_ = a.sendMessage(connection, jsonEvent)
-		}
-
-		for aggregateType, connections := range a.aggregateTypeConnections {
-			if record.AggregateType != aggregateType {
-				continue
-			}
-
-			for connection := range connections {
-				_ = a.sendMessage(connection, jsonEvent)
+	if connections, ok := a.aggregateTypeConnections[record.AggregateType]; ok {
+		for connection := range connections {
+			err := a.sendMessage(connection, jsonEvent)
+			if err != nil {
+				log.Printf("unable to send record to WebSocket client: %v", err)
 			}
 		}
-	}()
+	}
 }
 
 // MessageWriter is the interface for writing a message to a connection

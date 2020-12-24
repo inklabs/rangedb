@@ -22,6 +22,7 @@ func Example_streamAggregateTypeEvents() {
 	shortuuid.SetRand(100)
 	inMemoryStore := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 	api := rangedbws.New(rangedbws.WithStore(inMemoryStore))
+	defer api.Stop()
 
 	server := httptest.NewServer(api)
 	defer server.Close()
@@ -31,7 +32,7 @@ func Example_streamAggregateTypeEvents() {
 	socket, _, err := websocket.DefaultDialer.Dial(websocketUrl, nil)
 	PrintError(err)
 
-	wg := &sync.WaitGroup{}
+	var wg sync.WaitGroup
 	wg.Add(1)
 
 	go func() {

@@ -30,7 +30,9 @@ func ExampleRangeDBServer_OptimisticSave() {
 	// Setup gRPC server
 	bufListener := bufconn.Listen(7)
 	server := grpc.NewServer()
+	defer server.Stop()
 	rangeDBServer := rangedbserver.New(rangedbserver.WithStore(inMemoryStore))
+	defer rangeDBServer.Stop()
 	rangedbpb.RegisterRangeDBServer(server, rangeDBServer)
 	go func() {
 		PrintError(server.Serve(bufListener))
@@ -41,15 +43,10 @@ func ExampleRangeDBServer_OptimisticSave() {
 		return bufListener.Dial()
 	})
 	connCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 	conn, err := grpc.DialContext(connCtx, "bufnet", dialer, grpc.WithInsecure(), grpc.WithBlock())
 	PrintError(err)
-
-	defer func() {
-		Close(conn)
-		cancel()
-		server.Stop()
-		rangeDBServer.Stop()
-	}()
+	defer Close(conn)
 
 	// Setup gRPC client
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)

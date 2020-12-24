@@ -27,6 +27,7 @@ func Test_Private_writeEventsToConnection_Fails(t *testing.T) {
 			WithStore(inmemorystore.New()),
 			WithLogger(logger),
 		)
+		t.Cleanup(api.Stop)
 
 		// When
 		total, err := api.writeEventsToConnection(nil, events)
@@ -49,6 +50,7 @@ func Test_Private_writeEventsToConnection_Fails(t *testing.T) {
 			WithStore(inmemorystore.New()),
 			WithLogger(logger),
 		)
+		t.Cleanup(api.Stop)
 
 		// When
 		totalWritten, _ := api.writeEventsToConnection(conn, events)
@@ -68,6 +70,7 @@ func Test_Private_broadcastRecord(t *testing.T) {
 			WithStore(inmemorystore.New()),
 			WithLogger(logger),
 		)
+		t.Cleanup(api.Stop)
 		record := &rangedb.Record{
 			Data: math.Inf(1),
 		}

@@ -106,6 +106,9 @@ func main() {
 	fmt.Println("Shutting down gRPC server")
 	gRPCServer.Stop()
 
+	fmt.Println("Shutting down RangeDB WebSocket server")
+	websocketAPI.Stop()
+
 	fmt.Println("Shutting down HTTP server")
 	err = httpServer.Shutdown(context.Background())
 	if err != nil {

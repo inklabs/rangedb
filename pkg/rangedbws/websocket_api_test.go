@@ -30,6 +30,7 @@ func Test_WebsocketApi_SubscribeToAllEvents_ReadsEventsOverWebsocket(t *testing.
 	require.NoError(t, store.Save(&rangedb.EventRecord{Event: event1}))
 	require.NoError(t, store.Save(&rangedb.EventRecord{Event: event2}))
 	api := rangedbws.New(rangedbws.WithStore(store))
+	t.Cleanup(api.Stop)
 	server := httptest.NewServer(api)
 	t.Cleanup(server.Close)
 
@@ -84,6 +85,7 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
 		api := rangedbws.New(rangedbws.WithStore(store))
+		t.Cleanup(api.Stop)
 		request := httptest.NewRequest(http.MethodGet, "/events", nil)
 		response := httptest.NewRecorder()
 
@@ -99,6 +101,7 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
 		api := rangedbws.New(rangedbws.WithStore(store))
+		t.Cleanup(api.Stop)
 		request := httptest.NewRequest(http.MethodGet, "/events/thing", nil)
 		response := httptest.NewRecorder()
 
@@ -118,6 +121,7 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 			&rangedb.EventRecord{Event: event},
 		))
 		api := rangedbws.New(rangedbws.WithStore(store))
+		t.Cleanup(api.Stop)
 		server := httptest.NewServer(api)
 		t.Cleanup(server.Close)
 

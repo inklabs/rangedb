@@ -15,21 +15,23 @@ import (
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 )
 
-const recordBuffSize = 500
+const recordBuffSize = 100
 
 type streamSender interface {
 	Send(*rangedbpb.Record) error
 }
 
+type void struct{}
+
 type rangeDBServer struct {
 	rangedbpb.UnimplementedRangeDBServer
 	store           rangedb.Store
 	bufferedRecords chan *rangedb.Record
-	stopChan        chan struct{}
+	stopChan        chan void
 
 	sync                     sync.RWMutex
-	allEventConnections      map[PbRecordSender]*uint64
-	aggregateTypeConnections map[string]map[PbRecordSender]*uint64
+	allEventConnections      map[PbRecordSender]void
+	aggregateTypeConnections map[string]map[PbRecordSender]void
 
 	broadcastMutex sync.Mutex
 }
@@ -48,10 +50,10 @@ func WithStore(store rangedb.Store) Option {
 func New(options ...Option) *rangeDBServer {
 	server := &rangeDBServer{
 		store:                    inmemorystore.New(),
-		stopChan:                 make(chan struct{}),
-		allEventConnections:      make(map[PbRecordSender]*uint64),
-		aggregateTypeConnections: make(map[string]map[PbRecordSender]*uint64),
 		bufferedRecords:          make(chan *rangedb.Record, recordBuffSize),
+		stopChan:                 make(chan void),
+		allEventConnections:      make(map[PbRecordSender]void),
+		aggregateTypeConnections: make(map[string]map[PbRecordSender]void),
 	}
 
 	for _, option := range options {
@@ -239,7 +241,7 @@ func (s *rangeDBServer) Save(_ context.Context, req *rangedbpb.SaveRequest) (*ra
 }
 
 func (s *rangeDBServer) SubscribeToLiveEvents(_ *rangedbpb.SubscribeToLiveEventsRequest, stream rangedbpb.RangeDB_SubscribeToLiveEventsServer) error {
-	s.subscribeToAllEvents(stream, nil)
+	s.subscribeToAllEvents(stream)
 	<-stream.Context().Done()
 	s.unsubscribeFromAllEvents(stream)
 
@@ -247,19 +249,19 @@ func (s *rangeDBServer) SubscribeToLiveEvents(_ *rangedbpb.SubscribeToLiveEvents
 }
 
 func (s *rangeDBServer) SubscribeToEvents(req *rangedbpb.SubscribeToEventsRequest, stream rangedbpb.RangeDB_SubscribeToEventsServer) error {
-	total, latestGlobalSequenceNumber, err := s.writeEventsToStream(stream, s.store.EventsStartingWith(stream.Context(), req.StartingWithEventNumber))
+	total, err := s.writeEventsToStream(stream, s.store.EventsStartingWith(stream.Context(), req.StartingWithEventNumber))
 	if err != nil {
 		return err
 	}
 
 	s.broadcastMutex.Lock()
-	total, latestGlobalSequenceNumber, err = s.writeEventsToStream(stream, s.store.EventsStartingWith(stream.Context(), total+1))
+	total, err = s.writeEventsToStream(stream, s.store.EventsStartingWith(stream.Context(), total+1))
 	if err != nil {
 		s.broadcastMutex.Unlock()
 		return err
 	}
 
-	s.subscribeToAllEvents(stream, latestGlobalSequenceNumber)
+	s.subscribeToAllEvents(stream)
 	s.broadcastMutex.Unlock()
 
 	<-stream.Context().Done()
@@ -268,9 +270,9 @@ func (s *rangeDBServer) SubscribeToEvents(req *rangedbpb.SubscribeToEventsReques
 	return nil
 }
 
-func (s *rangeDBServer) subscribeToAllEvents(stream rangedbpb.RangeDB_SubscribeToEventsServer, latestGlobalSequenceNumber *uint64) {
+func (s *rangeDBServer) subscribeToAllEvents(stream rangedbpb.RangeDB_SubscribeToEventsServer) {
 	s.sync.Lock()
-	s.allEventConnections[stream] = latestGlobalSequenceNumber
+	s.allEventConnections[stream] = void{}
 	s.sync.Unlock()
 }
 
@@ -281,19 +283,19 @@ func (s *rangeDBServer) unsubscribeFromAllEvents(stream rangedbpb.RangeDB_Subscr
 }
 
 func (s *rangeDBServer) SubscribeToEventsByAggregateType(req *rangedbpb.SubscribeToEventsByAggregateTypeRequest, stream rangedbpb.RangeDB_SubscribeToEventsByAggregateTypeServer) error {
-	total, latestGlobalSequenceNumber, err := s.writeEventsToStream(stream, s.store.EventsByAggregateTypesStartingWith(stream.Context(), req.StartingWithEventNumber, req.AggregateTypes...))
+	total, err := s.writeEventsToStream(stream, s.store.EventsByAggregateTypesStartingWith(stream.Context(), req.StartingWithEventNumber, req.AggregateTypes...))
 	if err != nil {
 		return err
 	}
 
 	s.broadcastMutex.Lock()
-	total, latestGlobalSequenceNumber, err = s.writeEventsToStream(stream, s.store.EventsByAggregateTypesStartingWith(stream.Context(), total+1, req.AggregateTypes...))
+	total, err = s.writeEventsToStream(stream, s.store.EventsByAggregateTypesStartingWith(stream.Context(), total+1, req.AggregateTypes...))
 	if err != nil {
 		s.broadcastMutex.Unlock()
 		return err
 	}
 
-	s.subscribeToAggregateTypes(stream, req.AggregateTypes, latestGlobalSequenceNumber)
+	s.subscribeToAggregateTypes(stream, req.AggregateTypes)
 	s.broadcastMutex.Unlock()
 
 	<-stream.Context().Done()
@@ -309,15 +311,15 @@ func (s *rangeDBServer) TotalEventsInStream(_ context.Context, request *rangedbp
 	}, nil
 }
 
-func (s *rangeDBServer) subscribeToAggregateTypes(stream rangedbpb.RangeDB_SubscribeToEventsByAggregateTypeServer, aggregateTypes []string, latestGlobalSequenceNumber *uint64) {
+func (s *rangeDBServer) subscribeToAggregateTypes(stream rangedbpb.RangeDB_SubscribeToEventsByAggregateTypeServer, aggregateTypes []string) {
 	s.sync.Lock()
 
 	for _, aggregateType := range aggregateTypes {
 		if _, ok := s.aggregateTypeConnections[aggregateType]; !ok {
-			s.aggregateTypeConnections[aggregateType] = make(map[PbRecordSender]*uint64)
+			s.aggregateTypeConnections[aggregateType] = make(map[PbRecordSender]void)
 		}
 
-		s.aggregateTypeConnections[aggregateType][stream] = latestGlobalSequenceNumber
+		s.aggregateTypeConnections[aggregateType][stream] = void{}
 	}
 
 	s.sync.Unlock()
@@ -344,12 +346,9 @@ func (s *rangeDBServer) broadcastRecord(record *rangedb.Record) {
 	}
 
 	s.sync.RLock()
+	defer s.sync.RUnlock()
 
-	for connection, latestGlobalSequenceNumber := range s.allEventConnections {
-		if latestGlobalSequenceNumber != nil && pbRecord.GlobalSequenceNumber <= *latestGlobalSequenceNumber {
-			continue
-		}
-
+	for connection := range s.allEventConnections {
 		err := connection.Send(pbRecord)
 		if err != nil {
 			log.Printf("unable to send record to gRPC client: %v", err)
@@ -357,39 +356,31 @@ func (s *rangeDBServer) broadcastRecord(record *rangedb.Record) {
 	}
 
 	if connections, ok := s.aggregateTypeConnections[record.AggregateType]; ok {
-		for connection, latestGlobalSequenceNumber := range connections {
-			if latestGlobalSequenceNumber != nil && pbRecord.GlobalSequenceNumber <= *latestGlobalSequenceNumber {
-				continue
-			}
-
+		for connection := range connections {
 			err := connection.Send(pbRecord)
 			if err != nil {
 				log.Printf("unable to send record to gRPC client: %v", err)
 			}
 		}
 	}
-
-	s.sync.RUnlock()
 }
 
-func (s *rangeDBServer) writeEventsToStream(stream streamSender, records <-chan *rangedb.Record) (uint64, *uint64, error) {
-	var latestGlobalSequenceNumber *uint64
+func (s *rangeDBServer) writeEventsToStream(stream streamSender, records <-chan *rangedb.Record) (uint64, error) {
 	totalWritten := uint64(0)
 	for record := range records {
 		pbRecord, err := rangedbpb.ToPbRecord(record)
 		if err != nil {
-			return totalWritten, latestGlobalSequenceNumber, err
+			return totalWritten, err
 		}
 
 		err = stream.Send(pbRecord)
 		if err != nil {
-			return totalWritten, latestGlobalSequenceNumber, err
+			return totalWritten, err
 		}
-		latestGlobalSequenceNumber = &record.GlobalSequenceNumber
 		totalWritten++
 	}
 
-	return totalWritten, latestGlobalSequenceNumber, nil
+	return totalWritten, nil
 }
 
 type PbRecordSender interface {
