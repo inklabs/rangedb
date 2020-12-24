@@ -51,7 +51,7 @@ func main() {
 	api := rangedbapi.New(
 		rangedbapi.WithStore(leveldbStore),
 		rangedbapi.WithBaseUri(*baseUri+"/api"),
-		rangedbapi.WithSnapshotStore(projection.NewDiskSnapshotStore(snapshotBasePath())),
+		rangedbapi.WithSnapshotStore(projection.NewDiskSnapshotStore(snapshotBasePath(*dbPath))),
 	)
 	websocketAPI := rangedbws.New(
 		rangedbws.WithStore(leveldbStore),
@@ -137,11 +137,11 @@ func serveGRPC(srv *grpc.Server, gRPCPort int) {
 	}
 }
 
-func snapshotBasePath() string {
-	snapshotBasePath := fmt.Sprintf("%sshapshots", os.TempDir())
-	err := os.Mkdir(snapshotBasePath, 0700)
+func snapshotBasePath(dbPath string) string {
+	snapshotBasePath := fmt.Sprintf("%s%s/shapshots", os.TempDir(), dbPath)
+	err := os.MkdirAll(snapshotBasePath, 0700)
 	if err != nil && os.IsNotExist(err) {
-		log.Printf("unable to create snapshot directory: %v", err)
+		log.Fatalf("unable to create snapshot directory: %v", err)
 	}
 	return snapshotBasePath
 }

@@ -97,10 +97,7 @@ func (a *api) initProjections() {
 	eventNumber := uint64(0)
 
 	if a.snapshotStore != nil {
-		err := a.snapshotStore.Load(a.projections.aggregateTypeStats)
-		if err != nil {
-			log.Print(err)
-		}
+		_ = a.snapshotStore.Load(a.projections.aggregateTypeStats)
 
 		if a.projections.aggregateTypeStats.TotalEvents() > 0 {
 			eventNumber = a.projections.aggregateTypeStats.LatestGlobalSequenceNumber() + 1
