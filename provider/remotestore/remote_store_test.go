@@ -57,3 +57,40 @@ func Test_RemoteStore_VerifyStoreInterface(t *testing.T) {
 		return store
 	})
 }
+
+func BenchmarkRemoteStore(b *testing.B) {
+	rangedbtest.StoreBenchmark(b, func() rangedb.Store {
+		inMemoryStore := inmemorystore.New()
+		rangedbtest.BindEvents(inMemoryStore)
+
+		bufListener := bufconn.Listen(7)
+		server := grpc.NewServer()
+		rangeDBServer := rangedbserver.New(rangedbserver.WithStore(inMemoryStore))
+		rangedbpb.RegisterRangeDBServer(server, rangeDBServer)
+
+		go func() {
+			if err := server.Serve(bufListener); err != nil {
+				log.Printf("panic [%s] %v", b.Name(), err)
+				b.Fail()
+			}
+		}()
+
+		dialer := grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+			return bufListener.Dial()
+		})
+		ctx := rangedbtest.TimeoutContext(b)
+		conn, err := grpc.DialContext(ctx, "bufnet", dialer, grpc.WithInsecure(), grpc.WithBlock())
+		require.NoError(b, err)
+
+		b.Cleanup(func() {
+			require.NoError(b, conn.Close())
+			rangeDBServer.Stop()
+			server.Stop()
+		})
+
+		store := remotestore.New(conn)
+		rangedbtest.BindEvents(store)
+
+		return store
+	})
+}

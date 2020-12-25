@@ -25,6 +25,14 @@ func Test_InMemory_VerifyStoreInterface(t *testing.T) {
 	})
 }
 
+func BenchmarkInMemoryStore(b *testing.B) {
+	rangedbtest.StoreBenchmark(b, func() rangedb.Store {
+		store := inmemorystore.New()
+		rangedbtest.BindEvents(store)
+		return store
+	})
+}
+
 func Test_Failures(t *testing.T) {
 	t.Run("SaveEvent fails when serialize fails", func(t *testing.T) {
 		// Given

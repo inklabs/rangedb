@@ -37,6 +37,23 @@ func Test_LevelDB_VerifyStoreInterface(t *testing.T) {
 	})
 }
 
+func BenchmarkLevelDBStore(b *testing.B) {
+	rangedbtest.StoreBenchmark(b, func() rangedb.Store {
+		dbPath, err := ioutil.TempDir("", "test-events-")
+		require.NoError(b, err)
+
+		b.Cleanup(func() {
+			require.NoError(b, os.RemoveAll(dbPath))
+		})
+
+		store, err := leveldbstore.New(dbPath)
+		require.NoError(b, err)
+		rangedbtest.BindEvents(store)
+
+		return store
+	})
+}
+
 func Test_Failures(t *testing.T) {
 	t.Run("unable to create store when path is an existing file", func(t *testing.T) {
 		// Given
