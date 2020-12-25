@@ -94,19 +94,19 @@ func (a *api) initRoutes() {
 
 func (a *api) initProjections() {
 	a.projections.aggregateTypeStats = projection.NewAggregateTypeStats()
-	eventNumber := uint64(0)
+	globalSequenceNumber := uint64(0)
 
 	if a.snapshotStore != nil {
 		_ = a.snapshotStore.Load(a.projections.aggregateTypeStats)
 
 		if a.projections.aggregateTypeStats.TotalEvents() > 0 {
-			eventNumber = a.projections.aggregateTypeStats.LatestGlobalSequenceNumber() + 1
+			globalSequenceNumber = a.projections.aggregateTypeStats.LatestGlobalSequenceNumber() + 1
 		}
 	}
 
 	a.store.SubscribeStartingWith(
 		context.Background(),
-		eventNumber,
+		globalSequenceNumber,
 		a.projections.aggregateTypeStats,
 	)
 

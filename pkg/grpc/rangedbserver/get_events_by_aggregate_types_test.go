@@ -61,8 +61,8 @@ func ExampleRangeDBServer_EventsByAggregateType() {
 	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
 	defer done()
 	request := &rangedbpb.EventsByAggregateTypeRequest{
-		StartingWithEventNumber: 0,
-		AggregateTypes:          []string{"thing", "another"},
+		GlobalSequenceNumber: 0,
+		AggregateTypes:       []string{"thing", "another"},
 	}
 
 	// When

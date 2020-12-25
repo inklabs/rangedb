@@ -47,7 +47,7 @@ func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 		rangeDBClient := getClient(t, store)
 		ctx := rangedbtest.TimeoutContext(t)
 		eventsRequest := &rangedbpb.EventsRequest{
-			StartingWithEventNumber: 0,
+			GlobalSequenceNumber: 0,
 		}
 
 		// When
@@ -194,7 +194,7 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 		rangeDBClient := getClient(t, store)
 		ctx := rangedbtest.TimeoutContext(t)
 		request := &rangedbpb.SubscribeToEventsRequest{
-			StartingWithEventNumber: 1,
+			GlobalSequenceNumber: 1,
 		}
 
 		// When
@@ -276,8 +276,8 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 		rangeDBClient := getClient(t, store)
 		ctx := rangedbtest.TimeoutContext(t)
 		request := &rangedbpb.SubscribeToEventsByAggregateTypeRequest{
-			StartingWithEventNumber: 1,
-			AggregateTypes:          []string{"thing", "another"},
+			GlobalSequenceNumber: 1,
+			AggregateTypes:       []string{"thing", "another"},
 		}
 
 		// When

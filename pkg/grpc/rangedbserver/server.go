@@ -93,7 +93,7 @@ func (s *rangeDBServer) Stop() {
 }
 
 func (s *rangeDBServer) Events(req *rangedbpb.EventsRequest, stream rangedbpb.RangeDB_EventsServer) error {
-	for record := range s.store.EventsStartingWith(stream.Context(), req.StartingWithEventNumber) {
+	for record := range s.store.EventsStartingWith(stream.Context(), req.GlobalSequenceNumber) {
 		pbRecord, err := rangedbpb.ToPbRecord(record)
 		if err != nil {
 			return err
@@ -109,7 +109,7 @@ func (s *rangeDBServer) Events(req *rangedbpb.EventsRequest, stream rangedbpb.Ra
 }
 
 func (s *rangeDBServer) EventsByStream(req *rangedbpb.EventsByStreamRequest, stream rangedbpb.RangeDB_EventsByStreamServer) error {
-	for record := range s.store.EventsByStreamStartingWith(stream.Context(), req.StartingWithEventNumber, req.StreamName) {
+	for record := range s.store.EventsByStreamStartingWith(stream.Context(), req.StreamSequenceNumber, req.StreamName) {
 		pbRecord, err := rangedbpb.ToPbRecord(record)
 		if err != nil {
 			return err
@@ -125,7 +125,7 @@ func (s *rangeDBServer) EventsByStream(req *rangedbpb.EventsByStreamRequest, str
 }
 
 func (s *rangeDBServer) EventsByAggregateType(req *rangedbpb.EventsByAggregateTypeRequest, stream rangedbpb.RangeDB_EventsByAggregateTypeServer) error {
-	for record := range s.store.EventsByAggregateTypesStartingWith(stream.Context(), req.StartingWithEventNumber, req.AggregateTypes...) {
+	for record := range s.store.EventsByAggregateTypesStartingWith(stream.Context(), req.GlobalSequenceNumber, req.AggregateTypes...) {
 		pbRecord, err := rangedbpb.ToPbRecord(record)
 		if err != nil {
 			return err
@@ -249,7 +249,7 @@ func (s *rangeDBServer) SubscribeToLiveEvents(_ *rangedbpb.SubscribeToLiveEvents
 }
 
 func (s *rangeDBServer) SubscribeToEvents(req *rangedbpb.SubscribeToEventsRequest, stream rangedbpb.RangeDB_SubscribeToEventsServer) error {
-	total, err := s.writeEventsToStream(stream, s.store.EventsStartingWith(stream.Context(), req.StartingWithEventNumber))
+	total, err := s.writeEventsToStream(stream, s.store.EventsStartingWith(stream.Context(), req.GlobalSequenceNumber))
 	if err != nil {
 		return err
 	}
@@ -283,7 +283,7 @@ func (s *rangeDBServer) unsubscribeFromAllEvents(stream rangedbpb.RangeDB_Subscr
 }
 
 func (s *rangeDBServer) SubscribeToEventsByAggregateType(req *rangedbpb.SubscribeToEventsByAggregateTypeRequest, stream rangedbpb.RangeDB_SubscribeToEventsByAggregateTypeServer) error {
-	total, err := s.writeEventsToStream(stream, s.store.EventsByAggregateTypesStartingWith(stream.Context(), req.StartingWithEventNumber, req.AggregateTypes...))
+	total, err := s.writeEventsToStream(stream, s.store.EventsByAggregateTypesStartingWith(stream.Context(), req.GlobalSequenceNumber, req.AggregateTypes...))
 	if err != nil {
 		return err
 	}

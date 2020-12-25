@@ -62,7 +62,7 @@ func ExampleRangeDBServer_Events() {
 	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
 	defer done()
 	eventsRequest := &rangedbpb.EventsRequest{
-		StartingWithEventNumber: 0,
+		GlobalSequenceNumber: 0,
 	}
 
 	// When

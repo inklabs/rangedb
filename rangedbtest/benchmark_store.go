@@ -6,17 +6,16 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/inklabs/rangedb"
 )
 
-func StoreBenchmark(b *testing.B, newStore func() rangedb.Store) {
+func StoreBenchmark(b *testing.B, newStore func(b *testing.B) rangedb.Store) {
 	for _, totalEvents := range []int{1, 5, 10, 50} {
 		eventRecords := getNEvents(totalEvents, "eb4b1c61fa344272a61e039cc4247258")
 		b.Run(fmt.Sprintf("Save %d at a time", totalEvents), func(b *testing.B) {
-			store := newStore()
+			store := newStore(b)
 			for i := 0; i < b.N; i++ {
 				err := store.Save(eventRecords...)
 				if err != nil {
@@ -26,7 +25,7 @@ func StoreBenchmark(b *testing.B, newStore func() rangedb.Store) {
 		})
 
 		b.Run(fmt.Sprintf("Optimistic Save %d at a time", totalEvents), func(b *testing.B) {
-			store := newStore()
+			store := newStore(b)
 			for i := 0; i < b.N; i++ {
 				err := store.OptimisticSave(uint64(i*totalEvents), eventRecords...)
 				if err != nil {
@@ -37,12 +36,12 @@ func StoreBenchmark(b *testing.B, newStore func() rangedb.Store) {
 	}
 
 	b.Run("Queries", func(b *testing.B) {
-		store := newStore()
+		store := newStore(b)
 		const (
-			totalEvents       = 10000
-			eventsPerStream   = 10
-			totalEventsToRead = 1000
-			eventNumber       = totalEvents - totalEventsToRead
+			totalEvents                  = 10000
+			eventsPerStream              = 10
+			totalEventsToRead            = 1000
+			startingGlobalSequenceNumber = totalEvents - totalEventsToRead
 		)
 
 		aggregateID := ""
@@ -56,23 +55,23 @@ func StoreBenchmark(b *testing.B, newStore func() rangedb.Store) {
 		ctx := context.Background()
 		b.Run("EventsStartingWith", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				records := store.EventsStartingWith(ctx, eventNumber)
+				records := store.EventsStartingWith(ctx, startingGlobalSequenceNumber)
 				cnt := 0
 				for range records {
 					cnt++
 				}
-				assert.Equal(b, totalEventsToRead, cnt)
+				require.Equal(b, totalEventsToRead, cnt)
 			}
 		})
 
 		b.Run("EventsByAggregateTypesStartingWith", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				records := store.EventsByAggregateTypesStartingWith(ctx, eventNumber, ThingWasDone{}.AggregateType())
+				records := store.EventsByAggregateTypesStartingWith(ctx, startingGlobalSequenceNumber, ThingWasDone{}.AggregateType())
 				cnt := 0
 				for range records {
 					cnt++
 				}
-				assert.Equal(b, totalEventsToRead, cnt)
+				require.Equal(b, totalEventsToRead, cnt)
 			}
 		})
 
@@ -84,7 +83,7 @@ func StoreBenchmark(b *testing.B, newStore func() rangedb.Store) {
 				for range records {
 					cnt++
 				}
-				assert.Equal(b, eventsPerStream, cnt)
+				require.Equal(b, eventsPerStream, cnt)
 			}
 		})
 
@@ -92,7 +91,7 @@ func StoreBenchmark(b *testing.B, newStore func() rangedb.Store) {
 			stream := rangedb.GetStream(ThingWasDone{}.AggregateType(), aggregateID)
 			for i := 0; i < b.N; i++ {
 				totalEventsInStream := store.TotalEventsInStream(stream)
-				assert.Equal(b, uint64(eventsPerStream), totalEventsInStream)
+				require.Equal(b, uint64(eventsPerStream), totalEventsInStream)
 			}
 		})
 	})

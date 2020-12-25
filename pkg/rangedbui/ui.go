@@ -94,11 +94,11 @@ func (a *webUI) aggregateType(w http.ResponseWriter, r *http.Request) {
 	aggregateTypeName := mux.Vars(r)["aggregateType"]
 	pagination := paging.NewPaginationFromQuery(r.URL.Query())
 
-	eventNumber := uint64(pagination.FirstRecordPosition())
+	globalSequenceNumber := uint64(pagination.FirstRecordPosition())
 	records := rangedb.ReadNRecords(
 		uint64(pagination.ItemsPerPage),
 		func(ctx context.Context) <-chan *rangedb.Record {
-			return a.store.EventsByAggregateTypesStartingWith(ctx, eventNumber, aggregateTypeName)
+			return a.store.EventsByAggregateTypesStartingWith(ctx, globalSequenceNumber, aggregateTypeName)
 		},
 	)
 
@@ -129,11 +129,11 @@ func (a *webUI) stream(w http.ResponseWriter, r *http.Request) {
 	pagination := paging.NewPaginationFromQuery(r.URL.Query())
 
 	streamName := rangedb.GetStream(aggregateTypeName, aggregateID)
-	eventNumber := uint64(pagination.FirstRecordPosition())
+	streamSequenceNumber := uint64(pagination.FirstRecordPosition())
 	records := rangedb.ReadNRecords(
 		uint64(pagination.ItemsPerPage),
 		func(ctx context.Context) <-chan *rangedb.Record {
-			return a.store.EventsByStreamStartingWith(ctx, eventNumber, streamName)
+			return a.store.EventsByStreamStartingWith(ctx, streamSequenceNumber, streamName)
 		},
 	)
 

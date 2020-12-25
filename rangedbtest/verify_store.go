@@ -71,6 +71,56 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			assert.Equal(t, (*rangedb.Record)(nil), <-records)
 		})
 
+		t.Run("returns 2 events from stream with 3 events", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			store := newStore(t, sequentialclock.New())
+			eventA1 := &ThingWasDone{ID: "A", Number: 1}
+			eventA2 := &ThingWasDone{ID: "A", Number: 2}
+			eventA3 := &ThingWasDone{ID: "A", Number: 3}
+			eventB := &ThingWasDone{ID: "B", Number: 3}
+			require.NoError(t, store.Save(
+				&rangedb.EventRecord{Event: eventA1},
+				&rangedb.EventRecord{Event: eventA2},
+				&rangedb.EventRecord{Event: eventA3},
+			))
+			require.NoError(t, store.Save(
+				&rangedb.EventRecord{Event: eventB},
+			))
+
+			ctx := context.Background()
+
+			// When
+			records := store.EventsByStreamStartingWith(ctx, 1, rangedb.GetEventStream(eventA1))
+
+			// Then
+			expectedRecord1 := &rangedb.Record{
+				AggregateType:        "thing",
+				AggregateID:          "A",
+				GlobalSequenceNumber: 1,
+				StreamSequenceNumber: 1,
+				EventType:            "ThingWasDone",
+				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+				InsertTimestamp:      1,
+				Data:                 eventA2,
+				Metadata:             nil,
+			}
+			expectedRecord2 := &rangedb.Record{
+				AggregateType:        "thing",
+				AggregateID:          "A",
+				GlobalSequenceNumber: 2,
+				StreamSequenceNumber: 2,
+				EventType:            "ThingWasDone",
+				EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+				InsertTimestamp:      2,
+				Data:                 eventA3,
+				Metadata:             nil,
+			}
+			assert.Equal(t, expectedRecord1, <-records)
+			assert.Equal(t, expectedRecord2, <-records)
+			assert.Equal(t, (*rangedb.Record)(nil), <-records)
+		})
+
 		t.Run("ordered by sequence number lexicographically", func(t *testing.T) {
 			// Given
 			const totalEventsToRequireBigEndian = 257
@@ -279,6 +329,55 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			assert.Equal(t, (*rangedb.Record)(nil), <-records)
 		})
 
+		t.Run("all events starting with 3rd global entry", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			store := newStore(t, sequentialclock.New())
+			eventA1 := &ThingWasDone{ID: "A", Number: 1}
+			eventA2 := &ThingWasDone{ID: "A", Number: 2}
+			eventB1 := &ThingWasDone{ID: "B", Number: 3}
+			eventB2 := &ThingWasDone{ID: "B", Number: 4}
+			require.NoError(t, store.Save(
+				&rangedb.EventRecord{Event: eventA1},
+				&rangedb.EventRecord{Event: eventA2},
+			))
+			require.NoError(t, store.Save(
+				&rangedb.EventRecord{Event: eventB1},
+				&rangedb.EventRecord{Event: eventB2},
+			))
+			ctx := context.Background()
+
+			// When
+			records := store.EventsStartingWith(ctx, 2)
+
+			// Then
+			expectedRecord1 := &rangedb.Record{
+				AggregateType:        "thing",
+				AggregateID:          "B",
+				GlobalSequenceNumber: 2,
+				StreamSequenceNumber: 0,
+				EventType:            "ThingWasDone",
+				EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+				InsertTimestamp:      2,
+				Data:                 eventB1,
+				Metadata:             nil,
+			}
+			expectedRecord2 := &rangedb.Record{
+				AggregateType:        "thing",
+				AggregateID:          "B",
+				GlobalSequenceNumber: 3,
+				StreamSequenceNumber: 1,
+				EventType:            "ThingWasDone",
+				EventID:              "5042958739514c948f776fc9f820bca0",
+				InsertTimestamp:      3,
+				Data:                 eventB2,
+				Metadata:             nil,
+			}
+			assert.Equal(t, expectedRecord1, <-records)
+			assert.Equal(t, expectedRecord2, <-records)
+			assert.Equal(t, (*rangedb.Record)(nil), <-records)
+		})
+
 		t.Run("all events starting with second entry, stops from context.Done", func(t *testing.T) {
 			// Given
 			shortuuid.SetRand(100)
@@ -462,6 +561,52 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				Metadata:             nil,
 			}
 			assert.Equal(t, expectedRecord, <-records)
+			assert.Equal(t, (*rangedb.Record)(nil), <-records)
+		})
+
+		t.Run("persists 2nd event after 1st", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			const aggregateID = "0e421791334146a7a0576c5b9f6649c9"
+			store := newStore(t, sequentialclock.New())
+			event1 := &ThingWasDone{ID: aggregateID, Number: 1}
+			event2 := &ThingWasDone{ID: aggregateID, Number: 2}
+			require.NoError(t, store.Save(&rangedb.EventRecord{Event: event1}))
+
+			// When
+			err := store.OptimisticSave(
+				1,
+				&rangedb.EventRecord{Event: event2},
+			)
+
+			// Then
+			require.NoError(t, err)
+			ctx := context.Background()
+			records := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event2))
+			expectedRecord1 := &rangedb.Record{
+				AggregateType:        event2.AggregateType(),
+				AggregateID:          event2.AggregateID(),
+				GlobalSequenceNumber: 0,
+				StreamSequenceNumber: 0,
+				EventType:            "ThingWasDone",
+				EventID:              "d2ba8e70072943388203c438d4e94bf3",
+				InsertTimestamp:      0,
+				Data:                 event1,
+				Metadata:             nil,
+			}
+			expectedRecord2 := &rangedb.Record{
+				AggregateType:        event2.AggregateType(),
+				AggregateID:          event2.AggregateID(),
+				GlobalSequenceNumber: 1,
+				StreamSequenceNumber: 1,
+				EventType:            "ThingWasDone",
+				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+				InsertTimestamp:      1,
+				Data:                 event2,
+				Metadata:             nil,
+			}
+			assert.Equal(t, expectedRecord1, <-records)
+			assert.Equal(t, expectedRecord2, <-records)
 			assert.Equal(t, (*rangedb.Record)(nil), <-records)
 		})
 

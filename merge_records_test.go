@@ -18,7 +18,7 @@ func Test_MergeRecordChannelsInOrder_CombinesTwoChannels(t *testing.T) {
 	}
 
 	// When
-	actualRecords := rangedb.MergeRecordChannelsInOrder(channels, 0)
+	actualRecords := rangedb.MergeRecordChannelsInOrder(channels)
 
 	// Then
 	assert.Equal(t, record1, <-actualRecords)
@@ -40,34 +40,10 @@ func Test_MergeRecordChannelsInOrder_CombinesThreeChannels_WithSequentialRecords
 	}
 
 	// When
-	actualRecords := rangedb.MergeRecordChannelsInOrder(channels, 0)
+	actualRecords := rangedb.MergeRecordChannelsInOrder(channels)
 
 	// Then
 	assert.Equal(t, record1, <-actualRecords)
-	assert.Equal(t, record2, <-actualRecords)
-	assert.Equal(t, record3, <-actualRecords)
-	assert.Equal(t, record4, <-actualRecords)
-	assert.Equal(t, record5, <-actualRecords)
-	assert.Nil(t, <-actualRecords)
-}
-
-func Test_MergeRecordChannelsInOrder_CombinesThreeChannels_StartingWithSecondRecord(t *testing.T) {
-	// Given
-	record1 := getRecord(1)
-	record2 := getRecord(2)
-	record3 := getRecord(3)
-	record4 := getRecord(4)
-	record5 := getRecord(5)
-	channels := []<-chan *rangedb.Record{
-		loadChannel(record1),
-		loadChannel(record2, record3, record4),
-		loadChannel(record5),
-	}
-
-	// When
-	actualRecords := rangedb.MergeRecordChannelsInOrder(channels, 1)
-
-	// Then
 	assert.Equal(t, record2, <-actualRecords)
 	assert.Equal(t, record3, <-actualRecords)
 	assert.Equal(t, record4, <-actualRecords)

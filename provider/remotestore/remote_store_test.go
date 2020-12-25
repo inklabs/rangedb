@@ -59,7 +59,7 @@ func Test_RemoteStore_VerifyStoreInterface(t *testing.T) {
 }
 
 func BenchmarkRemoteStore(b *testing.B) {
-	rangedbtest.StoreBenchmark(b, func() rangedb.Store {
+	rangedbtest.StoreBenchmark(b, func(b *testing.B) rangedb.Store {
 		inMemoryStore := inmemorystore.New()
 		rangedbtest.BindEvents(inMemoryStore)
 

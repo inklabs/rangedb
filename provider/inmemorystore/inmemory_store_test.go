@@ -26,7 +26,7 @@ func Test_InMemory_VerifyStoreInterface(t *testing.T) {
 }
 
 func BenchmarkInMemoryStore(b *testing.B) {
-	rangedbtest.StoreBenchmark(b, func() rangedb.Store {
+	rangedbtest.StoreBenchmark(b, func(b *testing.B) rangedb.Store {
 		store := inmemorystore.New()
 		rangedbtest.BindEvents(store)
 		return store

@@ -17,28 +17,28 @@ service RangeDB {
 }
 
 message EventsRequest {
-  uint64 startingWithEventNumber = 1;
+  uint64 globalSequenceNumber = 1;
 }
 
 message EventsByStreamRequest {
   string streamName = 1;
-  uint64 startingWithEventNumber = 2;
+  uint64 streamSequenceNumber = 2;
 }
 
 message EventsByAggregateTypeRequest {
   repeated string aggregateTypes = 1;
-  uint64 startingWithEventNumber = 2;
+  uint64 globalSequenceNumber = 2;
 }
 
 message SubscribeToLiveEventsRequest {}
 
 message SubscribeToEventsRequest {
-  uint64 startingWithEventNumber = 1;
+  uint64 globalSequenceNumber = 1;
 }
 
 message SubscribeToEventsByAggregateTypeRequest {
   repeated string aggregateTypes = 1;
-  uint64 startingWithEventNumber = 2;
+  uint64 globalSequenceNumber = 2;
 }
 
 message OptimisticSaveRequest {

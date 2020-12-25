@@ -46,9 +46,9 @@ func (s *remoteStore) Bind(events ...rangedb.Event) {
 	s.serializer.Bind(events...)
 }
 
-func (s *remoteStore) EventsStartingWith(ctx context.Context, eventNumber uint64) <-chan *rangedb.Record {
+func (s *remoteStore) EventsStartingWith(ctx context.Context, globalSequenceNumber uint64) <-chan *rangedb.Record {
 	request := &rangedbpb.EventsRequest{
-		StartingWithEventNumber: eventNumber,
+		GlobalSequenceNumber: globalSequenceNumber,
 	}
 
 	events, err := s.client.Events(ctx, request)
@@ -59,10 +59,10 @@ func (s *remoteStore) EventsStartingWith(ctx context.Context, eventNumber uint64
 	return s.readRecords(ctx, events)
 }
 
-func (s *remoteStore) EventsByAggregateTypesStartingWith(ctx context.Context, eventNumber uint64, aggregateTypes ...string) <-chan *rangedb.Record {
+func (s *remoteStore) EventsByAggregateTypesStartingWith(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) <-chan *rangedb.Record {
 	request := &rangedbpb.EventsByAggregateTypeRequest{
-		AggregateTypes:          aggregateTypes,
-		StartingWithEventNumber: eventNumber,
+		AggregateTypes:       aggregateTypes,
+		GlobalSequenceNumber: globalSequenceNumber,
 	}
 
 	events, err := s.client.EventsByAggregateType(ctx, request)
@@ -74,10 +74,10 @@ func (s *remoteStore) EventsByAggregateTypesStartingWith(ctx context.Context, ev
 
 }
 
-func (s *remoteStore) EventsByStreamStartingWith(ctx context.Context, eventNumber uint64, streamName string) <-chan *rangedb.Record {
+func (s *remoteStore) EventsByStreamStartingWith(ctx context.Context, streamSequenceNumber uint64, streamName string) <-chan *rangedb.Record {
 	request := &rangedbpb.EventsByStreamRequest{
-		StreamName:              streamName,
-		StartingWithEventNumber: eventNumber,
+		StreamName:           streamName,
+		StreamSequenceNumber: streamSequenceNumber,
 	}
 
 	events, err := s.client.EventsByStream(ctx, request)
@@ -191,8 +191,8 @@ func (s *remoteStore) Save(eventRecords ...*rangedb.EventRecord) error {
 	return nil
 }
 
-func (s *remoteStore) SubscribeStartingWith(ctx context.Context, eventNumber uint64, subscribers ...rangedb.RecordSubscriber) {
-	rangedb.ReplayEvents(s, eventNumber, subscribers...)
+func (s *remoteStore) SubscribeStartingWith(ctx context.Context, globalSequenceNumber uint64, subscribers ...rangedb.RecordSubscriber) {
+	rangedb.ReplayEvents(s, globalSequenceNumber, subscribers...)
 
 	select {
 	case <-ctx.Done():

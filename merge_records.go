@@ -19,7 +19,7 @@ func (p *pipe) IsNextGlobalSequenceNumber(currentPosition uint64) bool {
 }
 
 // MergeRecordChannelsInOrder combines record channels ordered by record.GlobalSequenceNumber.
-func MergeRecordChannelsInOrder(channels []<-chan *Record, eventNumber uint64) <-chan *Record {
+func MergeRecordChannelsInOrder(channels []<-chan *Record) <-chan *Record {
 	records := make(chan *Record)
 
 	go func() {
@@ -35,14 +35,10 @@ func MergeRecordChannelsInOrder(channels []<-chan *Record, eventNumber uint64) <
 
 		var currentPosition uint64
 
-		count := uint64(0)
 		for len(pipes) > 0 {
 			i := getIndexWithSmallestGlobalSequenceNumber(pipes)
 
-			if count >= eventNumber {
-				records <- pipes[i].currentRecord
-			}
-			count++
+			records <- pipes[i].currentRecord
 
 			currentPosition = pipes[i].currentRecord.GlobalSequenceNumber
 
@@ -52,10 +48,7 @@ func MergeRecordChannelsInOrder(channels []<-chan *Record, eventNumber uint64) <
 			}
 
 			for pipes[i].IsNextGlobalSequenceNumber(currentPosition) {
-				if count >= eventNumber {
-					records <- pipes[i].currentRecord
-				}
-				count++
+				records <- pipes[i].currentRecord
 
 				currentPosition = pipes[i].currentRecord.GlobalSequenceNumber
 

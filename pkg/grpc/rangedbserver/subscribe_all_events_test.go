@@ -55,7 +55,7 @@ func ExampleRangeDBServer_SubscribeToEvents() {
 	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
 	defer done()
 	request := &rangedbpb.SubscribeToEventsRequest{
-		StartingWithEventNumber: 0,
+		GlobalSequenceNumber: 0,
 	}
 
 	// When

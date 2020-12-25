@@ -73,8 +73,8 @@ func (c *TestCase) Then(expectedEvents ...rangedb.Event) func(*testing.T) {
 
 		ctx := context.Background()
 		for stream, expectedEventsInStream := range streamExpectedEvents {
-			eventNumber := streamPreviousEventCounts[stream]
-			actualEvents, err := eventChannelToSlice(c.store.EventsByStreamStartingWith(ctx, eventNumber, stream))
+			streamSequenceNumber := streamPreviousEventCounts[stream]
+			actualEvents, err := eventChannelToSlice(c.store.EventsByStreamStartingWith(ctx, streamSequenceNumber, stream))
 			assert.NoError(t, err)
 
 			assert.Equal(t, expectedEventsInStream, actualEvents, "stream: %s", stream)
@@ -97,8 +97,8 @@ func (c *TestCase) ThenInspectEvents(f func(t *testing.T, events []rangedb.Event
 		ctx := context.Background()
 		var events []rangedb.Event
 		for _, stream := range getStreamsFromStore(c.store) {
-			eventNumber := streamPreviousEventCounts[stream]
-			actualEvents, err := eventChannelToSlice(c.store.EventsByStreamStartingWith(ctx, eventNumber, stream))
+			streamSequenceNumber := streamPreviousEventCounts[stream]
+			actualEvents, err := eventChannelToSlice(c.store.EventsByStreamStartingWith(ctx, streamSequenceNumber, stream))
 			require.NoError(t, err)
 
 			events = append(events, actualEvents...)

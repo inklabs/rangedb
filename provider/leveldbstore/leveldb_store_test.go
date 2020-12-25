@@ -23,32 +23,34 @@ func Test_LevelDB_VerifyStoreInterface(t *testing.T) {
 		dbPath, err := ioutil.TempDir("", "test-events-")
 		require.NoError(t, err)
 
-		t.Cleanup(func() {
-			require.NoError(t, os.RemoveAll(dbPath))
-		})
-
 		store, err := leveldbstore.New(dbPath,
 			leveldbstore.WithClock(clk),
 		)
 		require.NoError(t, err)
 		rangedbtest.BindEvents(store)
 
+		t.Cleanup(func() {
+			require.NoError(t, store.Stop())
+			require.NoError(t, os.RemoveAll(dbPath))
+		})
+
 		return store
 	})
 }
 
 func BenchmarkLevelDBStore(b *testing.B) {
-	rangedbtest.StoreBenchmark(b, func() rangedb.Store {
+	rangedbtest.StoreBenchmark(b, func(b *testing.B) rangedb.Store {
 		dbPath, err := ioutil.TempDir("", "test-events-")
 		require.NoError(b, err)
-
-		b.Cleanup(func() {
-			require.NoError(b, os.RemoveAll(dbPath))
-		})
 
 		store, err := leveldbstore.New(dbPath)
 		require.NoError(b, err)
 		rangedbtest.BindEvents(store)
+
+		b.Cleanup(func() {
+			require.NoError(b, store.Stop())
+			require.NoError(b, os.RemoveAll(dbPath))
+		})
 
 		return store
 	})
@@ -74,10 +76,8 @@ func Test_Failures(t *testing.T) {
 		)
 		require.NoError(t, err)
 		t.Cleanup(func() {
-			err := os.RemoveAll(dbPath)
-			if err != nil {
-				log.Fatalf("unable to teardown db: %v", err)
-			}
+			require.NoError(t, store.Stop())
+			require.NoError(t, os.RemoveAll(dbPath))
 		})
 
 		// When
@@ -98,10 +98,8 @@ func Test_Failures(t *testing.T) {
 		)
 		require.NoError(t, err)
 		t.Cleanup(func() {
-			err := os.RemoveAll(dbPath)
-			if err != nil {
-				log.Fatalf("unable to teardown db: %v", err)
-			}
+			require.NoError(t, store.Stop())
+			require.NoError(t, os.RemoveAll(dbPath))
 		})
 		event := rangedbtest.ThingWasDone{}
 		require.NoError(t, store.Save(&rangedb.EventRecord{Event: event}))

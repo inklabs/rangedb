@@ -62,8 +62,8 @@ func ExampleRangeDBServer_EventsByStream() {
 	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
 	defer done()
 	request := &rangedbpb.EventsByStreamRequest{
-		StreamName:              "thing!605f20348fb940e386c171d51c877bf1",
-		StartingWithEventNumber: 0,
+		StreamName:           "thing!605f20348fb940e386c171d51c877bf1",
+		StreamSequenceNumber: 0,
 	}
 
 	// When

@@ -74,53 +74,61 @@ func (s *inMemoryStore) Bind(events ...rangedb.Event) {
 	s.serializer.Bind(events...)
 }
 
-func (s *inMemoryStore) EventsStartingWith(ctx context.Context, eventNumber uint64) <-chan *rangedb.Record {
+func (s *inMemoryStore) EventsStartingWith(ctx context.Context, globalSequenceNumber uint64) <-chan *rangedb.Record {
 	s.mux.RLock()
-	return s.recordsStartingWith(ctx, eventNumber, s.allRecords)
+	return s.recordsStartingWith(ctx, s.allRecords, func(record *rangedb.Record) bool {
+		return record.GlobalSequenceNumber >= globalSequenceNumber
+	})
 }
 
-func (s *inMemoryStore) EventsByAggregateTypesStartingWith(ctx context.Context, eventNumber uint64, aggregateTypes ...string) <-chan *rangedb.Record {
+func (s *inMemoryStore) EventsByAggregateTypesStartingWith(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) <-chan *rangedb.Record {
 	if len(aggregateTypes) == 1 {
 		s.mux.RLock()
-		return s.recordsStartingWith(ctx, eventNumber, s.recordsByAggregateType[aggregateTypes[0]])
+		return s.recordsStartingWith(ctx, s.recordsByAggregateType[aggregateTypes[0]], compareByGlobalSequenceNumber(globalSequenceNumber))
 	}
 
 	var channels []<-chan *rangedb.Record
 	for _, aggregateType := range aggregateTypes {
 		s.mux.RLock()
-		channels = append(channels, s.recordsStartingWith(ctx, 0, s.recordsByAggregateType[aggregateType]))
+		channels = append(channels, s.recordsStartingWith(ctx, s.recordsByAggregateType[aggregateType], compareByGlobalSequenceNumber(globalSequenceNumber)))
 	}
 
-	return rangedb.MergeRecordChannelsInOrder(channels, eventNumber)
+	return rangedb.MergeRecordChannelsInOrder(channels)
 }
 
-func (s *inMemoryStore) EventsByStreamStartingWith(ctx context.Context, eventNumber uint64, stream string) <-chan *rangedb.Record {
+func compareByGlobalSequenceNumber(globalSequenceNumber uint64) func(record *rangedb.Record) bool {
+	return func(record *rangedb.Record) bool {
+		return record.GlobalSequenceNumber >= globalSequenceNumber
+	}
+}
+
+func (s *inMemoryStore) EventsByStreamStartingWith(ctx context.Context, streamSequenceNumber uint64, stream string) <-chan *rangedb.Record {
 	s.mux.RLock()
-	return s.recordsStartingWith(ctx, eventNumber, s.recordsByStream[stream])
+	return s.recordsStartingWith(ctx, s.recordsByStream[stream], func(record *rangedb.Record) bool {
+		return record.StreamSequenceNumber >= streamSequenceNumber
+	})
 }
 
-func (s *inMemoryStore) recordsStartingWith(ctx context.Context, eventNumber uint64, serializedRecords [][]byte) <-chan *rangedb.Record {
+func (s *inMemoryStore) recordsStartingWith(ctx context.Context, serializedRecords [][]byte, compare func(record *rangedb.Record) bool) <-chan *rangedb.Record {
 	records := make(chan *rangedb.Record)
 
 	go func() {
 		defer s.mux.RUnlock()
 
-		count := uint64(0)
 		for _, data := range serializedRecords {
-			if count >= eventNumber {
-				record, err := s.serializer.Deserialize(data)
-				if err != nil {
-					s.logger.Printf("failed to deserialize record: %v", err)
-					continue
-				}
+			record, err := s.serializer.Deserialize(data)
+			if err != nil {
+				s.logger.Printf("failed to deserialize record: %v", err)
+				continue
+			}
 
+			if compare(record) {
 				select {
 				case <-ctx.Done():
 					break
 				case records <- record:
 				}
 			}
-			count++
 		}
 		close(records)
 	}()
@@ -242,8 +250,8 @@ func rTrimFromByteSlice(slice [][]byte, total int) [][]byte {
 	return slice[:len(slice)-total]
 }
 
-func (s *inMemoryStore) SubscribeStartingWith(ctx context.Context, eventNumber uint64, subscribers ...rangedb.RecordSubscriber) {
-	rangedb.ReplayEvents(s, eventNumber, subscribers...)
+func (s *inMemoryStore) SubscribeStartingWith(ctx context.Context, globalSequenceNumber uint64, subscribers ...rangedb.RecordSubscriber) {
+	rangedb.ReplayEvents(s, globalSequenceNumber, subscribers...)
 
 	select {
 	case <-ctx.Done():

@@ -34,13 +34,13 @@ type EventBinder interface {
 // Store is the interface that stores and retrieves event records.
 type Store interface {
 	EventBinder
-	EventsStartingWith(ctx context.Context, eventNumber uint64) <-chan *Record
-	EventsByAggregateTypesStartingWith(ctx context.Context, eventNumber uint64, aggregateTypes ...string) <-chan *Record
-	EventsByStreamStartingWith(ctx context.Context, eventNumber uint64, streamName string) <-chan *Record
+	EventsStartingWith(ctx context.Context, globalSequenceNumber uint64) <-chan *Record
+	EventsByAggregateTypesStartingWith(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) <-chan *Record
+	EventsByStreamStartingWith(ctx context.Context, streamSequenceNumber uint64, streamName string) <-chan *Record
 	OptimisticSave(expectedStreamSequenceNumber uint64, eventRecords ...*EventRecord) error
 	Save(eventRecords ...*EventRecord) error
 	Subscribe(subscribers ...RecordSubscriber)
-	SubscribeStartingWith(ctx context.Context, eventNumber uint64, subscribers ...RecordSubscriber)
+	SubscribeStartingWith(ctx context.Context, globalSequenceNumber uint64, subscribers ...RecordSubscriber)
 	TotalEventsInStream(streamName string) uint64
 }
 
@@ -88,8 +88,8 @@ func ParseStream(streamName string) (aggregateType, aggregateID string) {
 }
 
 // ReplayEvents applies all events to each subscriber.
-func ReplayEvents(store Store, eventNumber uint64, subscribers ...RecordSubscriber) {
-	for record := range store.EventsStartingWith(context.Background(), eventNumber) {
+func ReplayEvents(store Store, globalSequenceNumber uint64, subscribers ...RecordSubscriber) {
+	for record := range store.EventsStartingWith(context.Background(), globalSequenceNumber) {
 		for _, subscriber := range subscribers {
 			subscriber.Accept(record)
 		}

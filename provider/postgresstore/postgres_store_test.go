@@ -42,7 +42,7 @@ func Test_Postgres_VerifyStoreInterface(t *testing.T) {
 func BenchmarkPostgresStore(b *testing.B) {
 	config := configFromEnvironment(b)
 
-	rangedbtest.StoreBenchmark(b, func() rangedb.Store {
+	rangedbtest.StoreBenchmark(b, func(b *testing.B) rangedb.Store {
 		store, err := postgresstore.New(config)
 		require.NoError(b, err)
 		rangedbtest.BindEvents(store)

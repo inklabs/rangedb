@@ -47,8 +47,8 @@ func main() {
 
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
 	request := &rangedbpb.SubscribeToEventsByAggregateTypeRequest{
-		StartingWithEventNumber: 0,
-		AggregateTypes:          aggregateTypes,
+		GlobalSequenceNumber: 0,
+		AggregateTypes:       aggregateTypes,
 	}
 
 	subscribeCtx, subscribeDone := context.WithCancel(context.Background())

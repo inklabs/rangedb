@@ -114,6 +114,12 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	fmt.Println("Shutting down LevelDB store")
+	err = leveldbStore.Stop()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func serveHTTP(srv *http.Server, addr string) {

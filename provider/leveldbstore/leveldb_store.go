@@ -84,29 +84,33 @@ func New(dbFilePath string, options ...Option) (*levelDbStore, error) {
 	return s, nil
 }
 
+func (s *levelDbStore) Stop() error {
+	return s.db.Close()
+}
+
 func (s *levelDbStore) Bind(events ...rangedb.Event) {
 	s.serializer.Bind(events...)
 }
 
-func (s *levelDbStore) EventsStartingWith(ctx context.Context, eventNumber uint64) <-chan *rangedb.Record {
-	return s.getEventsByLookup(ctx, allEventsPrefix, eventNumber)
+func (s *levelDbStore) EventsStartingWith(ctx context.Context, globalSequenceNumber uint64) <-chan *rangedb.Record {
+	return s.getEventsByLookup(ctx, allEventsPrefix, globalSequenceNumber)
 }
 
-func (s *levelDbStore) EventsByAggregateTypesStartingWith(ctx context.Context, eventNumber uint64, aggregateTypes ...string) <-chan *rangedb.Record {
+func (s *levelDbStore) EventsByAggregateTypesStartingWith(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) <-chan *rangedb.Record {
 	if len(aggregateTypes) == 1 {
-		return s.getEventsByLookup(ctx, getAggregateTypeKeyPrefix(aggregateTypes[0]), eventNumber)
+		return s.getEventsByLookup(ctx, getAggregateTypeKeyPrefix(aggregateTypes[0]), globalSequenceNumber)
 	}
 
 	var channels []<-chan *rangedb.Record
 	for _, aggregateType := range aggregateTypes {
-		channels = append(channels, s.getEventsByLookup(ctx, getAggregateTypeKeyPrefix(aggregateType), 0))
+		channels = append(channels, s.getEventsByLookup(ctx, getAggregateTypeKeyPrefix(aggregateType), globalSequenceNumber))
 	}
 
-	return rangedb.MergeRecordChannelsInOrder(channels, eventNumber)
+	return rangedb.MergeRecordChannelsInOrder(channels)
 }
 
-func (s *levelDbStore) EventsByStreamStartingWith(ctx context.Context, eventNumber uint64, stream string) <-chan *rangedb.Record {
-	return s.getEventsByPrefixStartingWith(ctx, stream, eventNumber)
+func (s *levelDbStore) EventsByStreamStartingWith(ctx context.Context, streamSequenceNumber uint64, stream string) <-chan *rangedb.Record {
+	return s.getEventsByPrefixStartingWith(ctx, stream, streamSequenceNumber)
 }
 
 func (s *levelDbStore) OptimisticSave(expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) error {
@@ -232,8 +236,8 @@ func (s *levelDbStore) saveEvent(transaction *leveldb.Transaction,
 	return data, nil
 }
 
-func (s *levelDbStore) SubscribeStartingWith(ctx context.Context, eventNumber uint64, subscribers ...rangedb.RecordSubscriber) {
-	rangedb.ReplayEvents(s, eventNumber, subscribers...)
+func (s *levelDbStore) SubscribeStartingWith(ctx context.Context, globalSequenceNumber uint64, subscribers ...rangedb.RecordSubscriber) {
+	rangedb.ReplayEvents(s, globalSequenceNumber, subscribers...)
 
 	select {
 	case <-ctx.Done():
@@ -262,7 +266,7 @@ func (s *levelDbStore) notifySubscribers(record *rangedb.Record) {
 	}
 }
 
-func (s *levelDbStore) getEventsByPrefixStartingWith(ctx context.Context, prefix string, eventNumber uint64) <-chan *rangedb.Record {
+func (s *levelDbStore) getEventsByPrefixStartingWith(ctx context.Context, prefix string, streamSequenceNumber uint64) <-chan *rangedb.Record {
 	records := make(chan *rangedb.Record)
 	s.mux.RLock()
 
@@ -270,21 +274,19 @@ func (s *levelDbStore) getEventsByPrefixStartingWith(ctx context.Context, prefix
 		defer s.mux.RUnlock()
 
 		iter := s.db.NewIterator(util.BytesPrefix([]byte(prefix)), nil)
-		count := uint64(0)
 		for iter.Next() {
-			if count >= eventNumber {
-				record, err := s.getRecordByValue(iter.Value())
-				if err != nil {
-					continue
-				}
+			record, err := s.getRecordByValue(iter.Value())
+			if err != nil {
+				continue
+			}
 
+			if record.StreamSequenceNumber >= streamSequenceNumber {
 				select {
 				case <-ctx.Done():
 					break
 				case records <- record:
 				}
 			}
-			count++
 		}
 		iter.Release()
 
@@ -295,7 +297,7 @@ func (s *levelDbStore) getEventsByPrefixStartingWith(ctx context.Context, prefix
 	return records
 }
 
-func (s *levelDbStore) getEventsByLookup(ctx context.Context, key string, eventNumber uint64) <-chan *rangedb.Record {
+func (s *levelDbStore) getEventsByLookup(ctx context.Context, key string, globalSequenceNumber uint64) <-chan *rangedb.Record {
 	records := make(chan *rangedb.Record)
 	s.mux.RLock()
 
@@ -303,23 +305,22 @@ func (s *levelDbStore) getEventsByLookup(ctx context.Context, key string, eventN
 		defer s.mux.RUnlock()
 
 		iter := s.db.NewIterator(util.BytesPrefix([]byte(key)), nil)
-		count := uint64(0)
+
 		for iter.Next() {
-			if count >= eventNumber {
-				targetKey := iter.Value()
+			targetKey := iter.Value()
 
-				record, err := s.getRecordByLookup(targetKey, iter)
-				if err != nil {
-					continue
-				}
+			record, err := s.getRecordByLookup(targetKey, iter)
+			if err != nil {
+				continue
+			}
 
+			if record.GlobalSequenceNumber >= globalSequenceNumber {
 				select {
 				case <-ctx.Done():
 					break
 				case records <- record:
 				}
 			}
-			count++
 		}
 		iter.Release()
 		close(records)
