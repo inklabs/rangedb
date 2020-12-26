@@ -255,7 +255,7 @@ func (s *rangeDBServer) SubscribeToEvents(req *rangedbpb.SubscribeToEventsReques
 	}
 
 	s.broadcastMutex.Lock()
-	total, err = s.writeEventsToStream(stream, s.store.EventsStartingWith(stream.Context(), total+1))
+	_, err = s.writeEventsToStream(stream, s.store.EventsStartingWith(stream.Context(), total+1))
 	if err != nil {
 		s.broadcastMutex.Unlock()
 		return err
@@ -289,7 +289,7 @@ func (s *rangeDBServer) SubscribeToEventsByAggregateType(req *rangedbpb.Subscrib
 	}
 
 	s.broadcastMutex.Lock()
-	total, err = s.writeEventsToStream(stream, s.store.EventsByAggregateTypesStartingWith(stream.Context(), total+1, req.AggregateTypes...))
+	_, err = s.writeEventsToStream(stream, s.store.EventsByAggregateTypesStartingWith(stream.Context(), total+1, req.AggregateTypes...))
 	if err != nil {
 		s.broadcastMutex.Unlock()
 		return err
@@ -383,6 +383,7 @@ func (s *rangeDBServer) writeEventsToStream(stream streamSender, records <-chan 
 	return totalWritten, nil
 }
 
+// PbRecordSender defines the interface for sending a protobuf record.
 type PbRecordSender interface {
 	Send(*rangedbpb.Record) error
 }

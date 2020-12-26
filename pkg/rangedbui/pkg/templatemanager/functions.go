@@ -8,6 +8,7 @@ import (
 	"github.com/inklabs/rangedb"
 )
 
+// FuncMap defines the functions available to templates.
 var FuncMap = template.FuncMap{
 	"formatDate": formatDate,
 	"formatJson": formatJson,

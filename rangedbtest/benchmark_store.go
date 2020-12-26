@@ -11,6 +11,7 @@ import (
 	"github.com/inklabs/rangedb"
 )
 
+// StoreBenchmark benchmarks the rangedb.Store interface.
 func StoreBenchmark(b *testing.B, newStore func(b *testing.B) rangedb.Store) {
 	b.Helper()
 

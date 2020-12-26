@@ -17,11 +17,13 @@ import (
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
 
+// JsonSerializer defines the interface to bind events and identify event types.
 type JsonSerializer interface {
 	rangedb.EventBinder
 	rangedb.EventTypeIdentifier
 }
 
+// PbRecordReceiver defines the interface to receive a protobuf record.
 type PbRecordReceiver interface {
 	Recv() (*rangedbpb.Record, error)
 }
@@ -34,6 +36,7 @@ type remoteStore struct {
 	subscribers   []rangedb.RecordSubscriber
 }
 
+// New constructs a new rangedb.Store client that communicates with a remote gRPC backend.
 func New(conn *grpc.ClientConn) *remoteStore {
 	client := rangedbpb.NewRangeDBClient(conn)
 	return &remoteStore{

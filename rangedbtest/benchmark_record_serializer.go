@@ -8,6 +8,7 @@ import (
 	"github.com/inklabs/rangedb"
 )
 
+// RecordSerializerBenchmark benchmarks the rangedb.RecordSerializer interface.
 func RecordSerializerBenchmark(b *testing.B, newSerializer func() rangedb.RecordSerializer) {
 	b.Helper()
 

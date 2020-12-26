@@ -26,6 +26,7 @@ type webUI struct {
 	store              rangedb.Store
 }
 
+// New constructs a webUI web application.
 func New(
 	templateManager templatemanager.TemplateManager,
 	aggregateTypeStats *projection.AggregateTypeStats,
@@ -169,11 +170,13 @@ func (a *webUI) renderWithValues(w http.ResponseWriter, tpl string, data interfa
 	}
 }
 
+// AggregateTypeInfo contains the aggregate type data available to templates.
 type AggregateTypeInfo struct {
 	Name        string
 	TotalEvents uint64
 }
 
+// StreamInfo contains the stream data available to templates.
 type StreamInfo struct {
 	Name        string
 	TotalEvents uint64

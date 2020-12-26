@@ -13,6 +13,7 @@ import (
 	"github.com/inklabs/rangedb"
 )
 
+// RecordIoStreamBenchmark benchmarks the rangedb.RecordIoStream interface.
 func RecordIoStreamBenchmark(b *testing.B, newIoStream func() rangedb.RecordIoStream) {
 	b.Helper()
 

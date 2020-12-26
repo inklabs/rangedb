@@ -88,6 +88,7 @@ func (t FloatWasDone) EventType() string {
 	return "FloatWasDone"
 }
 
+// NewEventThatWillFailUnmarshal returns an event that will fail a json unmarshal.
 func NewEventThatWillFailUnmarshal(aggregateType, aggregateID string) rangedb.Event {
 	return rangedb.NewRawEvent(
 		aggregateType,

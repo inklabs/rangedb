@@ -130,7 +130,7 @@ func (a *websocketAPI) SubscribeToAllEvents(w http.ResponseWriter, r *http.Reque
 	}
 
 	a.broadcastMutex.Lock()
-	total, err = a.writeEventsToConnection(conn, a.store.EventsStartingWith(r.Context(), total+1))
+	_, err = a.writeEventsToConnection(conn, a.store.EventsStartingWith(r.Context(), total+1))
 	if err != nil {
 		a.broadcastMutex.Unlock()
 		return

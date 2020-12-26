@@ -13,16 +13,19 @@ const (
 	MaxItemsPerPage     = 1000
 )
 
+// Pagination contains page information for building pagination Links.
 type Pagination struct {
 	ItemsPerPage int
 	Page         int
 }
 
+// Links contains previous/next URL links for pagination.
 type Links struct {
 	Previous string
 	Next     string
 }
 
+// NewPagination constructs a Pagination object.
 func NewPagination(itemsPerPage, page int) Pagination {
 	if itemsPerPage <= 0 {
 		itemsPerPage = DefaultItemsPerPage
@@ -42,6 +45,7 @@ func NewPagination(itemsPerPage, page int) Pagination {
 	}
 }
 
+// NewPaginationFromQuery constructs a Pagination from a URL query.
 func NewPaginationFromQuery(values url.Values) Pagination {
 	itemsPerPage := values.Get("itemsPerPage")
 	page := values.Get("page")
@@ -49,6 +53,7 @@ func NewPaginationFromQuery(values url.Values) Pagination {
 	return NewPaginationFromString(itemsPerPage, page)
 }
 
+// NewPaginationFromString constructs a Pagination from string input.
 func NewPaginationFromString(itemsPerPageInput, pageInput string) Pagination {
 	itemsPerPage, err := strconv.Atoi(itemsPerPageInput)
 	if err != nil {
@@ -63,6 +68,7 @@ func NewPaginationFromString(itemsPerPageInput, pageInput string) Pagination {
 	return NewPagination(itemsPerPage, page)
 }
 
+// Links returns the previous/next links.
 func (p Pagination) Links(baseURI string, totalRecords uint64) Links {
 	previous := ""
 	next := ""
@@ -82,6 +88,7 @@ func (p Pagination) Links(baseURI string, totalRecords uint64) Links {
 	}
 }
 
+// FirstRecordPosition returns the first record position.
 func (p Pagination) FirstRecordPosition() int {
 	return (p.Page - 1) * p.ItemsPerPage
 }

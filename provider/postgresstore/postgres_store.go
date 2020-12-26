@@ -10,7 +10,6 @@ import (
 	"sync"
 
 	"github.com/lib/pq"
-	_ "github.com/lib/pq"
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
@@ -20,6 +19,7 @@ import (
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
 
+// JsonSerializer defines the interface to bind events and identify event types.
 type JsonSerializer interface {
 	rangedb.EventBinder
 	rangedb.EventTypeIdentifier
@@ -136,7 +136,7 @@ func (s *postgresStore) Save(eventRecords ...*rangedb.EventRecord) error {
 	return s.saveEvents(nil, eventRecords...)
 }
 
-//saveEvents persists one or more events inside a locked mutex, and notifies subscribers.
+// saveEvents persists one or more events inside a locked mutex, and notifies subscribers.
 func (s *postgresStore) saveEvents(expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) error {
 	transaction, err := s.db.Begin()
 	if err != nil {

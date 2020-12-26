@@ -6,11 +6,13 @@ import (
 	"strings"
 )
 
+// UnexpectedSequenceNumber is an error containing expected and next sequence numbers.
 type UnexpectedSequenceNumber struct {
 	Expected           uint64
 	NextSequenceNumber uint64
 }
 
+// NewUnexpectedSequenceNumberFromString constructs an UnexpectedSequenceNumber error.
 func NewUnexpectedSequenceNumberFromString(input string) *UnexpectedSequenceNumber {
 	pieces := strings.Split(input, "unexpected sequence number:")
 	var expected, next uint64

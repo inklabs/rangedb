@@ -9,6 +9,7 @@ import (
 
 type failingEventStore struct{}
 
+// NewFailingEventStore constructs a failing event store for testing.
 func NewFailingEventStore() *failingEventStore {
 	return &failingEventStore{}
 }

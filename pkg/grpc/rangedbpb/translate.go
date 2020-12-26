@@ -9,6 +9,7 @@ import (
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
 
+// ToRecord translates a rangedb.Record into a rangedbpb.Record.
 func ToPbRecord(record *rangedb.Record) (*Record, error) {
 	data, err := json.Marshal(record.Data)
 	if err != nil {
@@ -33,6 +34,7 @@ func ToPbRecord(record *rangedb.Record) (*Record, error) {
 	}, nil
 }
 
+// ToRecord translates a rangedbpb.Record into a rangedb.Record.
 func ToRecord(pbRecord *Record, eventTypeIdentifier rangedb.EventTypeIdentifier) (*rangedb.Record, error) {
 	data, err := jsonrecordserializer.DecodeJsonData(
 		pbRecord.EventType,

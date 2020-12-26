@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// Version for RangeDB.
 const Version = "0.5.1-dev"
 
 // Record contains event data and metadata.
@@ -22,11 +23,13 @@ type Record struct {
 	Metadata             interface{} `msgpack:"m" json:"metadata"`
 }
 
+// EventRecord stores the event and metadata to be used for persisting.
 type EventRecord struct {
 	Event    Event
 	Metadata interface{}
 }
 
+// EventBinder defines how to bind events for serialization.
 type EventBinder interface {
 	Bind(events ...Event)
 }
@@ -62,6 +65,7 @@ type AggregateMessage interface {
 // Handler that calls f.
 type RecordSubscriberFunc func(*Record)
 
+// Accept receives a record.
 func (f RecordSubscriberFunc) Accept(record *Record) {
 	f(record)
 }
@@ -121,6 +125,7 @@ type rawEvent struct {
 	data          interface{}
 }
 
+// NewRawEvent constructs a new raw event when an event struct is unavailable or unknown.
 func NewRawEvent(aggregateType, aggregateID, eventType string, data interface{}) Event {
 	return &rawEvent{
 		aggregateType: aggregateType,

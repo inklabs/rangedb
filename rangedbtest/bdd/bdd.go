@@ -12,13 +12,16 @@ import (
 	"github.com/inklabs/rangedb"
 )
 
+// Command defines a CQRS command.
 type Command interface {
 	rangedb.AggregateMessage
 	CommandType() string
 }
 
+// CommandDispatcher defines how a function can dispatch CQRS commands.
 type CommandDispatcher func(command Command)
 
+// TestCase contains the BDD test case.
 type TestCase struct {
 	store          rangedb.Store
 	dispatch       CommandDispatcher
@@ -26,6 +29,7 @@ type TestCase struct {
 	command        Command
 }
 
+// New constructs a BDD test case.
 func New(store rangedb.Store, commandDispatcher CommandDispatcher) *TestCase {
 	return &TestCase{
 		store:    store,
@@ -33,16 +37,19 @@ func New(store rangedb.Store, commandDispatcher CommandDispatcher) *TestCase {
 	}
 }
 
+// Given loads events into the store.
 func (c *TestCase) Given(events ...rangedb.Event) *TestCase {
 	c.previousEvents = events
 	return c
 }
 
+// When executes a CQRS command.
 func (c *TestCase) When(command Command) *TestCase {
 	c.command = command
 	return c
 }
 
+// Then asserts the expectedEvents were raised.
 func (c *TestCase) Then(expectedEvents ...rangedb.Event) func(*testing.T) {
 	return func(t *testing.T) {
 		t.Helper()
@@ -82,6 +89,7 @@ func (c *TestCase) Then(expectedEvents ...rangedb.Event) func(*testing.T) {
 	}
 }
 
+// ThenInspectEvents should be called after a CQRS command has executed to assert on specific events.
 func (c *TestCase) ThenInspectEvents(f func(t *testing.T, events []rangedb.Event)) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Helper()

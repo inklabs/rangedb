@@ -12,6 +12,7 @@ const (
 	banTimeout    = 3600
 )
 
+// RestrictedWords contains restricted words not allowed in this example chat application.
 var RestrictedWords = []string{"golly", "dagnabit", "gadzooks"}
 
 type restrictedWordProcessor struct {
@@ -26,6 +27,7 @@ func newRestrictedWordProcessor(d cqrs.CommandDispatcher, warnedUsers *warnedUse
 	}
 }
 
+// Accept receives a Record.
 func (r *restrictedWordProcessor) Accept(record *rangedb.Record) {
 	switch e := record.Data.(type) {
 

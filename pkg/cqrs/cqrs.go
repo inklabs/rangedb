@@ -8,15 +8,18 @@ import (
 	"github.com/inklabs/rangedb"
 )
 
+// Command defines a CQRS command.
 type Command interface {
 	rangedb.AggregateMessage
 	CommandType() string
 }
 
+// CommandDispatcher defines the interface for dispatching a cqrs.Command.
 type CommandDispatcher interface {
 	Dispatch(Command) []rangedb.Event
 }
 
+// Aggregate defines the interface for a CQRS aggregate, or Unit of Certainty.
 type Aggregate interface {
 	Load(<-chan *rangedb.Record)
 	Handle(Command) []rangedb.Event

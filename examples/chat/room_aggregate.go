@@ -20,6 +20,7 @@ type roomState struct {
 	BannedUsers map[string]struct{}
 }
 
+// NewRoom constructs a new cqrs.Aggregate.
 func NewRoom() *room {
 	return &room{}
 }

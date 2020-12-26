@@ -34,7 +34,7 @@ func main() {
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
 	port := flag.Int("port", 8080, "port")
-	baseUri := flag.String("baseUri", "http://0.0.0.0:8080", "")
+	baseURI := flag.String("baseUri", "http://0.0.0.0:8080", "")
 	dbPath := flag.String("dbPath", ".leveldb", "path to LevelDB directory")
 	templatesPath := flag.String("templates", "", "optional templates path")
 	gRPCPort := flag.Int("gRPCPort", 8081, "gRPC port")
@@ -50,7 +50,7 @@ func main() {
 
 	api := rangedbapi.New(
 		rangedbapi.WithStore(leveldbStore),
-		rangedbapi.WithBaseUri(*baseUri+"/api"),
+		rangedbapi.WithBaseUri(*baseURI+"/api"),
 		rangedbapi.WithSnapshotStore(projection.NewDiskSnapshotStore(snapshotBasePath(*dbPath))),
 	)
 	websocketAPI := rangedbws.New(

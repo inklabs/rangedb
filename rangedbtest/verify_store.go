@@ -18,7 +18,7 @@ import (
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 )
 
-// VerifyStore verifies the Store interface.
+// VerifyStore verifies the rangedb.Store interface.
 func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) rangedb.Store) {
 	t.Helper()
 
@@ -1103,12 +1103,14 @@ type countSubscriber struct {
 	totalThingWasDone   int
 }
 
+// NewCountSubscriber constructs a projection for counting events in a test context.
 func NewCountSubscriber() *countSubscriber {
 	return &countSubscriber{
 		AcceptRecordChan: make(chan *rangedb.Record, 10),
 	}
 }
 
+// Accept receives a Record.
 func (c *countSubscriber) Accept(record *rangedb.Record) {
 	c.sync.Lock()
 	c.totalAcceptedEvents++
@@ -1136,6 +1138,7 @@ func (c *countSubscriber) TotalThingWasDoneNumber() int {
 	return c.totalThingWasDone
 }
 
+// EventSaver a function that accepts eventRecords for saving.
 type EventSaver func(eventRecord ...*rangedb.EventRecord) error
 
 type triggerProcessManager struct {
@@ -1150,6 +1153,7 @@ func newTriggerProcessManager(eventSaver EventSaver) *triggerProcessManager {
 	}
 }
 
+// Accept receives a Record.
 func (t *triggerProcessManager) Accept(record *rangedb.Record) {
 	switch event := record.Data.(type) {
 	case *ThingWasDone:

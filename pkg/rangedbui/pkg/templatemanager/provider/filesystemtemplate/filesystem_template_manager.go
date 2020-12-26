@@ -13,6 +13,7 @@ type filesystemTemplateManager struct {
 	rootPath string
 }
 
+// New constructs a filesystemTemplateManager.
 func New(rootPath string) *filesystemTemplateManager {
 	return &filesystemTemplateManager{
 		rootPath: rootPath,

@@ -8,6 +8,7 @@ import (
 	"io"
 )
 
+// GetStructNames loads struct names from an io.Reader.
 func GetStructNames(file io.Reader) ([]string, error) {
 	node, err := parser.ParseFile(token.NewFileSet(), "", file, parser.ParseComments)
 	if err != nil {

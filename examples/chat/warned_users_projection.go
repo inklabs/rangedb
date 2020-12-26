@@ -11,12 +11,14 @@ type warnedUsersProjection struct {
 	userWarnings map[string]uint
 }
 
+// NewWarnedUsersProjection constructs a projection for tracking the number of warnings by user.
 func NewWarnedUsersProjection() *warnedUsersProjection {
 	return &warnedUsersProjection{
 		userWarnings: make(map[string]uint),
 	}
 }
 
+// TotalWarnings returns the total number of warnings by userID.
 func (u *warnedUsersProjection) TotalWarnings(userID string) uint {
 	u.mux.RLock()
 	defer u.mux.RUnlock()
@@ -27,6 +29,7 @@ func (u *warnedUsersProjection) TotalWarnings(userID string) uint {
 	return 0
 }
 
+// Accept receives a Record.
 func (u *warnedUsersProjection) Accept(record *rangedb.Record) {
 	switch e := record.Data.(type) {
 

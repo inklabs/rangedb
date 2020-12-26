@@ -17,6 +17,7 @@ type memoryTemplateManager struct {
 	templates map[string]*template.Template
 }
 
+// New constructs a Memory Template Manager.
 func New(base64Templates map[string]string) (*memoryTemplateManager, error) {
 	templates, err := loadTemplates(base64Templates)
 	if err != nil {
