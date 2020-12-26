@@ -1,9 +1,12 @@
 package rangedb_test
 
 import (
+	"fmt"
+	"math/rand"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/inklabs/rangedb"
 )
@@ -49,6 +52,43 @@ func Test_MergeRecordChannelsInOrder_CombinesThreeChannels_WithSequentialRecords
 	assert.Equal(t, record4, <-actualRecords)
 	assert.Equal(t, record5, <-actualRecords)
 	assert.Nil(t, <-actualRecords)
+}
+
+func BenchmarkMergeRecordChannelsInOrder(b *testing.B) {
+	benchmarkMergeRecordChannelsInOrder(b, 1, 10000)
+	benchmarkMergeRecordChannelsInOrder(b, 2, 10000)
+	benchmarkMergeRecordChannelsInOrder(b, 5, 10000)
+	benchmarkMergeRecordChannelsInOrder(b, 10, 10000)
+	benchmarkMergeRecordChannelsInOrder(b, 20, 10000)
+}
+
+func benchmarkMergeRecordChannelsInOrder(b *testing.B, totalChannels int, totalRecords int) {
+	rand.Seed(100)
+	globalSequenceNumber := uint64(0)
+	channelRecords := make([][]*rangedb.Record, totalChannels)
+	for i := 0; i < totalRecords; i++ {
+		channel := rand.Intn(totalChannels)
+		channelRecords[channel] = append(channelRecords[channel], getRecord(globalSequenceNumber))
+		globalSequenceNumber++
+	}
+
+	channels := make([]<-chan *rangedb.Record, totalChannels)
+
+	testName := fmt.Sprintf("Merge %d channels with %d records", totalChannels, totalRecords)
+	b.Run(testName, func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			for i, records := range channelRecords {
+				channels[i] = loadChannel(records...)
+			}
+			actualRecords := rangedb.MergeRecordChannelsInOrder(channels)
+			cnt := 0
+			for range actualRecords {
+				cnt++
+			}
+
+			require.Equal(b, totalRecords, cnt)
+		}
+	})
 }
 
 func getRecord(globalSequenceNumber uint64) *rangedb.Record {

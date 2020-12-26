@@ -1,4 +1,4 @@
-package rangedb_test
+package rangedbtest_test
 
 import (
 	"testing"
