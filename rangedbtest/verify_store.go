@@ -38,7 +38,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				&rangedb.EventRecord{Event: eventB},
 			))
 
-			ctx := context.Background()
+			ctx := TimeoutContext(t)
 
 			// When
 			records := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(eventA1))
@@ -88,7 +88,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				&rangedb.EventRecord{Event: eventB},
 			))
 
-			ctx := context.Background()
+			ctx := TimeoutContext(t)
 
 			// When
 			records := store.EventsByStreamStartingWith(ctx, 1, rangedb.GetEventStream(eventA1))
@@ -135,7 +135,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				eventRecords = append(eventRecords, &rangedb.EventRecord{Event: event})
 			}
 			require.NoError(t, store.Save(eventRecords...))
-			ctx := context.Background()
+			ctx := TimeoutContext(t)
 
 			// When
 			records := store.EventsByStreamStartingWith(ctx, 0, "thing!A")
@@ -163,7 +163,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			require.NoError(t, store.Save(
 				&rangedb.EventRecord{Event: eventB},
 			))
-			ctx := context.Background()
+			ctx := TimeoutContext(t)
 
 			// When
 			records := store.EventsByStreamStartingWith(ctx, 1, rangedb.GetEventStream(eventA1))
@@ -202,8 +202,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			require.NoError(t, store.Save(
 				&rangedb.EventRecord{Event: eventB},
 			))
-			ctx := context.Background()
-			ctx, done := context.WithCancel(context.Background())
+			ctx, done := context.WithCancel(TimeoutContext(t))
 			records := store.EventsByStreamStartingWith(ctx, 1, rangedb.GetEventStream(eventA1))
 
 			// When
@@ -241,7 +240,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			require.NoError(t, store.Save(&rangedb.EventRecord{Event: thingWasDoneB0}))
 			require.NoError(t, store.Save(&rangedb.EventRecord{Event: thingWasDoneA1}))
 			require.NoError(t, store.Save(&rangedb.EventRecord{Event: AnotherWasCompleteX0}))
-			ctx := context.Background()
+			ctx := TimeoutContext(t)
 
 			// When
 			records := store.EventsStartingWith(ctx, 0)
@@ -308,7 +307,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				&rangedb.EventRecord{Event: event1},
 				&rangedb.EventRecord{Event: event2},
 			))
-			ctx := context.Background()
+			ctx := TimeoutContext(t)
 
 			// When
 			records := store.EventsStartingWith(ctx, 1)
@@ -345,7 +344,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				&rangedb.EventRecord{Event: eventB1},
 				&rangedb.EventRecord{Event: eventB2},
 			))
-			ctx := context.Background()
+			ctx := TimeoutContext(t)
 
 			// When
 			records := store.EventsStartingWith(ctx, 2)
@@ -392,7 +391,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				&rangedb.EventRecord{Event: event3},
 				&rangedb.EventRecord{Event: event4},
 			))
-			ctx, done := context.WithCancel(context.Background())
+			ctx, done := context.WithCancel(TimeoutContext(t))
 			records := store.EventsStartingWith(ctx, 1)
 
 			// When
@@ -433,7 +432,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			require.NoError(t, store.Save(
 				&rangedb.EventRecord{Event: eventB},
 			))
-			ctx := context.Background()
+			ctx := TimeoutContext(t)
 
 			// When
 			records := store.EventsByAggregateTypesStartingWith(ctx, 0, eventA1.AggregateType())
@@ -492,7 +491,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			require.NoError(t, store.Save(
 				&rangedb.EventRecord{Event: eventB},
 			))
-			ctx := context.Background()
+			ctx := TimeoutContext(t)
 
 			// When
 			records := store.EventsByAggregateTypesStartingWith(
@@ -547,7 +546,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 			// Then
 			require.NoError(t, err)
-			ctx := context.Background()
+			ctx := TimeoutContext(t)
 			records := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event))
 			expectedRecord := &rangedb.Record{
 				AggregateType:        event.AggregateType(),
@@ -581,7 +580,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 			// Then
 			require.NoError(t, err)
-			ctx := context.Background()
+			ctx := TimeoutContext(t)
 			records := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event2))
 			expectedRecord1 := &rangedb.Record{
 				AggregateType:        event2.AggregateType(),
@@ -633,7 +632,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 			// Then
 			require.NoError(t, err)
-			ctx := context.Background()
+			ctx := TimeoutContext(t)
 			records := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event1))
 			expectedRecord1 := &rangedb.Record{
 				AggregateType:        event1.AggregateType(),
@@ -676,7 +675,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 			// Then
 			require.NoError(t, err)
-			ctx := context.Background()
+			ctx := TimeoutContext(t)
 			records := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event))
 			expectedRecord := &rangedb.Record{
 				AggregateType:        event.AggregateType(),
@@ -743,7 +742,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			event2 := &ThingWasDone{ID: aggregateID, Number: 3}
 			countSubscriber1 := NewCountSubscriber()
 			countSubscriber2 := NewCountSubscriber()
-			ctx := context.Background()
+			ctx := TimeoutContext(t)
 			store.SubscribeStartingWith(ctx, 0, countSubscriber1, countSubscriber2)
 			<-countSubscriber1.AcceptRecordChan
 			<-countSubscriber2.AcceptRecordChan
@@ -771,7 +770,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			event2 := ThingWasDone{ID: aggregateID, Number: 3}
 			countSubscriber1 := NewCountSubscriber()
 			countSubscriber2 := NewCountSubscriber()
-			ctx := context.Background()
+			ctx := TimeoutContext(t)
 			store.SubscribeStartingWith(ctx, 0, countSubscriber1, countSubscriber2)
 			<-countSubscriber1.AcceptRecordChan
 			<-countSubscriber2.AcceptRecordChan
@@ -799,7 +798,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			event2 := ThingWasDone{ID: aggregateID, Number: 3}
 			countSubscriber1 := NewCountSubscriber()
 			countSubscriber2 := NewCountSubscriber()
-			ctx, done := context.WithCancel(context.Background())
+			ctx, done := context.WithCancel(TimeoutContext(t))
 			done()
 			store.SubscribeStartingWith(ctx, 0, countSubscriber1, countSubscriber2)
 
@@ -856,7 +855,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		store := newStore(t, sequentialclock.New())
 		event := ThingWasDone{ID: aggregateID, Number: 2}
 		triggerProcessManager := newTriggerProcessManager(store.Save)
-		ctx := context.Background()
+		ctx := TimeoutContext(t)
 		store.SubscribeStartingWith(ctx, 0, triggerProcessManager)
 
 		// When
@@ -865,7 +864,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		// Then
 		<-triggerProcessManager.ReceivedRecords
-		actualRecords := store.EventsStartingWith(context.Background(), 0)
+		actualRecords := store.EventsStartingWith(TimeoutContext(t), 0)
 		expectedRecord1 := &rangedb.Record{
 			AggregateType:        "thing",
 			AggregateID:          aggregateID,
@@ -901,7 +900,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		store := newStore(t, sequentialclock.New())
 		event := ThingWasDone{ID: "A", Number: 1}
 		require.NoError(t, store.Save(&rangedb.EventRecord{Event: event}))
-		ctx := context.Background()
+		ctx := TimeoutContext(t)
 
 		// When
 		records := store.EventsStartingWith(ctx, 0)
@@ -957,7 +956,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 			// Then
 			require.NoError(t, err)
-			ctx := context.Background()
+			ctx := TimeoutContext(t)
 			records := store.EventsStartingWith(ctx, 0)
 			expectedRecord := &rangedb.Record{
 				AggregateType:        "thing",
@@ -1009,7 +1008,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 			// Then
 			require.Error(t, err)
-			ctx := context.Background()
+			ctx := TimeoutContext(t)
 			allRecords := store.EventsStartingWith(ctx, 0)
 			assert.Equal(t, (*rangedb.Record)(nil), <-allRecords)
 			streamRecords := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event1))
@@ -1036,7 +1035,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 			// Then
 			require.Error(t, err)
-			ctx := context.Background()
+			ctx := TimeoutContext(t)
 			expectedRecord := &rangedb.Record{
 				AggregateType:        event1.AggregateType(),
 				AggregateID:          event1.AggregateID(),
@@ -1090,7 +1089,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 }
 
 func drainRecordChannel(eventsChannel <-chan *rangedb.Record) {
-	for len(eventsChannel) > 0 {
+	for range eventsChannel {
 		<-eventsChannel
 	}
 }

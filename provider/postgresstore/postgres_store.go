@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -417,6 +418,9 @@ func (s *postgresStore) readRecords(rows *sql.Rows, records chan *rangedb.Record
 
 	err := rows.Err()
 	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			return
+		}
 		panic(err) // TODO: test this error path
 	}
 }

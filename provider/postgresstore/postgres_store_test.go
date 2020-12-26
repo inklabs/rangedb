@@ -27,12 +27,12 @@ func Test_Postgres_VerifyStoreInterface(t *testing.T) {
 		rangedbtest.BindEvents(store)
 
 		t.Cleanup(func() {
+			require.NoError(t, store.CloseDB())
 			db, err := sql.Open("postgres", config.DataSourceName())
 			require.NoError(t, err)
 			_, err = db.Exec(`TRUNCATE record RESTART IDENTITY;`)
 			require.NoError(t, err)
 			require.NoError(t, db.Close())
-			require.NoError(t, store.CloseDB())
 		})
 
 		return store
