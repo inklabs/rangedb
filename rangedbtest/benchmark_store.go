@@ -12,6 +12,8 @@ import (
 )
 
 func StoreBenchmark(b *testing.B, newStore func(b *testing.B) rangedb.Store) {
+	b.Helper()
+
 	for _, totalEvents := range []int{1, 5, 10, 50} {
 		eventRecords := getNEvents(totalEvents, "eb4b1c61fa344272a61e039cc4247258")
 		b.Run(fmt.Sprintf("Save %d at a time", totalEvents), func(b *testing.B) {

@@ -21,6 +21,12 @@ func Test_MsgPackSerializer(t *testing.T) {
 	})
 }
 
+func BenchmarkMsgpackRecordSerializer(b *testing.B) {
+	rangedbtest.RecordSerializerBenchmark(b, func() rangedb.RecordSerializer {
+		return msgpackrecordserializer.New()
+	})
+}
+
 func Test_Failures(t *testing.T) {
 	t.Run("serialize fails with invalid record with unbound event", func(t *testing.T) {
 		// Given

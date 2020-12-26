@@ -20,6 +20,12 @@ func Test_NdJsonRecordIoStream(t *testing.T) {
 	})
 }
 
+func BenchmarkNdJSONRecordIoStream(b *testing.B) {
+	rangedbtest.RecordIoStreamBenchmark(b, func() rangedb.RecordIoStream {
+		return ndjsonrecordiostream.New()
+	})
+}
+
 func Test_LoadAndSave_ValidJson(t *testing.T) {
 	t.Run("one object", func(t *testing.T) {
 		// Given

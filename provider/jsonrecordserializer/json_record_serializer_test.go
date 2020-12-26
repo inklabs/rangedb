@@ -18,6 +18,12 @@ func Test_JsonSerializer(t *testing.T) {
 	})
 }
 
+func BenchmarkJsonRecordSerializer(b *testing.B) {
+	rangedbtest.RecordSerializerBenchmark(b, func() rangedb.RecordSerializer {
+		return jsonrecordserializer.New()
+	})
+}
+
 func Test_Failures(t *testing.T) {
 	t.Run("serialize fails with invalid input", func(t *testing.T) {
 		// Given

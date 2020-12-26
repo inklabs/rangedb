@@ -18,6 +18,12 @@ func Test_MsgpackRecordIoStream(t *testing.T) {
 	})
 }
 
+func BenchmarkMsgpackRecordIoStream(b *testing.B) {
+	rangedbtest.RecordIoStreamBenchmark(b, func() rangedb.RecordIoStream {
+		return msgpackrecordiostream.New()
+	})
+}
+
 func Test_WriteAndRead_Valid(t *testing.T) {
 	// Given
 	var buff bytes.Buffer

@@ -21,6 +21,12 @@ func Test_JsonRecordIoStream(t *testing.T) {
 	})
 }
 
+func BenchmarkJsonRecordIoStream(b *testing.B) {
+	rangedbtest.RecordIoStreamBenchmark(b, func() rangedb.RecordIoStream {
+		return jsonrecordiostream.New()
+	})
+}
+
 func Test_LoadAndSave_ValidJson(t *testing.T) {
 	jsonTests := []struct {
 		name string
