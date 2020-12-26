@@ -28,7 +28,7 @@ func (r *filesystemTemplateManager) RenderTemplate(w io.Writer, templateName str
 
 	tmpl, ok := templates[templateName]
 	if !ok {
-		return templatemanager.TemplateNotFound
+		return templatemanager.ErrTemplateNotFound
 	}
 
 	err = tmpl.Execute(w, data)

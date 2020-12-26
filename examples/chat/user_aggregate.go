@@ -15,6 +15,7 @@ type userState struct {
 	Name        string
 }
 
+// NewUser constructs a new cqrs.Aggregate.
 func NewUser() *user {
 	return &user{}
 }

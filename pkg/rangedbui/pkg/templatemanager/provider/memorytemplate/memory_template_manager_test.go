@@ -26,7 +26,7 @@ func TestMemoryTemplateManager_RenderTemplate(t *testing.T) {
 		err = templateManager.RenderTemplate(&buf, "invalid-name", nil)
 
 		// Then
-		assert.Equal(t, templatemanager.TemplateNotFound, err)
+		assert.Equal(t, templatemanager.ErrTemplateNotFound, err)
 	})
 
 	t.Run("fails when unable to parse non base64 encoded template", func(t *testing.T) {

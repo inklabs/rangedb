@@ -21,7 +21,7 @@ func TestFilesystemTemplateManager_RenderTemplate(t *testing.T) {
 		err := templateManager.RenderTemplate(&buf, "invalid-name", nil)
 
 		// Then
-		assert.Equal(t, templatemanager.TemplateNotFound, err)
+		assert.Equal(t, templatemanager.ErrTemplateNotFound, err)
 	})
 
 	t.Run("fails when root path impacts the glob pattern", func(t *testing.T) {

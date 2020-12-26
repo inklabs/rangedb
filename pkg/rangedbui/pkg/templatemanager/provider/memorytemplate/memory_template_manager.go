@@ -31,7 +31,7 @@ func New(base64Templates map[string]string) (*memoryTemplateManager, error) {
 func (r *memoryTemplateManager) RenderTemplate(w io.Writer, templateName string, data interface{}) error {
 	tmpl, ok := r.templates[templateName]
 	if !ok {
-		return templatemanager.TemplateNotFound
+		return templatemanager.ErrTemplateNotFound
 	}
 
 	err := tmpl.Execute(w, data)

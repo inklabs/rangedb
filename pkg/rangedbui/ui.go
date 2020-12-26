@@ -159,7 +159,7 @@ func (a *webUI) renderWithValues(w http.ResponseWriter, tpl string, data interfa
 
 	err := a.templateManager.RenderTemplate(w, tpl, data)
 	if err != nil {
-		if err == templatemanager.TemplateNotFound {
+		if err == templatemanager.ErrTemplateNotFound {
 			http.Error(w, "404 Not Found", http.StatusNotFound)
 			return
 		}
