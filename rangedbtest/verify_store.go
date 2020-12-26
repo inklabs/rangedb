@@ -710,13 +710,27 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			require.NoError(t, err)
 
 			// Then
-			<-countSubscriber1.ReceivedRecords
-			<-countSubscriber2.ReceivedRecords
+			<-countSubscriber1.AcceptRecordChan
+			<-countSubscriber2.AcceptRecordChan
 			assert.Equal(t, 1, countSubscriber1.TotalEvents())
-			assert.Equal(t, 3, countSubscriber1.TotalThingWasDone())
+			assert.Equal(t, 3, countSubscriber1.TotalThingWasDoneNumber())
 			assert.Equal(t, 1, countSubscriber2.TotalEvents())
-			assert.Equal(t, 3, countSubscriber2.TotalThingWasDone())
-			// TODO: Assert actual values as sequence numbers may not be correct in all impls
+			assert.Equal(t, 3, countSubscriber2.TotalThingWasDoneNumber())
+			expectedRecord := &rangedb.Record{
+				AggregateType:        event2.AggregateType(),
+				AggregateID:          aggregateID,
+				GlobalSequenceNumber: 1,
+				StreamSequenceNumber: 1,
+				EventType:            "ThingWasDone",
+				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+				InsertTimestamp:      1,
+				Data:                 event2,
+				Metadata:             nil,
+			}
+			require.Equal(t, 1, len(countSubscriber1.AcceptedRecords))
+			require.Equal(t, 1, len(countSubscriber2.AcceptedRecords))
+			assert.Equal(t, expectedRecord, countSubscriber1.AcceptedRecords[0])
+			assert.Equal(t, expectedRecord, countSubscriber2.AcceptedRecords[0])
 		})
 
 		t.Run("SubscribeStartingWith sends previous and new events to subscribers on save, by pointer", func(t *testing.T) {
@@ -731,20 +745,20 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			countSubscriber2 := NewCountSubscriber()
 			ctx := context.Background()
 			store.SubscribeStartingWith(ctx, 0, countSubscriber1, countSubscriber2)
-			<-countSubscriber1.ReceivedRecords
-			<-countSubscriber2.ReceivedRecords
+			<-countSubscriber1.AcceptRecordChan
+			<-countSubscriber2.AcceptRecordChan
 
 			// When
 			err := store.Save(&rangedb.EventRecord{Event: event2})
 			require.NoError(t, err)
 
 			// Then
-			<-countSubscriber1.ReceivedRecords
-			<-countSubscriber2.ReceivedRecords
+			<-countSubscriber1.AcceptRecordChan
+			<-countSubscriber2.AcceptRecordChan
 			assert.Equal(t, 2, countSubscriber1.TotalEvents())
-			assert.Equal(t, 5, countSubscriber1.TotalThingWasDone())
+			assert.Equal(t, 5, countSubscriber1.TotalThingWasDoneNumber())
 			assert.Equal(t, 2, countSubscriber2.TotalEvents())
-			assert.Equal(t, 5, countSubscriber2.TotalThingWasDone())
+			assert.Equal(t, 5, countSubscriber2.TotalThingWasDoneNumber())
 		})
 
 		t.Run("SubscribeStartingWith sends previous and new events to subscribers on save, by value", func(t *testing.T) {
@@ -759,20 +773,20 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			countSubscriber2 := NewCountSubscriber()
 			ctx := context.Background()
 			store.SubscribeStartingWith(ctx, 0, countSubscriber1, countSubscriber2)
-			<-countSubscriber1.ReceivedRecords
-			<-countSubscriber2.ReceivedRecords
+			<-countSubscriber1.AcceptRecordChan
+			<-countSubscriber2.AcceptRecordChan
 
 			// When
 			err := store.Save(&rangedb.EventRecord{Event: event2})
 			require.NoError(t, err)
 
 			// Then
-			<-countSubscriber1.ReceivedRecords
-			<-countSubscriber2.ReceivedRecords
+			<-countSubscriber1.AcceptRecordChan
+			<-countSubscriber2.AcceptRecordChan
 			assert.Equal(t, 2, countSubscriber1.TotalEvents())
-			assert.Equal(t, 5, countSubscriber1.TotalThingWasDone())
+			assert.Equal(t, 5, countSubscriber1.TotalThingWasDoneNumber())
 			assert.Equal(t, 2, countSubscriber2.TotalEvents())
-			assert.Equal(t, 5, countSubscriber2.TotalThingWasDone())
+			assert.Equal(t, 5, countSubscriber2.TotalThingWasDoneNumber())
 		})
 
 		t.Run("SubscribeStartingWith stops before subscribing", func(t *testing.T) {
@@ -794,12 +808,12 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			require.NoError(t, err)
 
 			// Then
-			<-countSubscriber1.ReceivedRecords
-			<-countSubscriber2.ReceivedRecords
+			<-countSubscriber1.AcceptRecordChan
+			<-countSubscriber2.AcceptRecordChan
 			assert.Equal(t, 1, countSubscriber1.TotalEvents())
-			assert.Equal(t, 2, countSubscriber1.TotalThingWasDone())
+			assert.Equal(t, 2, countSubscriber1.TotalThingWasDoneNumber())
 			assert.Equal(t, 1, countSubscriber2.TotalEvents())
-			assert.Equal(t, 2, countSubscriber2.TotalThingWasDone())
+			assert.Equal(t, 2, countSubscriber2.TotalThingWasDoneNumber())
 		})
 
 		t.Run("does not allow saving multiple events from different aggregate types", func(t *testing.T) {
@@ -1082,39 +1096,41 @@ func drainRecordChannel(eventsChannel <-chan *rangedb.Record) {
 }
 
 type countSubscriber struct {
-	ReceivedRecords chan *rangedb.Record
+	AcceptRecordChan chan *rangedb.Record
+	AcceptedRecords  []*rangedb.Record
 
-	sync              sync.RWMutex
-	totalEvents       int
-	totalThingWasDone int
+	sync                sync.RWMutex
+	totalAcceptedEvents int
+	totalThingWasDone   int
 }
 
 func NewCountSubscriber() *countSubscriber {
 	return &countSubscriber{
-		ReceivedRecords: make(chan *rangedb.Record, 10),
+		AcceptRecordChan: make(chan *rangedb.Record, 10),
 	}
 }
 
 func (c *countSubscriber) Accept(record *rangedb.Record) {
 	c.sync.Lock()
-	c.totalEvents++
+	c.totalAcceptedEvents++
 
 	event, ok := record.Data.(*ThingWasDone)
 	if ok {
 		c.totalThingWasDone += event.Number
 	}
+	c.AcceptedRecords = append(c.AcceptedRecords, record)
 	c.sync.Unlock()
-	c.ReceivedRecords <- record
+	c.AcceptRecordChan <- record
 }
 
 func (c *countSubscriber) TotalEvents() int {
 	c.sync.RLock()
 	defer c.sync.RUnlock()
 
-	return c.totalEvents
+	return c.totalAcceptedEvents
 }
 
-func (c *countSubscriber) TotalThingWasDone() int {
+func (c *countSubscriber) TotalThingWasDoneNumber() int {
 	c.sync.RLock()
 	defer c.sync.RUnlock()
 

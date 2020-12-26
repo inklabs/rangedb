@@ -252,8 +252,25 @@ func (s *postgresStore) saveEvents(expectedStreamSequenceNumber *uint64, eventRe
 		}
 		cnt++
 
-		deSerializedData, _ := jsonrecordserializer.DecodeJsonData(batchEvent.EventType, strings.NewReader(batchEvent.Data), s.serializer)
+		deSerializedData, err := jsonrecordserializer.DecodeJsonData(
+			batchEvent.EventType,
+			strings.NewReader(batchEvent.Data),
+			s.serializer,
+		)
+		if err != nil {
+			panic(err) // TODO: test this error path
+		}
+
+		var metadata interface{}
+		if batchEvent.Metadata != "null" {
+			err = json.Unmarshal([]byte(batchEvent.Metadata), metadata)
+			if err != nil {
+				panic(err) // TODO: test this error path
+			}
+		}
+
 		record.Data = deSerializedData
+		record.Metadata = metadata
 		s.notifySubscribers(record)
 	}
 
