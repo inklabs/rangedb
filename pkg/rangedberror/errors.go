@@ -2,7 +2,6 @@ package rangedberror
 
 import (
 	"fmt"
-	"log"
 	"strings"
 )
 
@@ -15,11 +14,14 @@ type UnexpectedSequenceNumber struct {
 // NewUnexpectedSequenceNumberFromString constructs an UnexpectedSequenceNumber error.
 func NewUnexpectedSequenceNumberFromString(input string) *UnexpectedSequenceNumber {
 	pieces := strings.Split(input, "unexpected sequence number:")
+	if len(pieces) < 2 {
+		return &UnexpectedSequenceNumber{}
+	}
+
 	var expected, next uint64
 	_, err := fmt.Sscanf(pieces[1], "%d, next: %d", &expected, &next)
 	if err != nil {
-		log.Print(err)
-		return nil
+		return &UnexpectedSequenceNumber{}
 	}
 
 	return &UnexpectedSequenceNumber{

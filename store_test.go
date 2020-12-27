@@ -2,6 +2,7 @@ package rangedb_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -121,6 +122,26 @@ func TestRecordSubscriberFunc_Accept(t *testing.T) {
 
 	// Then
 	assert.Equal(t, uint64(5), dummyRecordSubscriber.GlobalSequenceNumber)
+}
+
+func TestRawEvent(t *testing.T) {
+	// When
+	rawEvent := rangedb.NewRawEvent(
+		"thing",
+		"3d2e5ee4c4a049c6b33d564eb0d285ed",
+		"ThingWasDone",
+		map[string]interface{}{
+			"number": 100,
+		},
+	)
+
+	// Then
+	assert.Equal(t, "3d2e5ee4c4a049c6b33d564eb0d285ed", rawEvent.AggregateID())
+	assert.Equal(t, "thing", rawEvent.AggregateType())
+	assert.Equal(t, "ThingWasDone", rawEvent.EventType())
+	eventJSON, err := json.Marshal(rawEvent)
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"number":100}`, string(eventJSON))
 }
 
 type dummyRecordSubscriber struct {
