@@ -80,6 +80,9 @@ func (s *postgresStore) EventsStartingWith(ctx context.Context, globalSequenceNu
 		rows, err := s.db.QueryContext(ctx, "SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE GlobalSequenceNumber > $1 ORDER BY GlobalSequenceNumber",
 			globalSequenceNumber)
 		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				return
+			}
 			panic(err) // TODO: test this error path
 		}
 		defer rows.Close()
@@ -98,6 +101,9 @@ func (s *postgresStore) EventsByAggregateTypesStartingWith(ctx context.Context, 
 		rows, err := s.db.QueryContext(ctx, "SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE AggregateType = ANY($1) AND GlobalSequenceNumber > $2 ORDER BY GlobalSequenceNumber",
 			pq.Array(aggregateTypes), globalSequenceNumber)
 		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				return
+			}
 			panic(err) // TODO: test this error path
 		}
 		defer rows.Close()
@@ -117,6 +123,9 @@ func (s *postgresStore) EventsByStreamStartingWith(ctx context.Context, streamSe
 		rows, err := s.db.QueryContext(ctx, "SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE AggregateType = $1 AND AggregateID = $2 AND StreamSequenceNumber >= $3 ORDER BY GlobalSequenceNumber",
 			aggregateType, aggregateID, streamSequenceNumber)
 		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				return
+			}
 			panic(err) // TODO: test this error path
 		}
 		defer rows.Close()
@@ -381,6 +390,9 @@ func (s *postgresStore) readRecords(rows *sql.Rows, records chan *rangedb.Record
 		)
 		err := rows.Scan(&aggregateType, &aggregateID, &globalSequenceNumber, &streamSequenceNumber, &insertTimestamp, &eventID, &eventType, &serializedData, &serializedMetadata)
 		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				return
+			}
 			panic(err) // TODO: test this error path
 		}
 
