@@ -77,39 +77,41 @@ func (s *postgresStore) EventsStartingWith(ctx context.Context, globalSequenceNu
 	records := make(chan *rangedb.Record)
 
 	go func() {
+		defer close(records)
 		rows, err := s.db.QueryContext(ctx, "SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE GlobalSequenceNumber > $1 ORDER BY GlobalSequenceNumber",
 			globalSequenceNumber)
 		if err != nil {
-			if errors.Is(err, context.Canceled) {
+			if isContextCanceledOrDeadlineExceeded(err) {
 				return
 			}
 			panic(err) // TODO: test this error path
 		}
 		defer rows.Close()
 		s.readRecords(rows, records)
-
-		close(records)
 	}()
 
 	return records
+}
+
+func isContextCanceledOrDeadlineExceeded(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
 func (s *postgresStore) EventsByAggregateTypesStartingWith(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) <-chan *rangedb.Record {
 	records := make(chan *rangedb.Record)
 
 	go func() {
+		defer close(records)
 		rows, err := s.db.QueryContext(ctx, "SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE AggregateType = ANY($1) AND GlobalSequenceNumber > $2 ORDER BY GlobalSequenceNumber",
 			pq.Array(aggregateTypes), globalSequenceNumber)
 		if err != nil {
-			if errors.Is(err, context.Canceled) {
+			if isContextCanceledOrDeadlineExceeded(err) {
 				return
 			}
 			panic(err) // TODO: test this error path
 		}
 		defer rows.Close()
 		s.readRecords(rows, records)
-
-		close(records)
 	}()
 
 	return records
@@ -119,19 +121,18 @@ func (s *postgresStore) EventsByStreamStartingWith(ctx context.Context, streamSe
 	records := make(chan *rangedb.Record)
 
 	go func() {
+		defer close(records)
 		aggregateType, aggregateID := rangedb.ParseStream(streamName)
 		rows, err := s.db.QueryContext(ctx, "SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE AggregateType = $1 AND AggregateID = $2 AND StreamSequenceNumber >= $3 ORDER BY GlobalSequenceNumber",
 			aggregateType, aggregateID, streamSequenceNumber)
 		if err != nil {
-			if errors.Is(err, context.Canceled) {
+			if isContextCanceledOrDeadlineExceeded(err) {
 				return
 			}
 			panic(err) // TODO: test this error path
 		}
 		defer rows.Close()
 		s.readRecords(rows, records)
-
-		close(records)
 	}()
 
 	return records
@@ -390,7 +391,7 @@ func (s *postgresStore) readRecords(rows *sql.Rows, records chan *rangedb.Record
 		)
 		err := rows.Scan(&aggregateType, &aggregateID, &globalSequenceNumber, &streamSequenceNumber, &insertTimestamp, &eventID, &eventType, &serializedData, &serializedMetadata)
 		if err != nil {
-			if errors.Is(err, context.Canceled) {
+			if isContextCanceledOrDeadlineExceeded(err) {
 				return
 			}
 			panic(err) // TODO: test this error path
@@ -430,7 +431,7 @@ func (s *postgresStore) readRecords(rows *sql.Rows, records chan *rangedb.Record
 
 	err := rows.Err()
 	if err != nil {
-		if errors.Is(err, context.Canceled) {
+		if isContextCanceledOrDeadlineExceeded(err) {
 			return
 		}
 		panic(err) // TODO: test this error path

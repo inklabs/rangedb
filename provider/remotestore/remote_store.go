@@ -222,6 +222,8 @@ func (s *remoteStore) readRecords(ctx context.Context, events PbRecordReceiver) 
 	records := make(chan *rangedb.Record)
 
 	go func() {
+		defer close(records)
+
 		for {
 			pbRecord, err := events.Recv()
 			if err == io.EOF {
@@ -244,8 +246,6 @@ func (s *remoteStore) readRecords(ctx context.Context, events PbRecordReceiver) 
 			case records <- record:
 			}
 		}
-
-		close(records)
 	}()
 
 	return records

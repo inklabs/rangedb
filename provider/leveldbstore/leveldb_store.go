@@ -185,7 +185,7 @@ func (s *levelDbStore) saveEvents(expectedStreamSequenceNumber *uint64, eventRec
 	return nil
 }
 
-//saveEvent persists a single event without locking the mutex, or notifying subscribers.
+// saveEvent persists a single event without locking the mutex, or notifying subscribers.
 func (s *levelDbStore) saveEvent(transaction *leveldb.Transaction,
 	aggregateType, aggregateID, eventType, eventID string,
 	expectedStreamSequenceNumber *uint64,
@@ -272,6 +272,7 @@ func (s *levelDbStore) getEventsByPrefixStartingWith(ctx context.Context, prefix
 
 	go func() {
 		defer s.mux.RUnlock()
+		defer close(records)
 
 		iter := s.db.NewIterator(util.BytesPrefix([]byte(prefix)), nil)
 		for iter.Next() {
@@ -291,7 +292,6 @@ func (s *levelDbStore) getEventsByPrefixStartingWith(ctx context.Context, prefix
 		iter.Release()
 
 		_ = iter.Error()
-		close(records)
 	}()
 
 	return records
@@ -303,6 +303,7 @@ func (s *levelDbStore) getEventsByLookup(ctx context.Context, key string, global
 
 	go func() {
 		defer s.mux.RUnlock()
+		defer close(records)
 
 		iter := s.db.NewIterator(util.BytesPrefix([]byte(key)), nil)
 
@@ -323,7 +324,6 @@ func (s *levelDbStore) getEventsByLookup(ctx context.Context, key string, global
 			}
 		}
 		iter.Release()
-		close(records)
 	}()
 
 	return records

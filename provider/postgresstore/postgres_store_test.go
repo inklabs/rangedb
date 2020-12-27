@@ -60,29 +60,6 @@ func BenchmarkPostgresStore(b *testing.B) {
 	})
 }
 
-type testSkipper interface {
-	Skip(args ...interface{})
-}
-
-func configFromEnvironment(t testSkipper) postgresstore.Config {
-	pgHost := os.Getenv("PG_HOST")
-	pgUser := os.Getenv("PG_USER")
-	pgPassword := os.Getenv("PG_PASSWORD")
-	pgDBName := os.Getenv("PG_DBNAME")
-
-	if pgHost+pgUser+pgPassword+pgDBName == "" {
-		t.Skip("Postgres DB has not been configured via environment variables to run integration tests")
-	}
-
-	return postgresstore.Config{
-		Host:     pgHost,
-		Port:     5432,
-		User:     pgUser,
-		Password: pgPassword,
-		DBName:   pgDBName,
-	}
-}
-
 func Test_Failures(t *testing.T) {
 	pgHost := os.Getenv("PG_HOST")
 	pgUser := os.Getenv("PG_USER")
@@ -137,4 +114,27 @@ func Test_Failures(t *testing.T) {
 		require.NotNil(t, err)
 		assert.Contains(t, err.Error(), `unable to connect to DB:`)
 	})
+}
+
+type testSkipper interface {
+	Skip(args ...interface{})
+}
+
+func configFromEnvironment(t testSkipper) postgresstore.Config {
+	pgHost := os.Getenv("PG_HOST")
+	pgUser := os.Getenv("PG_USER")
+	pgPassword := os.Getenv("PG_PASSWORD")
+	pgDBName := os.Getenv("PG_DBNAME")
+
+	if pgHost+pgUser+pgPassword+pgDBName == "" {
+		t.Skip("Postgres DB has not been configured via environment variables to run integration tests")
+	}
+
+	return postgresstore.Config{
+		Host:     pgHost,
+		Port:     5432,
+		User:     pgUser,
+		Password: pgPassword,
+		DBName:   pgDBName,
+	}
 }

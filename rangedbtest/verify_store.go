@@ -225,6 +225,21 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			}
 			assert.Equal(t, expectedRecord, actualRecord)
 		})
+
+		t.Run("all events, stops before sending with context.Done", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			store := newStore(t, sequentialclock.New())
+			ctx, done := context.WithCancel(TimeoutContext(t))
+			done()
+
+			// When
+			records := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(ThingWasDone{}))
+
+			// Then
+			drainRecordChannel(records)
+			assert.Equal(t, 0, len(records))
+		})
 	})
 
 	t.Run("EventsStartingWith", func(t *testing.T) {
@@ -377,6 +392,21 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			assert.Equal(t, (*rangedb.Record)(nil), <-records)
 		})
 
+		t.Run("all events, stops before sending with context.Done", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			store := newStore(t, sequentialclock.New())
+			ctx, done := context.WithCancel(TimeoutContext(t))
+			done()
+
+			// When
+			records := store.EventsStartingWith(ctx, 0)
+
+			// Then
+			drainRecordChannel(records)
+			assert.Equal(t, 0, len(records))
+		})
+
 		t.Run("all events starting with second entry, stops from context.Done", func(t *testing.T) {
 			// Given
 			shortuuid.SetRand(100)
@@ -527,6 +557,21 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			assert.Equal(t, expectedRecord1, <-records)
 			assert.Equal(t, expectedRecord2, <-records)
 			assert.Equal(t, (*rangedb.Record)(nil), <-records)
+		})
+
+		t.Run("all events, stops before sending with context.Done", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			store := newStore(t, sequentialclock.New())
+			ctx, done := context.WithCancel(TimeoutContext(t))
+			done()
+
+			// When
+			records := store.EventsByAggregateTypesStartingWith(ctx, 0, ThingWasDone{}.AggregateType())
+
+			// Then
+			drainRecordChannel(records)
+			assert.Equal(t, 0, len(records))
 		})
 	})
 

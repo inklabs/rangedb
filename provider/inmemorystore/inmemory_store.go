@@ -114,6 +114,7 @@ func (s *inMemoryStore) recordsStartingWith(ctx context.Context, serializedRecor
 
 	go func() {
 		defer s.mux.RUnlock()
+		defer close(records)
 
 		for _, data := range serializedRecords {
 			record, err := s.serializer.Deserialize(data)
@@ -130,7 +131,6 @@ func (s *inMemoryStore) recordsStartingWith(ctx context.Context, serializedRecor
 				}
 			}
 		}
-		close(records)
 	}()
 
 	return records
