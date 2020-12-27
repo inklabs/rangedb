@@ -249,13 +249,13 @@ func (s *rangeDBServer) SubscribeToLiveEvents(_ *rangedbpb.SubscribeToLiveEvents
 }
 
 func (s *rangeDBServer) SubscribeToEvents(req *rangedbpb.SubscribeToEventsRequest, stream rangedbpb.RangeDB_SubscribeToEventsServer) error {
-	total, err := s.writeEventsToStream(stream, s.store.EventsStartingWith(stream.Context(), req.GlobalSequenceNumber))
+	lastGlobalSequenceNumber, err := s.writeEventsToStream(stream, s.store.EventsStartingWith(stream.Context(), req.GlobalSequenceNumber))
 	if err != nil {
 		return err
 	}
 
 	s.broadcastMutex.Lock()
-	_, err = s.writeEventsToStream(stream, s.store.EventsStartingWith(stream.Context(), total+1))
+	_, err = s.writeEventsToStream(stream, s.store.EventsStartingWith(stream.Context(), lastGlobalSequenceNumber+1))
 	if err != nil {
 		s.broadcastMutex.Unlock()
 		return err
@@ -283,13 +283,13 @@ func (s *rangeDBServer) unsubscribeFromAllEvents(stream rangedbpb.RangeDB_Subscr
 }
 
 func (s *rangeDBServer) SubscribeToEventsByAggregateType(req *rangedbpb.SubscribeToEventsByAggregateTypeRequest, stream rangedbpb.RangeDB_SubscribeToEventsByAggregateTypeServer) error {
-	total, err := s.writeEventsToStream(stream, s.store.EventsByAggregateTypesStartingWith(stream.Context(), req.GlobalSequenceNumber, req.AggregateTypes...))
+	lastGlobalSequenceNumber, err := s.writeEventsToStream(stream, s.store.EventsByAggregateTypesStartingWith(stream.Context(), req.GlobalSequenceNumber, req.AggregateTypes...))
 	if err != nil {
 		return err
 	}
 
 	s.broadcastMutex.Lock()
-	_, err = s.writeEventsToStream(stream, s.store.EventsByAggregateTypesStartingWith(stream.Context(), total+1, req.AggregateTypes...))
+	_, err = s.writeEventsToStream(stream, s.store.EventsByAggregateTypesStartingWith(stream.Context(), lastGlobalSequenceNumber+1, req.AggregateTypes...))
 	if err != nil {
 		s.broadcastMutex.Unlock()
 		return err
@@ -366,21 +366,21 @@ func (s *rangeDBServer) broadcastRecord(record *rangedb.Record) {
 }
 
 func (s *rangeDBServer) writeEventsToStream(stream streamSender, records <-chan *rangedb.Record) (uint64, error) {
-	totalWritten := uint64(0)
+	var lastGlobalSequenceNumber uint64
 	for record := range records {
 		pbRecord, err := rangedbpb.ToPbRecord(record)
 		if err != nil {
-			return totalWritten, err
+			return lastGlobalSequenceNumber, err
 		}
 
 		err = stream.Send(pbRecord)
 		if err != nil {
-			return totalWritten, err
+			return lastGlobalSequenceNumber, err
 		}
-		totalWritten++
+		lastGlobalSequenceNumber = record.GlobalSequenceNumber
 	}
 
-	return totalWritten, nil
+	return lastGlobalSequenceNumber, nil
 }
 
 // PbRecordSender defines the interface for sending a protobuf record.

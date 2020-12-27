@@ -1096,11 +1096,11 @@ func drainRecordChannel(eventsChannel <-chan *rangedb.Record) {
 
 type countSubscriber struct {
 	AcceptRecordChan chan *rangedb.Record
-	AcceptedRecords  []*rangedb.Record
 
 	sync                sync.RWMutex
 	totalAcceptedEvents int
 	totalThingWasDone   int
+	AcceptedRecords     []*rangedb.Record
 }
 
 // NewCountSubscriber constructs a projection for counting events in a test context.

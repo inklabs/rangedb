@@ -199,7 +199,7 @@ func (s *inMemoryStore) saveEvents(expectedStreamSequenceNumber *uint64, eventRe
 	return nil
 }
 
-//saveEvent persists a single event without locking the mutex, or notifying subscribers.
+// saveEvent persists a single event without locking the mutex, or notifying subscribers.
 func (s *inMemoryStore) saveEvent(
 	aggregateType, aggregateID, eventType, eventID string,
 	expectedStreamSequenceNumber *uint64,

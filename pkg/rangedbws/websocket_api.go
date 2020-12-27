@@ -124,13 +124,13 @@ func (a *websocketAPI) SubscribeToAllEvents(w http.ResponseWriter, r *http.Reque
 	}
 	defer ignoreClose(conn)
 
-	total, err := a.writeEventsToConnection(conn, a.store.EventsStartingWith(r.Context(), 0))
+	lastGlobalSequenceNumber, err := a.writeEventsToConnection(conn, a.store.EventsStartingWith(r.Context(), 0))
 	if err != nil {
 		return
 	}
 
 	a.broadcastMutex.Lock()
-	_, err = a.writeEventsToConnection(conn, a.store.EventsStartingWith(r.Context(), total+1))
+	_, err = a.writeEventsToConnection(conn, a.store.EventsStartingWith(r.Context(), lastGlobalSequenceNumber+1))
 	if err != nil {
 		a.broadcastMutex.Unlock()
 		return
@@ -142,24 +142,24 @@ func (a *websocketAPI) SubscribeToAllEvents(w http.ResponseWriter, r *http.Reque
 	a.unsubscribeFromAllEvents(conn)
 }
 
-func (a *websocketAPI) writeEventsToConnection(conn MessageWriter, events <-chan *rangedb.Record) (uint64, error) {
-	totalWritten := uint64(0)
-	for event := range events {
-		jsonEvent, err := json.Marshal(event)
+func (a *websocketAPI) writeEventsToConnection(conn MessageWriter, records <-chan *rangedb.Record) (uint64, error) {
+	var lastGlobalSequenceNumber uint64
+	for record := range records {
+		jsonEvent, err := json.Marshal(record)
 		if err != nil {
 			err := fmt.Errorf("unable to marshal record: %v", err)
 			a.logger.Print(err)
-			return totalWritten, err
+			return lastGlobalSequenceNumber, err
 		}
 
 		err = a.sendMessage(conn, jsonEvent)
 		if err != nil {
-			return totalWritten, err
+			return lastGlobalSequenceNumber, err
 		}
-		totalWritten++
+		lastGlobalSequenceNumber = record.GlobalSequenceNumber
 	}
 
-	return totalWritten, nil
+	return lastGlobalSequenceNumber, nil
 }
 
 func (a *websocketAPI) SubscribeToEventsByAggregateTypes(w http.ResponseWriter, r *http.Request) {
@@ -173,13 +173,13 @@ func (a *websocketAPI) SubscribeToEventsByAggregateTypes(w http.ResponseWriter, 
 	}
 	defer ignoreClose(conn)
 
-	total, err := a.writeEventsToConnection(conn, a.store.EventsByAggregateTypesStartingWith(r.Context(), 0, aggregateTypes...))
+	lastGlobalSequenceNumber, err := a.writeEventsToConnection(conn, a.store.EventsByAggregateTypesStartingWith(r.Context(), 0, aggregateTypes...))
 	if err != nil {
 		return
 	}
 
 	a.broadcastMutex.Lock()
-	_, err = a.writeEventsToConnection(conn, a.store.EventsByAggregateTypesStartingWith(r.Context(), total+1, aggregateTypes...))
+	_, err = a.writeEventsToConnection(conn, a.store.EventsByAggregateTypesStartingWith(r.Context(), lastGlobalSequenceNumber+1, aggregateTypes...))
 	if err != nil {
 		a.broadcastMutex.Unlock()
 		return

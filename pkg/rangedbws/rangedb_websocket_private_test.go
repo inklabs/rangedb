@@ -30,11 +30,11 @@ func Test_Private_writeEventsToConnection_Fails(t *testing.T) {
 		t.Cleanup(api.Stop)
 
 		// When
-		total, err := api.writeEventsToConnection(nil, events)
+		lastGlobalSequenceNumber, err := api.writeEventsToConnection(nil, events)
 
 		// Then
 		assert.EqualError(t, err, "unable to marshal record: json: unsupported value: +Inf")
-		assert.Equal(t, uint64(0), total)
+		assert.Equal(t, uint64(0), lastGlobalSequenceNumber)
 		assert.Equal(t, "unable to marshal record: json: unsupported value: +Inf\n", logBuffer.String())
 	})
 

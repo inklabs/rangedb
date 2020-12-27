@@ -261,9 +261,9 @@ func (s *remoteStore) Subscribe(subscribers ...rangedb.RecordSubscriber) {
 }
 
 func (s *remoteStore) listenForEvents() {
-	request := &rangedbpb.SubscribeToLiveEventsRequest{}
-
+	// TODO: pass a context from the original request, or include a timeout
 	ctx := context.Background()
+	request := &rangedbpb.SubscribeToLiveEventsRequest{}
 	events, err := s.client.SubscribeToLiveEvents(ctx, request)
 	if err != nil {
 		log.Printf("failed to subscribe: %v", err)
