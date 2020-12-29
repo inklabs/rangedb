@@ -3,7 +3,6 @@ package rangedbtest
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"sync"
 	"testing"
@@ -67,14 +66,7 @@ func benchNReads(b *testing.B, totalRecords int, newIoStream func() rangedb.Reco
 			wg.Add(2)
 			// TODO: Change signature for rangedb.RecordIoStream Read/Write to return a single channel
 			go func() {
-				for err := range errors {
-					if err == io.EOF {
-						break
-					}
-					if err != nil {
-						require.NoError(b, err)
-					}
-				}
+				require.NoError(b, <-errors)
 				wg.Done()
 			}()
 			go func() {

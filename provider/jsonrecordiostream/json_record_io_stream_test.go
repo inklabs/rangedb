@@ -67,7 +67,7 @@ func TestLoad_NoJson(t *testing.T) {
 	events, errors := stream.Read(reader)
 
 	// Then
-	require.EqualError(t, <-errors, "EOF")
+	require.Nil(t, <-errors)
 	assert.Equal(t, (*rangedb.Record)(nil), <-events)
 }
 
@@ -94,6 +94,19 @@ func TestLoad_MalformedJson(t *testing.T) {
 
 	// Then
 	require.EqualError(t, <-errors, "failed unmarshalling record: invalid character 'i' looking for beginning of value")
+	assert.Equal(t, (*rangedb.Record)(nil), <-events)
+}
+
+func TestLoad_InvalidFirstToken(t *testing.T) {
+	// Given
+	reader := strings.NewReader("-invalid")
+	stream := jsonrecordiostream.New()
+
+	// When
+	events, errors := stream.Read(reader)
+
+	// Then
+	require.EqualError(t, <-errors, "invalid character 'i' in numeric literal")
 	assert.Equal(t, (*rangedb.Record)(nil), <-events)
 }
 
