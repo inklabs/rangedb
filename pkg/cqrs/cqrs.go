@@ -2,6 +2,7 @@ package cqrs
 
 import (
 	"context"
+	"fmt"
 	"io/ioutil"
 	"log"
 
@@ -22,8 +23,9 @@ type CommandDispatcher interface {
 // Aggregate defines the interface for a CQRS aggregate, or Unit of Certainty.
 type Aggregate interface {
 	Load(<-chan *rangedb.Record)
+	Apply(event rangedb.Event)
 	Handle(Command) []rangedb.Event
-	CommandTypes() []string
+	Commands() []Command
 }
 
 type cqrs struct {
@@ -46,8 +48,12 @@ func WithLogger(logger *log.Logger) Option {
 func WithAggregates(aggregates ...Aggregate) Option {
 	return func(c *cqrs) {
 		for _, aggregate := range aggregates {
-			for _, commandType := range aggregate.CommandTypes() {
-				c.aggregates[commandType] = aggregate
+			for _, command := range aggregate.Commands() {
+				if c.aggregates[command.CommandType()] != nil {
+					panic(fmt.Sprintf("command \"%s\" is already registered", command.CommandType()))
+				}
+
+				c.aggregates[command.CommandType()] = aggregate
 			}
 		}
 	}
@@ -80,6 +86,14 @@ func (c *cqrs) Dispatch(command Command) []rangedb.Event {
 	streamName := rangedb.GetEventStream(command)
 	eventStream := c.store.EventsByStreamStartingWith(context.Background(), 0, streamName)
 	commandHandler.Load(eventStream)
+
+	// Why can we can't do this here?
+	//for record := range eventStream {
+	//	if event, ok := record.Data.(rangedb.Event); ok {
+	//		u.Apply(event)
+	//	}
+	//}
+
 	handlerEvents := commandHandler.Handle(command)
 
 	events := append(preHandlerEvents, handlerEvents...)
