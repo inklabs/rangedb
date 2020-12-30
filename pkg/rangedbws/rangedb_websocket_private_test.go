@@ -16,11 +16,16 @@ import (
 func Test_Private_writeEventsToConnection_Fails(t *testing.T) {
 	t.Run("when unable to marshal json", func(t *testing.T) {
 		// Given
-		events := make(chan *rangedb.Record, 1)
-		events <- &rangedb.Record{
+		record := &rangedb.Record{
 			Data: math.Inf(1),
 		}
-		close(events)
+		resultRecords := make(chan rangedb.ResultRecord, 1)
+		resultRecords <- rangedb.ResultRecord{
+			Record: record,
+			Err:    nil,
+		}
+		close(resultRecords)
+		recordIterator := rangedb.NewRecordIterator(resultRecords)
 		var logBuffer bytes.Buffer
 		logger := log.New(&logBuffer, "", 0)
 		api := New(
@@ -30,7 +35,7 @@ func Test_Private_writeEventsToConnection_Fails(t *testing.T) {
 		t.Cleanup(api.Stop)
 
 		// When
-		lastGlobalSequenceNumber, err := api.writeEventsToConnection(nil, events)
+		lastGlobalSequenceNumber, err := api.writeEventsToConnection(nil, recordIterator)
 
 		// Then
 		assert.EqualError(t, err, "unable to marshal record: json: unsupported value: +Inf")
@@ -41,9 +46,14 @@ func Test_Private_writeEventsToConnection_Fails(t *testing.T) {
 	t.Run("when unable to write message to websocket connection", func(t *testing.T) {
 		// Given
 		conn := &failingMessageWriter{}
-		events := make(chan *rangedb.Record, 1)
-		events <- &rangedb.Record{}
-		close(events)
+		resultRecords := make(chan rangedb.ResultRecord, 1)
+		resultRecords <- rangedb.ResultRecord{
+			Record: &rangedb.Record{},
+			Err:    nil,
+		}
+		close(resultRecords)
+		recordIterator := rangedb.NewRecordIterator(resultRecords)
+
 		var logBuffer bytes.Buffer
 		logger := log.New(&logBuffer, "", 0)
 		api := New(
@@ -53,7 +63,7 @@ func Test_Private_writeEventsToConnection_Fails(t *testing.T) {
 		t.Cleanup(api.Stop)
 
 		// When
-		totalWritten, _ := api.writeEventsToConnection(conn, events)
+		totalWritten, _ := api.writeEventsToConnection(conn, recordIterator)
 
 		// Then
 		assert.Equal(t, uint64(0), totalWritten)

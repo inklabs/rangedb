@@ -21,7 +21,7 @@ type CommandDispatcher interface {
 
 // Aggregate defines the interface for a CQRS aggregate, or Unit of Certainty.
 type Aggregate interface {
-	Load(<-chan *rangedb.Record)
+	Load(rangedb.RecordIterator)
 	Handle(Command) []rangedb.Event
 	CommandTypes() []string
 }

@@ -74,26 +74,26 @@ func (s *inMemoryStore) Bind(events ...rangedb.Event) {
 	s.serializer.Bind(events...)
 }
 
-func (s *inMemoryStore) EventsStartingWith(ctx context.Context, globalSequenceNumber uint64) <-chan *rangedb.Record {
+func (s *inMemoryStore) EventsStartingWith(ctx context.Context, globalSequenceNumber uint64) rangedb.RecordIterator {
 	s.mux.RLock()
 	return s.recordsStartingWith(ctx, s.allRecords, func(record *rangedb.Record) bool {
 		return record.GlobalSequenceNumber >= globalSequenceNumber
 	})
 }
 
-func (s *inMemoryStore) EventsByAggregateTypesStartingWith(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) <-chan *rangedb.Record {
+func (s *inMemoryStore) EventsByAggregateTypesStartingWith(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) rangedb.RecordIterator {
 	if len(aggregateTypes) == 1 {
 		s.mux.RLock()
 		return s.recordsStartingWith(ctx, s.recordsByAggregateType[aggregateTypes[0]], compareByGlobalSequenceNumber(globalSequenceNumber))
 	}
 
-	var channels []<-chan *rangedb.Record
+	var recordIterators []rangedb.RecordIterator
 	for _, aggregateType := range aggregateTypes {
 		s.mux.RLock()
-		channels = append(channels, s.recordsStartingWith(ctx, s.recordsByAggregateType[aggregateType], compareByGlobalSequenceNumber(globalSequenceNumber)))
+		recordIterators = append(recordIterators, s.recordsStartingWith(ctx, s.recordsByAggregateType[aggregateType], compareByGlobalSequenceNumber(globalSequenceNumber)))
 	}
 
-	return rangedb.MergeRecordChannelsInOrder(channels)
+	return rangedb.MergeRecordIteratorsInOrder(recordIterators)
 }
 
 func compareByGlobalSequenceNumber(globalSequenceNumber uint64) func(record *rangedb.Record) bool {
@@ -102,38 +102,43 @@ func compareByGlobalSequenceNumber(globalSequenceNumber uint64) func(record *ran
 	}
 }
 
-func (s *inMemoryStore) EventsByStreamStartingWith(ctx context.Context, streamSequenceNumber uint64, stream string) <-chan *rangedb.Record {
+func (s *inMemoryStore) EventsByStreamStartingWith(ctx context.Context, streamSequenceNumber uint64, stream string) rangedb.RecordIterator {
 	s.mux.RLock()
 	return s.recordsStartingWith(ctx, s.recordsByStream[stream], func(record *rangedb.Record) bool {
 		return record.StreamSequenceNumber >= streamSequenceNumber
 	})
 }
 
-func (s *inMemoryStore) recordsStartingWith(ctx context.Context, serializedRecords [][]byte, compare func(record *rangedb.Record) bool) <-chan *rangedb.Record {
-	records := make(chan *rangedb.Record)
+func (s *inMemoryStore) recordsStartingWith(ctx context.Context, serializedRecords [][]byte, compare func(record *rangedb.Record) bool) rangedb.RecordIterator {
+	resultRecords := make(chan rangedb.ResultRecord)
 
 	go func() {
 		defer s.mux.RUnlock()
-		defer close(records)
+		defer close(resultRecords)
 
 		for _, data := range serializedRecords {
 			record, err := s.serializer.Deserialize(data)
 			if err != nil {
-				s.logger.Printf("failed to deserialize record: %v", err)
-				continue
+				deserializeErr := fmt.Errorf("failed to deserialize record: %v", err)
+				s.logger.Printf(deserializeErr.Error())
+				resultRecords <- rangedb.ResultRecord{Err: deserializeErr}
+				return
 			}
 
 			if compare(record) {
 				select {
 				case <-ctx.Done():
-					break
-				case records <- record:
+					resultRecords <- rangedb.ResultRecord{Err: ctx.Err()}
+					return
+
+				default:
+					resultRecords <- rangedb.ResultRecord{Record: record}
 				}
 			}
 		}
 	}()
 
-	return records
+	return rangedb.NewRecordIterator(resultRecords)
 }
 
 func (s *inMemoryStore) OptimisticSave(expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) error {
@@ -144,7 +149,7 @@ func (s *inMemoryStore) Save(eventRecords ...*rangedb.EventRecord) error {
 	return s.saveEvents(nil, eventRecords...)
 }
 
-//saveEvents persists one or more events inside a locked mutex, and notifies subscribers.
+// saveEvents persists one or more events inside a locked mutex, and notifies subscribers.
 func (s *inMemoryStore) saveEvents(expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) error {
 	nextExpectedStreamSequenceNumber := expectedStreamSequenceNumber
 

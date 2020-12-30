@@ -93,8 +93,13 @@ func (s *rangeDBServer) Stop() {
 }
 
 func (s *rangeDBServer) Events(req *rangedbpb.EventsRequest, stream rangedbpb.RangeDB_EventsServer) error {
-	for record := range s.store.EventsStartingWith(stream.Context(), req.GlobalSequenceNumber) {
-		pbRecord, err := rangedbpb.ToPbRecord(record)
+	recordIterator := s.store.EventsStartingWith(stream.Context(), req.GlobalSequenceNumber)
+	for recordIterator.Next() {
+		if recordIterator.Err() != nil {
+			return recordIterator.Err()
+		}
+
+		pbRecord, err := rangedbpb.ToPbRecord(recordIterator.Record())
 		if err != nil {
 			return err
 		}
@@ -109,8 +114,13 @@ func (s *rangeDBServer) Events(req *rangedbpb.EventsRequest, stream rangedbpb.Ra
 }
 
 func (s *rangeDBServer) EventsByStream(req *rangedbpb.EventsByStreamRequest, stream rangedbpb.RangeDB_EventsByStreamServer) error {
-	for record := range s.store.EventsByStreamStartingWith(stream.Context(), req.StreamSequenceNumber, req.StreamName) {
-		pbRecord, err := rangedbpb.ToPbRecord(record)
+	recordIterator := s.store.EventsByStreamStartingWith(stream.Context(), req.StreamSequenceNumber, req.StreamName)
+	for recordIterator.Next() {
+		if recordIterator.Err() != nil {
+			return recordIterator.Err()
+		}
+
+		pbRecord, err := rangedbpb.ToPbRecord(recordIterator.Record())
 		if err != nil {
 			return err
 		}
@@ -125,8 +135,13 @@ func (s *rangeDBServer) EventsByStream(req *rangedbpb.EventsByStreamRequest, str
 }
 
 func (s *rangeDBServer) EventsByAggregateType(req *rangedbpb.EventsByAggregateTypeRequest, stream rangedbpb.RangeDB_EventsByAggregateTypeServer) error {
-	for record := range s.store.EventsByAggregateTypesStartingWith(stream.Context(), req.GlobalSequenceNumber, req.AggregateTypes...) {
-		pbRecord, err := rangedbpb.ToPbRecord(record)
+	recordIterator := s.store.EventsByAggregateTypesStartingWith(stream.Context(), req.GlobalSequenceNumber, req.AggregateTypes...)
+	for recordIterator.Next() {
+		if recordIterator.Err() != nil {
+			return recordIterator.Err()
+		}
+
+		pbRecord, err := rangedbpb.ToPbRecord(recordIterator.Record())
 		if err != nil {
 			return err
 		}
@@ -341,7 +356,7 @@ func (s *rangeDBServer) broadcastRecord(record *rangedb.Record) {
 
 	pbRecord, err := rangedbpb.ToPbRecord(record)
 	if err != nil {
-		//s.logger.Printf("unable to marshal record: %v", err)
+		// s.logger.Printf("unable to marshal record: %v", err)
 		return
 	}
 
@@ -365,10 +380,14 @@ func (s *rangeDBServer) broadcastRecord(record *rangedb.Record) {
 	}
 }
 
-func (s *rangeDBServer) writeEventsToStream(stream streamSender, records <-chan *rangedb.Record) (uint64, error) {
+func (s *rangeDBServer) writeEventsToStream(stream streamSender, recordIterator rangedb.RecordIterator) (uint64, error) {
 	var lastGlobalSequenceNumber uint64
-	for record := range records {
-		pbRecord, err := rangedbpb.ToPbRecord(record)
+	for recordIterator.Next() {
+		if recordIterator.Err() != nil {
+			return lastGlobalSequenceNumber, recordIterator.Err()
+		}
+
+		pbRecord, err := rangedbpb.ToPbRecord(recordIterator.Record())
 		if err != nil {
 			return lastGlobalSequenceNumber, err
 		}
@@ -377,7 +396,7 @@ func (s *rangeDBServer) writeEventsToStream(stream streamSender, records <-chan 
 		if err != nil {
 			return lastGlobalSequenceNumber, err
 		}
-		lastGlobalSequenceNumber = record.GlobalSequenceNumber
+		lastGlobalSequenceNumber = recordIterator.Record().GlobalSequenceNumber
 	}
 
 	return lastGlobalSequenceNumber, nil

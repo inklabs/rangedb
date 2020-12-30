@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	DefaultItemsPerPage = 10
-	DefaultPage         = 1
-	MaxItemsPerPage     = 1000
+	defaultItemsPerPage = 10
+	defaultPage         = 1
+	maxItemsPerPage     = 1000
 )
 
 // Pagination contains page information for building pagination Links.
@@ -28,15 +28,15 @@ type Links struct {
 // NewPagination constructs a Pagination object.
 func NewPagination(itemsPerPage, page int) Pagination {
 	if itemsPerPage <= 0 {
-		itemsPerPage = DefaultItemsPerPage
+		itemsPerPage = defaultItemsPerPage
 	}
 
-	if itemsPerPage > MaxItemsPerPage {
-		itemsPerPage = MaxItemsPerPage
+	if itemsPerPage > maxItemsPerPage {
+		itemsPerPage = maxItemsPerPage
 	}
 
 	if page <= 0 {
-		page = DefaultPage
+		page = defaultPage
 	}
 
 	return Pagination{
@@ -57,12 +57,12 @@ func NewPaginationFromQuery(values url.Values) Pagination {
 func NewPaginationFromString(itemsPerPageInput, pageInput string) Pagination {
 	itemsPerPage, err := strconv.Atoi(itemsPerPageInput)
 	if err != nil {
-		itemsPerPage = DefaultItemsPerPage
+		itemsPerPage = defaultItemsPerPage
 	}
 
 	page, err := strconv.Atoi(pageInput)
 	if err != nil {
-		page = DefaultPage
+		page = defaultPage
 	}
 
 	return NewPagination(itemsPerPage, page)

@@ -61,45 +61,51 @@ func BenchmarkPostgresStore(b *testing.B) {
 }
 
 func Test_Failures(t *testing.T) {
-	pgHost := os.Getenv("PG_HOST")
-	pgUser := os.Getenv("PG_USER")
-	pgPassword := os.Getenv("PG_PASSWORD")
-	pgDBName := os.Getenv("PG_DBNAME")
+	config := configFromEnvironment(t)
 
-	if pgHost+pgUser+pgPassword+pgDBName == "" {
-		t.Skip("Postgres DB has not been configured via environment variables to run integration tests")
-	}
+	t.Run("Save", func(t *testing.T) {
+		t.Run("errors when data serialize errors", func(t *testing.T) {
+			// Given
+			store, err := postgresstore.New(config)
+			require.NoError(t, err)
 
-	config := postgresstore.Config{
-		Host:     pgHost,
-		Port:     5432,
-		User:     pgUser,
-		Password: pgPassword,
-		DBName:   pgDBName,
-	}
+			// When
+			err = store.Save(&rangedb.EventRecord{Event: rangedbtest.FloatWasDone{Number: math.Inf(1)}})
 
-	t.Run("SaveEvent fails when data serialize fails", func(t *testing.T) {
-		// Given
-		store, err := postgresstore.New(config)
-		require.NoError(t, err)
+			// Then
+			assert.EqualError(t, err, "json: unsupported value: +Inf")
+		})
 
-		// When
-		err = store.Save(&rangedb.EventRecord{Event: rangedbtest.FloatWasDone{Number: math.Inf(1)}})
+		t.Run("errors when metadata serialize errors", func(t *testing.T) {
+			// Given
+			store, err := postgresstore.New(config)
+			require.NoError(t, err)
 
-		// Then
-		assert.EqualError(t, err, "json: unsupported value: +Inf")
+			// When
+			err = store.Save(&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{}, Metadata: math.Inf(-1)})
+
+			// Then
+			assert.EqualError(t, err, "json: unsupported value: -Inf")
+		})
 	})
 
-	t.Run("SaveEvent fails when metadata serialize fails", func(t *testing.T) {
-		// Given
-		store, err := postgresstore.New(config)
-		require.NoError(t, err)
+	t.Run("EventsStartingWith", func(t *testing.T) {
+		t.Run("errors when db is closed prior to query", func(t *testing.T) {
+			// Given
+			store, err := postgresstore.New(config)
+			require.NoError(t, err)
+			require.NoError(t, store.CloseDB())
+			ctx := rangedbtest.TimeoutContext(t)
 
-		// When
-		err = store.Save(&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{}, Metadata: math.Inf(-1)})
+			// When
+			iter := store.EventsStartingWith(ctx, 0)
 
-		// Then
-		assert.EqualError(t, err, "json: unsupported value: -Inf")
+			// Then
+			require.False(t, iter.Next())
+			require.Nil(t, iter.Record())
+			require.EqualError(t, iter.Err(), "sql: database is closed")
+		})
+
 	})
 
 	t.Run("connect to DB fails from invalid DSN", func(t *testing.T) {

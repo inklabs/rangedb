@@ -50,12 +50,16 @@ func (a *user) WarnUser(c WarnUser) {
 
 // TODO: Generate code below
 
-func (a *user) Load(records <-chan *rangedb.Record) {
+func (a *user) Load(recordIterator rangedb.RecordIterator) {
 	a.state = userState{}
 	a.pendingEvents = nil
 
-	for record := range records {
-		if event, ok := record.Data.(rangedb.Event); ok {
+	for recordIterator.Next() {
+		if recordIterator.Err() != nil {
+			break
+		}
+
+		if event, ok := recordIterator.Record().Data.(rangedb.Event); ok {
 			a.apply(event)
 		}
 	}

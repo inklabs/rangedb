@@ -45,13 +45,12 @@ func Test_LoadAndSave_ValidJson(t *testing.T) {
 			stream := jsonrecordiostream.New()
 			expectedJson := fmt.Sprintf(`[{"aggregateType":"scalar","aggregateID":"1","globalSequenceNumber":10,"sequenceNumber":2,"insertTimestamp":123,"eventID":"1ccd9eeb3a8e42dfb12cee36b908c212","eventType":"Thing","data":%s,"metadata":null}]`, tt.json)
 			reader := strings.NewReader(expectedJson)
-			records, readErrors := stream.Read(reader)
+			recordIterator := stream.Read(reader)
 
 			// When
-			writeErrors := stream.Write(&writer, records)
+			writeErrors := stream.Write(&writer, recordIterator)
 
 			// Then
-			require.Nil(t, <-readErrors)
 			require.Nil(t, <-writeErrors)
 			assert.Equal(t, expectedJson, writer.String())
 		})
@@ -64,11 +63,10 @@ func TestLoad_NoJson(t *testing.T) {
 	stream := jsonrecordiostream.New()
 
 	// When
-	events, errors := stream.Read(reader)
+	recordIterator := stream.Read(reader)
 
 	// Then
-	require.EqualError(t, <-errors, "EOF")
-	assert.Equal(t, (*rangedb.Record)(nil), <-events)
+	rangedbtest.AssertNoMoreResultsInIterator(t, recordIterator)
 }
 
 func TestLoad_EmptyJsonEvents(t *testing.T) {
@@ -77,11 +75,10 @@ func TestLoad_EmptyJsonEvents(t *testing.T) {
 	stream := jsonrecordiostream.New()
 
 	// When
-	events, errors := stream.Read(reader)
+	recordIterator := stream.Read(reader)
 
 	// Then
-	require.Nil(t, <-errors)
-	assert.Equal(t, (*rangedb.Record)(nil), <-events)
+	rangedbtest.AssertNoMoreResultsInIterator(t, recordIterator)
 }
 
 func TestLoad_MalformedJson(t *testing.T) {
@@ -90,47 +87,67 @@ func TestLoad_MalformedJson(t *testing.T) {
 	stream := jsonrecordiostream.New()
 
 	// When
-	events, errors := stream.Read(reader)
+	recordIterator := stream.Read(reader)
 
 	// Then
-	require.EqualError(t, <-errors, "failed unmarshalling record: invalid character 'i' looking for beginning of value")
-	assert.Equal(t, (*rangedb.Record)(nil), <-events)
+	assert.False(t, recordIterator.Next())
+	assert.EqualError(t, recordIterator.Err(), "failed unmarshalling record: invalid character 'i' looking for beginning of value")
+	assert.Nil(t, recordIterator.Record())
+}
+
+func TestLoad_InvalidFirstToken(t *testing.T) {
+	// Given
+	reader := strings.NewReader("-invalid")
+	stream := jsonrecordiostream.New()
+
+	// When
+	recordIterator := stream.Read(reader)
+
+	// Then
+	assert.False(t, recordIterator.Next())
+	assert.EqualError(t, recordIterator.Err(), "invalid character 'i' in numeric literal")
+	assert.Nil(t, recordIterator.Record())
 }
 
 func TestSave_MalformedEventValue(t *testing.T) {
 	// Given
-	events := make(chan *rangedb.Record)
-	stream := jsonrecordiostream.New()
-	var buff bytes.Buffer
-
-	// When
-	errors := stream.Write(&buff, events)
-
-	// Then
-	events <- &rangedb.Record{
+	record := &rangedb.Record{
 		EventID:   "e95739e9fa10475c9fb0c288dc6ec973",
 		EventType: "InfinityError",
 		Data:      math.Inf(1),
 		Metadata:  nil,
 	}
+	resultRecords := make(chan rangedb.ResultRecord, 1)
+	resultRecords <- rangedb.ResultRecord{
+		Record: record,
+		Err:    nil,
+	}
+	close(resultRecords)
+	recordIterator := rangedb.NewRecordIterator(resultRecords)
+	stream := jsonrecordiostream.New()
+	var buff bytes.Buffer
 
-	close(events)
+	// When
+	errors := stream.Write(&buff, recordIterator)
+
+	// Then
 	assert.Error(t, <-errors, "failed marshalling event: json: unsupported value: +Inf")
-	require.Equal(t, nil, <-errors)
-	assert.Equal(t, "[]", buff.String())
+	assert.Nil(t, <-errors)
+	assert.Equal(t, "[", buff.String())
 }
 
 func TestSave_NoEventsReturnsEmptyJsonList(t *testing.T) {
 	// Given
+	resultRecords := make(chan rangedb.ResultRecord)
+	close(resultRecords)
+	recordIterator := rangedb.NewRecordIterator(resultRecords)
 	var writer bytes.Buffer
 	stream := jsonrecordiostream.New()
-	events := make(chan *rangedb.Record)
 
 	// When
-	errors := stream.Write(&writer, events)
+	errors := stream.Write(&writer, recordIterator)
 
 	// Then
-	close(events)
-	require.Equal(t, nil, <-errors)
+	assert.Nil(t, <-errors)
 	assert.Equal(t, "[]", writer.String())
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -73,69 +72,60 @@ func (s *postgresStore) Bind(events ...rangedb.Event) {
 	s.serializer.Bind(events...)
 }
 
-func (s *postgresStore) EventsStartingWith(ctx context.Context, globalSequenceNumber uint64) <-chan *rangedb.Record {
-	records := make(chan *rangedb.Record)
+func (s *postgresStore) EventsStartingWith(ctx context.Context, globalSequenceNumber uint64) rangedb.RecordIterator {
+	resultRecords := make(chan rangedb.ResultRecord)
 
 	go func() {
-		defer close(records)
+		defer close(resultRecords)
+
 		rows, err := s.db.QueryContext(ctx, "SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE GlobalSequenceNumber > $1 ORDER BY GlobalSequenceNumber",
 			globalSequenceNumber)
 		if err != nil {
-			if isContextCanceledOrDeadlineExceeded(err) {
-				return
-			}
-			panic(err) // TODO: test this error path
+			resultRecords <- rangedb.ResultRecord{Err: err}
+			return
 		}
 		defer rows.Close()
-		s.readRecords(rows, records)
+		s.readResultRecords(ctx, rows, resultRecords)
 	}()
 
-	return records
+	return rangedb.NewRecordIterator(resultRecords)
 }
 
-func isContextCanceledOrDeadlineExceeded(err error) bool {
-	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
-}
-
-func (s *postgresStore) EventsByAggregateTypesStartingWith(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) <-chan *rangedb.Record {
-	records := make(chan *rangedb.Record)
+func (s *postgresStore) EventsByAggregateTypesStartingWith(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) rangedb.RecordIterator {
+	resultRecords := make(chan rangedb.ResultRecord)
 
 	go func() {
-		defer close(records)
+		defer close(resultRecords)
 		rows, err := s.db.QueryContext(ctx, "SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE AggregateType = ANY($1) AND GlobalSequenceNumber > $2 ORDER BY GlobalSequenceNumber",
 			pq.Array(aggregateTypes), globalSequenceNumber)
 		if err != nil {
-			if isContextCanceledOrDeadlineExceeded(err) {
-				return
-			}
-			panic(err) // TODO: test this error path
+			resultRecords <- rangedb.ResultRecord{Err: err}
+			return
 		}
 		defer rows.Close()
-		s.readRecords(rows, records)
+		s.readResultRecords(ctx, rows, resultRecords)
 	}()
 
-	return records
+	return rangedb.NewRecordIterator(resultRecords)
 }
 
-func (s *postgresStore) EventsByStreamStartingWith(ctx context.Context, streamSequenceNumber uint64, streamName string) <-chan *rangedb.Record {
-	records := make(chan *rangedb.Record)
+func (s *postgresStore) EventsByStreamStartingWith(ctx context.Context, streamSequenceNumber uint64, streamName string) rangedb.RecordIterator {
+	resultRecords := make(chan rangedb.ResultRecord)
 
 	go func() {
-		defer close(records)
+		defer close(resultRecords)
 		aggregateType, aggregateID := rangedb.ParseStream(streamName)
 		rows, err := s.db.QueryContext(ctx, "SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE AggregateType = $1 AND AggregateID = $2 AND StreamSequenceNumber >= $3 ORDER BY GlobalSequenceNumber",
 			aggregateType, aggregateID, streamSequenceNumber)
 		if err != nil {
-			if isContextCanceledOrDeadlineExceeded(err) {
-				return
-			}
-			panic(err) // TODO: test this error path
+			resultRecords <- rangedb.ResultRecord{Err: err}
+			return
 		}
 		defer rows.Close()
-		s.readRecords(rows, records)
+		s.readResultRecords(ctx, rows, resultRecords)
 	}()
 
-	return records
+	return rangedb.NewRecordIterator(resultRecords)
 }
 
 func (s *postgresStore) OptimisticSave(expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) error {
@@ -376,7 +366,7 @@ func (s *postgresStore) getNextStreamSequenceNumber(queryable dbRowQueryable, ag
 	return lastStreamSequenceNumber + 1
 }
 
-func (s *postgresStore) readRecords(rows *sql.Rows, records chan *rangedb.Record) {
+func (s *postgresStore) readResultRecords(ctx context.Context, rows *sql.Rows, resultRecords chan rangedb.ResultRecord) {
 	for rows.Next() {
 		var (
 			aggregateType        string
@@ -391,10 +381,8 @@ func (s *postgresStore) readRecords(rows *sql.Rows, records chan *rangedb.Record
 		)
 		err := rows.Scan(&aggregateType, &aggregateID, &globalSequenceNumber, &streamSequenceNumber, &insertTimestamp, &eventID, &eventType, &serializedData, &serializedMetadata)
 		if err != nil {
-			if isContextCanceledOrDeadlineExceeded(err) {
-				return
-			}
-			panic(err) // TODO: test this error path
+			resultRecords <- rangedb.ResultRecord{Err: err}
+			return
 		}
 
 		data, err := jsonrecordserializer.DecodeJsonData(
@@ -403,14 +391,16 @@ func (s *postgresStore) readRecords(rows *sql.Rows, records chan *rangedb.Record
 			s.serializer,
 		)
 		if err != nil {
-			panic(err) // TODO: test this error path
+			resultRecords <- rangedb.ResultRecord{Err: err}
+			return
 		}
 
 		var metadata interface{}
 		if serializedMetadata != "null" {
 			err = json.Unmarshal([]byte(serializedMetadata), metadata)
 			if err != nil {
-				panic(err) // TODO: test this error path
+				resultRecords <- rangedb.ResultRecord{Err: err}
+				return
 			}
 		}
 
@@ -426,14 +416,19 @@ func (s *postgresStore) readRecords(rows *sql.Rows, records chan *rangedb.Record
 			Metadata:             metadata,
 		}
 
-		records <- record
+		select {
+		case <-ctx.Done():
+			resultRecords <- rangedb.ResultRecord{Err: ctx.Err()}
+			return
+
+		default:
+			resultRecords <- rangedb.ResultRecord{Record: record}
+		}
 	}
 
 	err := rows.Err()
 	if err != nil {
-		if isContextCanceledOrDeadlineExceeded(err) {
-			return
-		}
-		panic(err) // TODO: test this error path
+		resultRecords <- rangedb.ResultRecord{Err: err}
+		return
 	}
 }

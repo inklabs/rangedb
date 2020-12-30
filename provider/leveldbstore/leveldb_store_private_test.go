@@ -38,10 +38,12 @@ func Test_Private_AllEvents_FailsWhenLookupRecordIsMissing(t *testing.T) {
 	ctx := rangedbtest.TimeoutContext(t)
 
 	// When
-	events := store.EventsStartingWith(ctx, 0)
+	recordIterator := store.EventsStartingWith(ctx, 0)
 
 	// Then
-	require.Nil(t, <-events)
+	assert.False(t, recordIterator.Next())
+	assert.Nil(t, recordIterator.Record())
+	assert.EqualError(t, recordIterator.Err(), "leveldb: not found")
 	assert.Equal(t, "unable to find lookup record thing!A!\x00\x00\x00\x00\x00\x00\x00\x00 for $all$!\x00\x00\x00\x00\x00\x00\x00\x00: leveldb: not found\n", logBuffer.String())
 }
 
@@ -51,10 +53,12 @@ func Test_Private_AllEvents_FailsWhenLookupRecordIsCorrupt(t *testing.T) {
 	ctx := rangedbtest.TimeoutContext(t)
 
 	// When
-	events := store.EventsStartingWith(ctx, 0)
+	recordIterator := store.EventsStartingWith(ctx, 0)
 
 	// Then
-	require.Nil(t, <-events)
+	assert.False(t, recordIterator.Next())
+	assert.Nil(t, recordIterator.Record())
+	assert.EqualError(t, recordIterator.Err(), "failed unmarshalling record: invalid character 'x' looking for beginning of value")
 	assert.Equal(t, "failed to deserialize record: failed unmarshalling record: invalid character 'x' looking for beginning of value\n", logBuffer.String())
 }
 

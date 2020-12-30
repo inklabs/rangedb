@@ -142,10 +142,15 @@ func (a *websocketAPI) SubscribeToAllEvents(w http.ResponseWriter, r *http.Reque
 	a.unsubscribeFromAllEvents(conn)
 }
 
-func (a *websocketAPI) writeEventsToConnection(conn MessageWriter, records <-chan *rangedb.Record) (uint64, error) {
+func (a *websocketAPI) writeEventsToConnection(conn MessageWriter, recordIterator rangedb.RecordIterator) (uint64, error) {
 	var lastGlobalSequenceNumber uint64
-	for record := range records {
-		jsonEvent, err := json.Marshal(record)
+	for recordIterator.Next() {
+		if recordIterator.Err() != nil {
+			a.logger.Print(recordIterator.Err())
+			return lastGlobalSequenceNumber, recordIterator.Err()
+		}
+
+		jsonEvent, err := json.Marshal(recordIterator.Record())
 		if err != nil {
 			err := fmt.Errorf("unable to marshal record: %v", err)
 			a.logger.Print(err)
@@ -156,7 +161,7 @@ func (a *websocketAPI) writeEventsToConnection(conn MessageWriter, records <-cha
 		if err != nil {
 			return lastGlobalSequenceNumber, err
 		}
-		lastGlobalSequenceNumber = record.GlobalSequenceNumber
+		lastGlobalSequenceNumber = recordIterator.Record().GlobalSequenceNumber
 	}
 
 	return lastGlobalSequenceNumber, nil

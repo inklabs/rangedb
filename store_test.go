@@ -91,16 +91,18 @@ func Test_ReplayEvents(t *testing.T) {
 func TestReadNRecords(t *testing.T) {
 	t.Run("reads 2 records from a channel with 3 records", func(t *testing.T) {
 		// Given
-		recordsChannel := make(chan *rangedb.Record, 10)
-		recordsChannel <- getRecord(0)
-		recordsChannel <- getRecord(1)
-		recordsChannel <- getRecord(2)
+		resultRecords := make(chan rangedb.ResultRecord, 3)
+		resultRecords <- rangedb.ResultRecord{Record: getRecord(0)}
+		resultRecords <- rangedb.ResultRecord{Record: getRecord(1)}
+		resultRecords <- rangedb.ResultRecord{Record: getRecord(2)}
+		close(resultRecords)
+		recordIterator := rangedb.NewRecordIterator(resultRecords)
 
 		// When
 		records := rangedb.ReadNRecords(
 			2,
-			func(ctx context.Context) <-chan *rangedb.Record {
-				return recordsChannel
+			func(ctx context.Context) rangedb.RecordIterator {
+				return recordIterator
 			},
 		)
 

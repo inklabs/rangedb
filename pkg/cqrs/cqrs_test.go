@@ -105,8 +105,8 @@ func (f *fakeCommandHandler) Handle(_ cqrs.Command) []rangedb.Event {
 	return f.events
 }
 
-func (f *fakeCommandHandler) Load(records <-chan *rangedb.Record) {
-	for range records {
+func (f *fakeCommandHandler) Load(recordIterator rangedb.RecordIterator) {
+	for recordIterator.Next() {
 	}
 }
 

@@ -106,10 +106,12 @@ func Test_Failures(t *testing.T) {
 		ctx := rangedbtest.TimeoutContext(t)
 
 		// When
-		events := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event))
+		recordIterator := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event))
 
 		// Then
-		require.Nil(t, <-events)
+		assert.False(t, recordIterator.Next())
+		assert.Nil(t, recordIterator.Record())
+		assert.EqualError(t, recordIterator.Err(), "failingDeserializer.Deserialize")
 		assert.Equal(t, "failed to deserialize record: failingDeserializer.Deserialize\n", logBuffer.String())
 	})
 }
