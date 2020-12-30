@@ -460,11 +460,11 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 			Metadata: nil,
 		}
 		ioStream := msgpackrecordiostream.New()
-		records, errors := ioStream.Read(base64.NewDecoder(base64.RawStdEncoding, response.Body))
-		assert.Equal(t, expectedRecord1, <-records)
-		assert.Equal(t, expectedRecord2, <-records)
-		assert.Nil(t, <-records)
-		require.NoError(t, <-errors)
+		recordIterator := ioStream.Read(base64.NewDecoder(base64.RawStdEncoding, response.Body))
+		rangedbtest.AssertRecordsInIterator(t, recordIterator,
+			expectedRecord1,
+			expectedRecord2,
+		)
 	})
 
 	t.Run("get events by aggregate type", func(t *testing.T) {

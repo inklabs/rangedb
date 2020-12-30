@@ -16,16 +16,16 @@ func NewFailingEventStore() *failingEventStore {
 
 func (f failingEventStore) Bind(_ ...rangedb.Event) {}
 
-func (f failingEventStore) EventsStartingWith(_ context.Context, _ uint64) <-chan *rangedb.Record {
-	return getClosedChannel()
+func (f failingEventStore) EventsStartingWith(_ context.Context, _ uint64) rangedb.RecordIterator {
+	return getClosedIterator()
 }
 
-func (f failingEventStore) EventsByAggregateTypesStartingWith(_ context.Context, _ uint64, _ ...string) <-chan *rangedb.Record {
-	return getClosedChannel()
+func (f failingEventStore) EventsByAggregateTypesStartingWith(_ context.Context, _ uint64, _ ...string) rangedb.RecordIterator {
+	return getClosedIterator()
 }
 
-func (f failingEventStore) EventsByStreamStartingWith(_ context.Context, _ uint64, _ string) <-chan *rangedb.Record {
-	return getClosedChannel()
+func (f failingEventStore) EventsByStreamStartingWith(_ context.Context, _ uint64, _ string) rangedb.RecordIterator {
+	return getClosedIterator()
 }
 
 func (f failingEventStore) OptimisticSave(_ uint64, _ ...*rangedb.EventRecord) error {
@@ -45,8 +45,8 @@ func (f failingEventStore) TotalEventsInStream(_ string) uint64 {
 	return 0
 }
 
-func getClosedChannel() <-chan *rangedb.Record {
-	channel := make(chan *rangedb.Record)
-	close(channel)
-	return channel
+func getClosedIterator() rangedb.RecordIterator {
+	recordResults := make(chan rangedb.ResultRecord)
+	close(recordResults)
+	return rangedb.NewRecordIterator(recordResults)
 }

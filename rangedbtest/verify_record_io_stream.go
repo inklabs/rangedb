@@ -49,22 +49,18 @@ func testWriteAndReadWithBoundEvent(t *testing.T, newIoStream func() rangedb.Rec
 			Data:                 event2,
 			Metadata:             nil,
 		}
-		records := make(chan *rangedb.Record, 2)
-		records <- record1
-		records <- record2
-		close(records)
+		recordIterator := LoadIterator(record1, record2)
 		var serializedStream bytes.Buffer
 
 		// When
-		writeErrors := ioStream.Write(&serializedStream, records)
+		writeErrors := ioStream.Write(&serializedStream, recordIterator)
 
 		// Then
 		require.Nil(t, <-writeErrors)
-		actualRecords, readErrors := ioStream.Read(bytes.NewReader(serializedStream.Bytes()))
-		assert.Equal(t, record1, <-actualRecords)
-		assert.Equal(t, record2, <-actualRecords)
-		assert.Nil(t, <-actualRecords)
-		require.Nil(t, <-readErrors)
+		AssertRecordsInIterator(t, ioStream.Read(bytes.NewReader(serializedStream.Bytes())),
+			record1,
+			record2,
+		)
 	})
 }
 
@@ -94,18 +90,14 @@ func testWriteAndReadWithUnBoundEvent(t *testing.T, newIoStream func() rangedb.R
 			Data:                 event2,
 			Metadata:             nil,
 		}
-		records := make(chan *rangedb.Record, 2)
-		records <- record1
-		records <- record2
-		close(records)
+		recordIterator := LoadIterator(record1, record2)
 		var serializedStream bytes.Buffer
 
 		// When
-		writeErrors := ioStream.Write(&serializedStream, records)
+		writeErrors := ioStream.Write(&serializedStream, recordIterator)
 
 		// Then
 		require.Nil(t, <-writeErrors)
-		actualRecords, readErrors := ioStream.Read(bytes.NewReader(serializedStream.Bytes()))
 		expectedRecord1 := *record1
 		expectedRecord1.Data = map[string]interface{}{
 			"id":     "A",
@@ -116,10 +108,13 @@ func testWriteAndReadWithUnBoundEvent(t *testing.T, newIoStream func() rangedb.R
 			"id":     "B",
 			"number": int64(2),
 		}
-		assert.Equal(t, fmt.Sprintf("%v", &expectedRecord1), fmt.Sprintf("%v", <-actualRecords))
-		assert.Equal(t, fmt.Sprintf("%v", &expectedRecord2), fmt.Sprintf("%v", <-actualRecords))
-		assert.Nil(t, <-actualRecords)
-		require.Nil(t, <-readErrors)
+		recordIterator = ioStream.Read(bytes.NewReader(serializedStream.Bytes()))
+		assert.True(t, recordIterator.Next())
+		assert.Nil(t, recordIterator.Err())
+		assert.Equal(t, fmt.Sprintf("%v", &expectedRecord1), fmt.Sprintf("%v", recordIterator.Record()))
+		assert.True(t, recordIterator.Next())
+		assert.Nil(t, recordIterator.Err())
+		assert.Equal(t, fmt.Sprintf("%v", &expectedRecord2), fmt.Sprintf("%v", recordIterator.Record()))
 	})
 }
 
@@ -150,17 +145,14 @@ func testWriteWithboundEventAndReadWithUnBoundEvent(t *testing.T, newIoStream fu
 			Data:                 event2,
 			Metadata:             nil,
 		}
-		records := make(chan *rangedb.Record, 2)
-		records <- record1
-		records <- record2
-		close(records)
+		recordIterator := LoadIterator(record1, record2)
 		var serializedStream bytes.Buffer
-		writeErrors := boundIoStream.Write(&serializedStream, records)
+		writeErrors := boundIoStream.Write(&serializedStream, recordIterator)
 		require.Nil(t, <-writeErrors)
 		unBoundIoStream := newIoStream()
 
 		// When
-		actualRecords, readErrors := unBoundIoStream.Read(bytes.NewReader(serializedStream.Bytes()))
+		actualRecordsIter := unBoundIoStream.Read(bytes.NewReader(serializedStream.Bytes()))
 
 		// Then
 		expectedRecord1 := *record1
@@ -173,10 +165,12 @@ func testWriteWithboundEventAndReadWithUnBoundEvent(t *testing.T, newIoStream fu
 			"id":     "B",
 			"number": int64(2),
 		}
-		assert.Equal(t, fmt.Sprintf("%v", &expectedRecord1), fmt.Sprintf("%v", <-actualRecords))
-		assert.Equal(t, fmt.Sprintf("%v", &expectedRecord2), fmt.Sprintf("%v", <-actualRecords))
-		assert.Nil(t, <-actualRecords)
-		require.Nil(t, <-readErrors)
+		assert.True(t, actualRecordsIter.Next())
+		assert.Nil(t, actualRecordsIter.Err())
+		assert.Equal(t, fmt.Sprintf("%v", &expectedRecord1), fmt.Sprintf("%v", actualRecordsIter.Record()))
+		assert.True(t, actualRecordsIter.Next())
+		assert.Nil(t, actualRecordsIter.Err())
+		assert.Equal(t, fmt.Sprintf("%v", &expectedRecord2), fmt.Sprintf("%v", actualRecordsIter.Record()))
 	})
 }
 
@@ -206,23 +200,20 @@ func testWriteWithUnboundEventAndReadWithBoundEvent(t *testing.T, newIoStream fu
 			Data:                 event2,
 			Metadata:             nil,
 		}
-		records := make(chan *rangedb.Record, 2)
-		records <- record1
-		records <- record2
-		close(records)
+		recordIterator := LoadIterator(record1, record2)
 		var serializedStream bytes.Buffer
-		writeErrors := unBoundIoStream.Write(&serializedStream, records)
+		writeErrors := unBoundIoStream.Write(&serializedStream, recordIterator)
 		require.Nil(t, <-writeErrors)
 		boundIoStream := newIoStream()
 		boundIoStream.Bind(&ThingWasDone{})
 
 		// When
-		actualRecords, readErrors := boundIoStream.Read(bytes.NewReader(serializedStream.Bytes()))
+		actualRecordsIter := boundIoStream.Read(bytes.NewReader(serializedStream.Bytes()))
 
 		// Then
-		assert.Equal(t, record1, <-actualRecords)
-		assert.Equal(t, record2, <-actualRecords)
-		assert.Nil(t, <-actualRecords)
-		require.Nil(t, <-readErrors)
+		AssertRecordsInIterator(t, actualRecordsIter,
+			record1,
+			record2,
+		)
 	})
 }

@@ -10,6 +10,12 @@ import (
 	"github.com/inklabs/rangedb/pkg/paging"
 )
 
+const (
+	defaultItemsPerPage = 10
+	defaultPage         = 1
+	maxItemsPerPage     = 1000
+)
+
 func TestPaginationScenarios(t *testing.T) {
 	// Given
 	paginationTests := []struct {
@@ -18,14 +24,14 @@ func TestPaginationScenarios(t *testing.T) {
 		expectedItemsPerPage int
 		expectedPage         int
 	}{
-		{"", "", paging.DefaultItemsPerPage, paging.DefaultPage},
-		{"x", "z", paging.DefaultItemsPerPage, paging.DefaultPage},
-		{"-1", "-2", paging.DefaultItemsPerPage, paging.DefaultPage},
-		{"0", "0", paging.DefaultItemsPerPage, paging.DefaultPage},
+		{"", "", defaultItemsPerPage, defaultPage},
+		{"x", "z", defaultItemsPerPage, defaultPage},
+		{"-1", "-2", defaultItemsPerPage, defaultPage},
+		{"0", "0", defaultItemsPerPage, defaultPage},
 		{"1", "1", 1, 1},
 		{"10", "1", 10, 1},
 		{"500", "20", 500, 20},
-		{"99999", "20", paging.MaxItemsPerPage, 20},
+		{"99999", "20", maxItemsPerPage, 20},
 	}
 
 	for _, tt := range paginationTests {
@@ -86,16 +92,16 @@ func TestNewPagination_ReturnsDefaultValueForItemsPerPage(t *testing.T) {
 	pagination := paging.NewPagination(0, 0)
 
 	// Then
-	assert.Equal(t, paging.DefaultItemsPerPage, pagination.ItemsPerPage)
-	assert.Equal(t, paging.DefaultPage, pagination.Page)
+	assert.Equal(t, defaultItemsPerPage, pagination.ItemsPerPage)
+	assert.Equal(t, defaultPage, pagination.Page)
 }
 
 func TestNewPagination_ReturnsMaxValueForItemsPerPage(t *testing.T) {
 	// When
-	pagination := paging.NewPagination(paging.MaxItemsPerPage+1, 1)
+	pagination := paging.NewPagination(maxItemsPerPage+1, 1)
 
 	// Then
-	assert.Equal(t, paging.MaxItemsPerPage, pagination.ItemsPerPage)
+	assert.Equal(t, maxItemsPerPage, pagination.ItemsPerPage)
 }
 
 func TestNewPaginationFromQuery(t *testing.T) {
@@ -120,6 +126,6 @@ func TestNewPaginationFromQuery_UsingDefaultValues(t *testing.T) {
 	pagination := paging.NewPaginationFromQuery(values)
 
 	// Then
-	assert.Equal(t, paging.DefaultItemsPerPage, pagination.ItemsPerPage)
-	assert.Equal(t, paging.DefaultPage, pagination.Page)
+	assert.Equal(t, defaultItemsPerPage, pagination.ItemsPerPage)
+	assert.Equal(t, defaultPage, pagination.Page)
 }

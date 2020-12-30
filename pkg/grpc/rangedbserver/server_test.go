@@ -377,7 +377,7 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 
 		// Then
 		assert.Equal(t, uint32(2), response.EventsSaved)
-		actualRecords := store.EventsStartingWith(ctx, 0)
+		recordIterator := store.EventsStartingWith(ctx, 0)
 		expectedRecord1 := &rangedb.Record{
 			AggregateType:        "thing",
 			AggregateID:          "b5ef2296339d4ad1887f1deb486f7821",
@@ -406,9 +406,10 @@ func TestRangeDBServer_SaveEvents(t *testing.T) {
 			},
 			Metadata: nil,
 		}
-		assert.Equal(t, expectedRecord1, <-actualRecords)
-		assert.Equal(t, expectedRecord2, <-actualRecords)
-		assert.Equal(t, (*rangedb.Record)(nil), <-actualRecords)
+		rangedbtest.AssertRecordsInIterator(t, recordIterator,
+			expectedRecord1,
+			expectedRecord2,
+		)
 	})
 
 	t.Run("fails on 2nd from invalid event data", func(t *testing.T) {

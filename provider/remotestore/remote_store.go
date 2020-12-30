@@ -17,6 +17,11 @@ import (
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
 
+const (
+	rpcErrContextCanceled          = "Canceled desc = context canceled"
+	rpcErrUnexpectedSequenceNumber = "unable to save to store: unexpected sequence number"
+)
+
 // JsonSerializer defines the interface to bind events and identify event types.
 type JsonSerializer interface {
 	rangedb.EventBinder
@@ -49,20 +54,24 @@ func (s *remoteStore) Bind(events ...rangedb.Event) {
 	s.serializer.Bind(events...)
 }
 
-func (s *remoteStore) EventsStartingWith(ctx context.Context, globalSequenceNumber uint64) <-chan *rangedb.Record {
+func (s *remoteStore) EventsStartingWith(ctx context.Context, globalSequenceNumber uint64) rangedb.RecordIterator {
 	request := &rangedbpb.EventsRequest{
 		GlobalSequenceNumber: globalSequenceNumber,
 	}
 
 	events, err := s.client.Events(ctx, request)
 	if err != nil {
-		return closedChannel()
+		if strings.Contains(err.Error(), rpcErrContextCanceled) {
+			return RecordIteratorWithOneError(context.Canceled)
+		}
+
+		return RecordIteratorWithOneError(err)
 	}
 
 	return s.readRecords(ctx, events)
 }
 
-func (s *remoteStore) EventsByAggregateTypesStartingWith(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) <-chan *rangedb.Record {
+func (s *remoteStore) EventsByAggregateTypesStartingWith(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) rangedb.RecordIterator {
 	request := &rangedbpb.EventsByAggregateTypeRequest{
 		AggregateTypes:       aggregateTypes,
 		GlobalSequenceNumber: globalSequenceNumber,
@@ -70,14 +79,18 @@ func (s *remoteStore) EventsByAggregateTypesStartingWith(ctx context.Context, gl
 
 	events, err := s.client.EventsByAggregateType(ctx, request)
 	if err != nil {
-		return closedChannel()
+		if strings.Contains(err.Error(), rpcErrContextCanceled) {
+			return RecordIteratorWithOneError(context.Canceled)
+		}
+
+		return RecordIteratorWithOneError(err)
 	}
 
 	return s.readRecords(ctx, events)
 
 }
 
-func (s *remoteStore) EventsByStreamStartingWith(ctx context.Context, streamSequenceNumber uint64, streamName string) <-chan *rangedb.Record {
+func (s *remoteStore) EventsByStreamStartingWith(ctx context.Context, streamSequenceNumber uint64, streamName string) rangedb.RecordIterator {
 	request := &rangedbpb.EventsByStreamRequest{
 		StreamName:           streamName,
 		StreamSequenceNumber: streamSequenceNumber,
@@ -85,7 +98,11 @@ func (s *remoteStore) EventsByStreamStartingWith(ctx context.Context, streamSequ
 
 	events, err := s.client.EventsByStream(ctx, request)
 	if err != nil {
-		return closedChannel()
+		if strings.Contains(err.Error(), rpcErrContextCanceled) {
+			return RecordIteratorWithOneError(context.Canceled)
+		}
+
+		return RecordIteratorWithOneError(err)
 	}
 
 	return s.readRecords(ctx, events)
@@ -133,7 +150,7 @@ func (s *remoteStore) OptimisticSave(expectedStreamSequenceNumber uint64, eventR
 
 	_, err := s.client.OptimisticSave(context.Background(), request)
 	if err != nil {
-		if strings.Contains(err.Error(), "unable to save to store: unexpected sequence number") {
+		if strings.Contains(err.Error(), rpcErrUnexpectedSequenceNumber) {
 			return rangedberror.NewUnexpectedSequenceNumberFromString(err.Error())
 		}
 
@@ -218,37 +235,47 @@ func (s *remoteStore) TotalEventsInStream(streamName string) uint64 {
 	return response.TotalEvents
 }
 
-func (s *remoteStore) readRecords(ctx context.Context, events PbRecordReceiver) <-chan *rangedb.Record {
-	records := make(chan *rangedb.Record)
+func (s *remoteStore) readRecords(ctx context.Context, events PbRecordReceiver) rangedb.RecordIterator {
+	resultRecords := make(chan rangedb.ResultRecord)
 
 	go func() {
-		defer close(records)
+		defer close(resultRecords)
 
 		for {
 			pbRecord, err := events.Recv()
-			if err == io.EOF {
-				break
-			}
 			if err != nil {
+				if err == io.EOF {
+					return
+				}
+
+				if strings.Contains(err.Error(), rpcErrContextCanceled) {
+					resultRecords <- rangedb.ResultRecord{Err: context.Canceled}
+				}
+
 				log.Printf("failed to get record: %v", err)
-				break
+				resultRecords <- rangedb.ResultRecord{Err: err}
+				return
 			}
 
 			record, err := rangedbpb.ToRecord(pbRecord, s.serializer)
 			if err != nil {
 				log.Printf("failed converting to record: %v", err)
-				continue
+				resultRecords <- rangedb.ResultRecord{Err: err}
+				return
 			}
 
 			select {
 			case <-ctx.Done():
-				break
-			case records <- record:
+				resultRecords <- rangedb.ResultRecord{Err: ctx.Err()}
+				return
+
+			default:
+				resultRecords <- rangedb.ResultRecord{Record: record}
 			}
 		}
 	}()
 
-	return records
+	return rangedb.NewRecordIterator(resultRecords)
 }
 
 func (s *remoteStore) Subscribe(subscribers ...rangedb.RecordSubscriber) {
@@ -271,18 +298,25 @@ func (s *remoteStore) listenForEvents() {
 	}
 
 	go func() {
-		for record := range s.readRecords(ctx, events) {
+		recordIterator := s.readRecords(ctx, events)
+		for recordIterator.Next() {
+			if recordIterator.Err() != nil {
+				continue
+			}
+
 			s.subscriberMux.RLock()
 			for _, subscriber := range s.subscribers {
-				subscriber.Accept(record)
+				subscriber.Accept(recordIterator.Record())
 			}
 			s.subscriberMux.RUnlock()
 		}
 	}()
 }
 
-func closedChannel() <-chan *rangedb.Record {
-	records := make(chan *rangedb.Record)
+// RecordIteratorWithOneError returns a rangedb.RecordIterator containing a single rangedb.ResultRecord with an error.
+func RecordIteratorWithOneError(err error) rangedb.RecordIterator {
+	records := make(chan rangedb.ResultRecord, 1)
+	records <- rangedb.ResultRecord{Err: err}
 	close(records)
-	return records
+	return rangedb.NewRecordIterator(records)
 }

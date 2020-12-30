@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"sync"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/inklabs/rangedb"
@@ -60,32 +60,28 @@ func benchNReads(b *testing.B, totalRecords int, newIoStream func() rangedb.Reco
 	b.Run(name, func(b *testing.B) {
 		ioStream := newIoStream()
 		for i := 0; i < b.N; i++ {
-			records, errors := ioStream.Read(&buffer)
+			recordIterator := ioStream.Read(&buffer)
 
-			var wg sync.WaitGroup
-			wg.Add(2)
-			// TODO: Change signature for rangedb.RecordIoStream Read/Write to return a single channel
-			go func() {
-				require.NoError(b, <-errors)
-				wg.Done()
-			}()
-			go func() {
-				for range records {
+			cnt := 0
+			for recordIterator.Next() {
+				if recordIterator.Err() != nil {
+					require.NoError(b, recordIterator.Err())
 				}
-				wg.Done()
-			}()
-
-			wg.Wait()
+				cnt++
+			}
+			assert.Equal(b, totalRecords, cnt)
 		}
 	})
 }
 
-func getNRecords(n int) <-chan *rangedb.Record {
-	records := make(chan *rangedb.Record)
+func getNRecords(n int) rangedb.RecordIterator {
+	resultRecords := make(chan rangedb.ResultRecord)
 
 	go func() {
+		defer close(resultRecords)
+
 		for i := 0; i < n; i++ {
-			records <- &rangedb.Record{
+			record := &rangedb.Record{
 				AggregateType:        "thing",
 				AggregateID:          "c2077176843a49189ae0d746eb131e05",
 				GlobalSequenceNumber: 0,
@@ -99,9 +95,12 @@ func getNRecords(n int) <-chan *rangedb.Record {
 				},
 				Metadata: nil,
 			}
+			resultRecords <- rangedb.ResultRecord{
+				Record: record,
+				Err:    nil,
+			}
 		}
-		close(records)
 	}()
 
-	return records
+	return rangedb.NewRecordIterator(resultRecords)
 }

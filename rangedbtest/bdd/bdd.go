@@ -63,7 +63,7 @@ func (c *TestCase) Then(expectedEvents ...rangedb.Event) func(*testing.T) {
 		c.dispatch(c.command)
 
 		if len(expectedEvents) == 0 {
-			allEvents, err := eventChannelToSlice(c.store.EventsStartingWith(context.Background(), 0))
+			allEvents, err := recordIteratorToSlice(c.store.EventsStartingWith(context.Background(), 0))
 			require.NoError(t, err)
 
 			totalRaisedEvents := len(allEvents) - len(c.previousEvents)
@@ -81,7 +81,7 @@ func (c *TestCase) Then(expectedEvents ...rangedb.Event) func(*testing.T) {
 		ctx := context.Background()
 		for stream, expectedEventsInStream := range streamExpectedEvents {
 			streamSequenceNumber := streamPreviousEventCounts[stream]
-			actualEvents, err := eventChannelToSlice(c.store.EventsByStreamStartingWith(ctx, streamSequenceNumber, stream))
+			actualEvents, err := recordIteratorToSlice(c.store.EventsByStreamStartingWith(ctx, streamSequenceNumber, stream))
 			assert.NoError(t, err)
 
 			assert.Equal(t, expectedEventsInStream, actualEvents, "stream: %s", stream)
@@ -106,7 +106,7 @@ func (c *TestCase) ThenInspectEvents(f func(t *testing.T, events []rangedb.Event
 		var events []rangedb.Event
 		for _, stream := range getStreamsFromStore(c.store) {
 			streamSequenceNumber := streamPreviousEventCounts[stream]
-			actualEvents, err := eventChannelToSlice(c.store.EventsByStreamStartingWith(ctx, streamSequenceNumber, stream))
+			actualEvents, err := recordIteratorToSlice(c.store.EventsByStreamStartingWith(ctx, streamSequenceNumber, stream))
 			require.NoError(t, err)
 
 			events = append(events, actualEvents...)
@@ -118,8 +118,13 @@ func (c *TestCase) ThenInspectEvents(f func(t *testing.T, events []rangedb.Event
 
 func getStreamsFromStore(store rangedb.Store) []string {
 	streams := make(map[string]struct{})
-	for record := range store.EventsStartingWith(context.Background(), 0) {
-		streams[rangedb.GetStream(record.AggregateType, record.AggregateID)] = struct{}{}
+	recordIterator := store.EventsStartingWith(context.Background(), 0)
+	for recordIterator.Next() {
+		if recordIterator.Err() != nil {
+			break
+		}
+		stream := rangedb.GetStream(recordIterator.Record().AggregateType, recordIterator.Record().AggregateID)
+		streams[stream] = struct{}{}
 	}
 
 	keys := make([]string, 0, len(streams))
@@ -129,11 +134,15 @@ func getStreamsFromStore(store rangedb.Store) []string {
 	return keys
 }
 
-func eventChannelToSlice(records <-chan *rangedb.Record) ([]rangedb.Event, error) {
+func recordIteratorToSlice(recordIterator rangedb.RecordIterator) ([]rangedb.Event, error) {
 	var events []rangedb.Event
 
-	for record := range records {
-		value, err := eventAsValue(record.Data)
+	for recordIterator.Next() {
+		if recordIterator.Err() != nil {
+			return nil, recordIterator.Err()
+		}
+
+		value, err := eventAsValue(recordIterator.Record().Data)
 		if err != nil {
 			return nil, err
 		}

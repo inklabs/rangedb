@@ -130,8 +130,8 @@ func (a *api) healthCheck(w http.ResponseWriter, _ *http.Request) {
 func (a *api) allEvents(w http.ResponseWriter, r *http.Request) {
 	extension := mux.Vars(r)["extension"]
 
-	events := a.store.EventsStartingWith(r.Context(), 0)
-	a.writeEvents(w, events, extension)
+	recordIterator := a.store.EventsStartingWith(r.Context(), 0)
+	a.writeEvents(w, recordIterator, extension)
 }
 
 func (a *api) eventsByStream(w http.ResponseWriter, r *http.Request) {
@@ -260,22 +260,22 @@ func (a *api) listAggregateTypes(w http.ResponseWriter, _ *http.Request) {
 	_ = encoder.Encode(listResponse)
 }
 
-func (a *api) writeEvents(w http.ResponseWriter, events <-chan *rangedb.Record, extension string) {
+func (a *api) writeEvents(w http.ResponseWriter, recordIterator rangedb.RecordIterator, extension string) {
 	switch extension {
 	case "json":
 		w.Header().Set(`Content-Type`, `application/json`)
-		errors := a.jsonRecordIoStream.Write(w, events)
+		errors := a.jsonRecordIoStream.Write(w, recordIterator)
 		<-errors
 
 	case "ndjson":
 		w.Header().Set(`Content-Type`, `application/json; boundary=LF`)
-		errors := a.ndJSONRecordIoStream.Write(w, events)
+		errors := a.ndJSONRecordIoStream.Write(w, recordIterator)
 		<-errors
 
 	case "msgpack":
 		w.Header().Set(`Content-Type`, `application/msgpack`)
 		base64Writer := base64.NewEncoder(base64.RawStdEncoding, w)
-		errors := a.msgpackRecordIoStream.Write(base64Writer, events)
+		errors := a.msgpackRecordIoStream.Write(base64Writer, recordIterator)
 		<-errors
 		_ = base64Writer.Close()
 

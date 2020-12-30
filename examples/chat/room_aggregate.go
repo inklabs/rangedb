@@ -113,14 +113,18 @@ func (a *room) userIsBanned(userID string) bool {
 
 // TODO: Generate code below
 
-func (a *room) Load(records <-chan *rangedb.Record) {
+func (a *room) Load(recordIterator rangedb.RecordIterator) {
 	a.state = roomState{
 		BannedUsers: make(map[string]struct{}),
 	}
 	a.pendingEvents = nil
 
-	for record := range records {
-		if event, ok := record.Data.(rangedb.Event); ok {
+	for recordIterator.Next() {
+		if recordIterator.Err() != nil {
+			break
+		}
+
+		if event, ok := recordIterator.Record().Data.(rangedb.Event); ok {
 			a.apply(event)
 		}
 	}

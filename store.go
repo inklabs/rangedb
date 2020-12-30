@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"strings"
 )
 
 // Version for RangeDB.
-const Version = "0.5.1-dev"
+const Version = "0.6.0-dev"
 
 // Record contains event data and metadata.
 type Record struct {
@@ -37,14 +38,27 @@ type EventBinder interface {
 // Store is the interface that stores and retrieves event records.
 type Store interface {
 	EventBinder
-	EventsStartingWith(ctx context.Context, globalSequenceNumber uint64) <-chan *Record
-	EventsByAggregateTypesStartingWith(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) <-chan *Record
-	EventsByStreamStartingWith(ctx context.Context, streamSequenceNumber uint64, streamName string) <-chan *Record
+	EventsStartingWith(ctx context.Context, globalSequenceNumber uint64) RecordIterator
+	EventsByAggregateTypesStartingWith(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) RecordIterator
+	EventsByStreamStartingWith(ctx context.Context, streamSequenceNumber uint64, streamName string) RecordIterator
 	OptimisticSave(expectedStreamSequenceNumber uint64, eventRecords ...*EventRecord) error
 	Save(eventRecords ...*EventRecord) error
 	Subscribe(subscribers ...RecordSubscriber)
 	SubscribeStartingWith(ctx context.Context, globalSequenceNumber uint64, subscribers ...RecordSubscriber)
 	TotalEventsInStream(streamName string) uint64
+}
+
+// ResultRecord combines Record and error as a result struct for event queries.
+type ResultRecord struct {
+	Record *Record
+	Err    error
+}
+
+// RecordIterator is used to traverse a stream of record events.
+type RecordIterator interface {
+	Next() bool
+	Record() *Record
+	Err() error
 }
 
 // Event is the interface that defines the required event methods.
@@ -93,25 +107,35 @@ func ParseStream(streamName string) (aggregateType, aggregateID string) {
 
 // ReplayEvents applies all events to each subscriber.
 func ReplayEvents(store Store, globalSequenceNumber uint64, subscribers ...RecordSubscriber) {
-	for record := range store.EventsStartingWith(context.Background(), globalSequenceNumber) {
+	recordIterator := store.EventsStartingWith(context.Background(), globalSequenceNumber)
+	for recordIterator.Next() {
+		if recordIterator.Err() != nil {
+			log.Printf("unable to apply event to subscriber: %v", recordIterator.Err())
+			break
+		}
+
 		for _, subscriber := range subscribers {
-			subscriber.Accept(record)
+			subscriber.Accept(recordIterator.Record())
 		}
 	}
 }
 
 // ReadNRecords reads up to N records from the channel returned by f into a slice
-func ReadNRecords(totalEvents uint64, f func(context.Context) <-chan *Record) []*Record {
+func ReadNRecords(totalEvents uint64, f func(context.Context) RecordIterator) []*Record {
 	var records []*Record
 	ctx, done := context.WithCancel(context.Background())
 	cnt := uint64(0)
-	for record := range f(ctx) {
+	recordIterator := f(ctx)
+	for recordIterator.Next() {
+		if recordIterator.Err() != nil {
+			break
+		}
 		cnt++
 		if cnt > totalEvents {
 			break
 		}
 
-		records = append(records, record)
+		records = append(records, recordIterator.Record())
 	}
 	done()
 

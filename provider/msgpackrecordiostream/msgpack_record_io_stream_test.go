@@ -26,55 +26,69 @@ func BenchmarkMsgpackRecordIoStream(b *testing.B) {
 
 func Test_WriteAndRead_Valid(t *testing.T) {
 	// Given
-	var buff bytes.Buffer
-	stream := msgpackrecordiostream.New()
-	records := make(chan *rangedb.Record)
+	event := &rangedbtest.ThingWasDone{
+		ID:     "3006a61d5bca41ee86ba992626db7df7",
+		Number: 100,
+	}
 	record := &rangedb.Record{
-		AggregateType:        "thing",
-		AggregateID:          "af75f67d85ef4027a5ea4ae41519bbfd",
+		AggregateType:        event.AggregateType(),
+		AggregateID:          event.AggregateID(),
 		GlobalSequenceNumber: 11,
 		StreamSequenceNumber: 2,
 		InsertTimestamp:      9,
-		EventID:              "eb2a6381e30145ebbcb1f2d4f4c7ee51",
-		EventType:            "ThingWasDone",
-		Data:                 &rangedbtest.ThingWasDone{ID: "3006a61d5bca41ee86ba992626db7df7", Number: 100},
+		EventID:              "4acc01571ba549b19f53cbc1baba75d9",
+		EventType:            event.EventType(),
+		Data:                 event,
 		Metadata:             nil,
 	}
+	resultRecords := make(chan rangedb.ResultRecord, 1)
+	resultRecords <- rangedb.ResultRecord{
+		Record: record,
+		Err:    nil,
+	}
+	close(resultRecords)
+	recordIterator := rangedb.NewRecordIterator(resultRecords)
+	var buff bytes.Buffer
+	stream := msgpackrecordiostream.New()
+	writeErrors := stream.Write(&buff, recordIterator)
+	require.Nil(t, <-writeErrors)
+
+	// When
+	actualRecordsIter := stream.Read(&buff)
+
+	// Then
 	expectedRecord := *record
 	expectedRecord.Data = map[string]interface{}{
 		"id":     "3006a61d5bca41ee86ba992626db7df7",
 		"number": int64(100),
 	}
-	writeErrors := stream.Write(&buff, records)
-	records <- record
-	close(records)
-	require.Nil(t, <-writeErrors)
-
-	// When
-	actualRecords, readErrors := stream.Read(&buff)
-
-	// Then
-	actualRecord := <-actualRecords
-	require.Nil(t, <-readErrors)
-	require.Nil(t, <-actualRecords)
-	assert.Equal(t, &expectedRecord, actualRecord)
+	assert.True(t, actualRecordsIter.Next())
+	assert.Nil(t, actualRecordsIter.Err())
+	assert.Equal(t, &expectedRecord, actualRecordsIter.Record())
 }
 
 func Test_FailsWriting(t *testing.T) {
 	// Given
-	var buff bytes.Buffer
-	stream := msgpackrecordiostream.New()
-	records := make(chan *rangedb.Record, 1)
-	records <- &rangedb.Record{
+	record := &rangedb.Record{
 		Metadata: make(chan struct{}),
 	}
+	resultRecords := make(chan rangedb.ResultRecord, 1)
+	resultRecords <- rangedb.ResultRecord{
+		Record: record,
+		Err:    nil,
+	}
+	close(resultRecords)
+	recordIterator := rangedb.NewRecordIterator(resultRecords)
+	var buff bytes.Buffer
+	stream := msgpackrecordiostream.New()
 
 	// When
-	errors := stream.Write(&buff, records)
+	errors := stream.Write(&buff, recordIterator)
 
 	// Then
-	close(records)
-	require.EqualError(t, <-errors, "failed encoding record: msgpack: Encode(unsupported chan struct {})")
+	assert.EqualError(t, <-errors, "failed encoding record: msgpack: Encode(unsupported chan struct {})")
+	assert.Nil(t, <-errors)
+	assert.Equal(t, "", buff.String())
 }
 
 func Test_FailsReading(t *testing.T) {
@@ -83,8 +97,10 @@ func Test_FailsReading(t *testing.T) {
 	invalidSerializedData := []byte("fwj@!#R@#")
 
 	// When
-	_, errors := stream.Read(bytes.NewReader(invalidSerializedData))
+	recordIterator := stream.Read(bytes.NewReader(invalidSerializedData))
 
 	// Then
-	require.EqualError(t, <-errors, "failed decoding record: msgpack: invalid code=66 decoding map length")
+	assert.False(t, recordIterator.Next())
+	assert.EqualError(t, recordIterator.Err(), "failed decoding record: msgpack: invalid code=66 decoding map length")
+	assert.Nil(t, recordIterator.Record())
 }
