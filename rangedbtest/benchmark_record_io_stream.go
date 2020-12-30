@@ -60,7 +60,7 @@ func benchNReads(b *testing.B, totalRecords int, newIoStream func() rangedb.Reco
 	b.Run(name, func(b *testing.B) {
 		ioStream := newIoStream()
 		for i := 0; i < b.N; i++ {
-			recordIterator := ioStream.Read(&buffer)
+			recordIterator := ioStream.Read(bytes.NewBuffer(buffer.Bytes()))
 
 			cnt := 0
 			for recordIterator.Next() {
@@ -69,6 +69,7 @@ func benchNReads(b *testing.B, totalRecords int, newIoStream func() rangedb.Reco
 				}
 				cnt++
 			}
+			require.NoError(b, recordIterator.Err())
 			assert.Equal(b, totalRecords, cnt)
 		}
 	})
