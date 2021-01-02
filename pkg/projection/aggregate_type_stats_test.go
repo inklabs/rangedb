@@ -20,11 +20,15 @@ func TestAggregateTypeStats(t *testing.T) {
 		aggregateTypeStats := projection.NewAggregateTypeStats()
 		store := inmemorystore.New()
 		rangedbtest.BindEvents(store)
-		store.Subscribe(aggregateTypeStats)
-		event1 := rangedbtest.ThingWasDone{ID: "A", Number: 1}
-		event2 := rangedbtest.ThingWasDone{ID: "B", Number: 2}
-		event3 := rangedbtest.AnotherWasComplete{ID: "C"}
 		ctx := rangedbtest.TimeoutContext(t)
+		require.NoError(t, store.Subscribe(ctx, aggregateTypeStats))
+		const aggregateIDA = "107cfb7172a64d3f81eb07dca95ba35e"
+		const aggregateIDB = "2400af829cf84a3b9739fa4aea253d4b"
+		const aggregateIDC = "b0225de257b3453c827c3130417c2260"
+
+		event1 := rangedbtest.ThingWasDone{ID: aggregateIDA, Number: 1}
+		event2 := rangedbtest.ThingWasDone{ID: aggregateIDB, Number: 2}
+		event3 := rangedbtest.AnotherWasComplete{ID: aggregateIDC}
 
 		// When
 		require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event1}))
@@ -44,11 +48,14 @@ func TestAggregateTypeStats(t *testing.T) {
 		aggregateTypeStats := projection.NewAggregateTypeStats()
 		store := inmemorystore.New()
 		rangedbtest.BindEvents(store)
-		store.Subscribe(aggregateTypeStats)
-		event1 := rangedbtest.ThingWasDone{ID: "A", Number: 1}
-		event2 := rangedbtest.ThingWasDone{ID: "B", Number: 2}
-		event3 := rangedbtest.AnotherWasComplete{ID: "C"}
 		ctx := rangedbtest.TimeoutContext(t)
+		require.NoError(t, store.Subscribe(ctx, aggregateTypeStats))
+		const aggregateIDA = "f64c58e4c25d4635923e655cd058ff72"
+		const aggregateIDB = "944b33c4122d4246aa321ea9236db953"
+		const aggregateIDC = "c34485e284be4b0588eccddca36b8c3f"
+		event1 := rangedbtest.ThingWasDone{ID: aggregateIDA, Number: 1}
+		event2 := rangedbtest.ThingWasDone{ID: aggregateIDB, Number: 2}
+		event3 := rangedbtest.AnotherWasComplete{ID: aggregateIDC}
 		require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event1}))
 		require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event2}))
 		require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event3}))

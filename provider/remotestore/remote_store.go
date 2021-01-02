@@ -219,16 +219,30 @@ func (s *remoteStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRe
 	return nil
 }
 
-func (s *remoteStore) SubscribeStartingWith(ctx context.Context, globalSequenceNumber uint64, subscribers ...rangedb.RecordSubscriber) {
+func (s *remoteStore) SubscribeStartingWith(ctx context.Context, globalSequenceNumber uint64, subscribers ...rangedb.RecordSubscriber) error {
 	rangedb.ReplayEvents(ctx, s, globalSequenceNumber, subscribers...)
+	return s.Subscribe(ctx, subscribers...)
+}
 
+func (s *remoteStore) Subscribe(ctx context.Context, subscribers ...rangedb.RecordSubscriber) error {
 	select {
 	case <-ctx.Done():
-		return
+		return context.Canceled
 
 	default:
-		s.Subscribe(subscribers...)
 	}
+
+	s.subscriberMux.Lock()
+	if len(s.subscribers) == 0 {
+		err := s.listenForEvents(ctx)
+		if err != nil {
+			return err
+		}
+	}
+	s.subscribers = append(s.subscribers, subscribers...)
+	s.subscriberMux.Unlock()
+
+	return nil
 }
 
 func (s *remoteStore) TotalEventsInStream(ctx context.Context, streamName string) (uint64, error) {
@@ -291,23 +305,13 @@ func (s *remoteStore) readRecords(ctx context.Context, events PbRecordReceiver) 
 	return rangedb.NewRecordIterator(resultRecords)
 }
 
-func (s *remoteStore) Subscribe(subscribers ...rangedb.RecordSubscriber) {
-	s.subscriberMux.Lock()
-	if len(s.subscribers) == 0 {
-		s.listenForEvents()
-	}
-	s.subscribers = append(s.subscribers, subscribers...)
-	s.subscriberMux.Unlock()
-}
-
-func (s *remoteStore) listenForEvents() {
-	// TODO: pass a context from the original request, or include a timeout
-	ctx := context.Background()
+func (s *remoteStore) listenForEvents(ctx context.Context) error {
 	request := &rangedbpb.SubscribeToLiveEventsRequest{}
 	events, err := s.client.SubscribeToLiveEvents(ctx, request)
 	if err != nil {
-		log.Printf("failed to subscribe: %v", err)
-		return
+		err = fmt.Errorf("failed to subscribe: %v", err)
+		log.Print(err)
+		return err
 	}
 
 	go func() {
@@ -324,6 +328,8 @@ func (s *remoteStore) listenForEvents() {
 			s.subscriberMux.RUnlock()
 		}
 	}()
+
+	return nil
 }
 
 // RecordIteratorWithOneError returns a rangedb.RecordIterator containing a single rangedb.ResultRecord with an error.

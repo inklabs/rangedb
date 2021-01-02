@@ -28,7 +28,8 @@ func Test_RemoteStore_VerifyStoreInterface(t *testing.T) {
 
 		bufListener := bufconn.Listen(7)
 		server := grpc.NewServer()
-		rangeDBServer := rangedbserver.New(rangedbserver.WithStore(inMemoryStore))
+		rangeDBServer, err := rangedbserver.New(rangedbserver.WithStore(inMemoryStore))
+		require.NoError(t, err)
 		rangedbpb.RegisterRangeDBServer(server, rangeDBServer)
 
 		go func() {
@@ -65,7 +66,8 @@ func BenchmarkRemoteStore(b *testing.B) {
 
 		bufListener := bufconn.Listen(7)
 		server := grpc.NewServer()
-		rangeDBServer := rangedbserver.New(rangedbserver.WithStore(inMemoryStore))
+		rangeDBServer, err := rangedbserver.New(rangedbserver.WithStore(inMemoryStore))
+		require.NoError(b, err)
 		rangedbpb.RegisterRangeDBServer(server, rangeDBServer)
 
 		go func() {

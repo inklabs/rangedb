@@ -244,22 +244,24 @@ func (s *levelDbStore) saveEvent(ctx context.Context, transaction *leveldb.Trans
 	return data, nil
 }
 
-func (s *levelDbStore) SubscribeStartingWith(ctx context.Context, globalSequenceNumber uint64, subscribers ...rangedb.RecordSubscriber) {
+func (s *levelDbStore) SubscribeStartingWith(ctx context.Context, globalSequenceNumber uint64, subscribers ...rangedb.RecordSubscriber) error {
 	rangedb.ReplayEvents(ctx, s, globalSequenceNumber, subscribers...)
-
-	select {
-	case <-ctx.Done():
-		return
-
-	default:
-		s.Subscribe(subscribers...)
-	}
+	return s.Subscribe(ctx, subscribers...)
 }
 
-func (s *levelDbStore) Subscribe(subscribers ...rangedb.RecordSubscriber) {
+func (s *levelDbStore) Subscribe(ctx context.Context, subscribers ...rangedb.RecordSubscriber) error {
+	select {
+	case <-ctx.Done():
+		return context.Canceled
+
+	default:
+	}
+
 	s.subscriberMux.Lock()
 	s.subscribers = append(s.subscribers, subscribers...)
 	s.subscriberMux.Unlock()
+
+	return nil
 }
 
 func (s *levelDbStore) TotalEventsInStream(ctx context.Context, streamName string) (uint64, error) {

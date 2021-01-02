@@ -30,7 +30,8 @@ func Test_WebsocketApi_SubscribeToAllEvents_ReadsEventsOverWebsocket(t *testing.
 	ctx := rangedbtest.TimeoutContext(t)
 	require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event1}))
 	require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event2}))
-	api := rangedbws.New(rangedbws.WithStore(store))
+	api, err := rangedbws.New(rangedbws.WithStore(store))
+	require.NoError(t, err)
 	t.Cleanup(api.Stop)
 	server := httptest.NewServer(api)
 	t.Cleanup(server.Close)
@@ -85,7 +86,8 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 	t.Run("all events fails when upgrading connection", func(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
-		api := rangedbws.New(rangedbws.WithStore(store))
+		api, err := rangedbws.New(rangedbws.WithStore(store))
+		require.NoError(t, err)
 		t.Cleanup(api.Stop)
 		request := httptest.NewRequest(http.MethodGet, "/events", nil)
 		response := httptest.NewRecorder()
@@ -101,7 +103,8 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 	t.Run("events by aggregate type fails when upgrading connection", func(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
-		api := rangedbws.New(rangedbws.WithStore(store))
+		api, err := rangedbws.New(rangedbws.WithStore(store))
+		require.NoError(t, err)
 		t.Cleanup(api.Stop)
 		request := httptest.NewRequest(http.MethodGet, "/events/thing", nil)
 		response := httptest.NewRecorder()
@@ -122,7 +125,8 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		require.NoError(t, store.Save(ctx,
 			&rangedb.EventRecord{Event: event},
 		))
-		api := rangedbws.New(rangedbws.WithStore(store))
+		api, err := rangedbws.New(rangedbws.WithStore(store))
+		require.NoError(t, err)
 		t.Cleanup(api.Stop)
 		server := httptest.NewServer(api)
 		t.Cleanup(server.Close)

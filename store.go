@@ -43,8 +43,8 @@ type Store interface {
 	EventsByStreamStartingWith(ctx context.Context, streamSequenceNumber uint64, streamName string) RecordIterator
 	OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*EventRecord) error
 	Save(ctx context.Context, eventRecords ...*EventRecord) error
-	Subscribe(subscribers ...RecordSubscriber)
-	SubscribeStartingWith(ctx context.Context, globalSequenceNumber uint64, subscribers ...RecordSubscriber)
+	Subscribe(ctx context.Context, subscribers ...RecordSubscriber) error
+	SubscribeStartingWith(ctx context.Context, globalSequenceNumber uint64, subscribers ...RecordSubscriber) error
 	TotalEventsInStream(ctx context.Context, streamName string) (uint64, error)
 }
 

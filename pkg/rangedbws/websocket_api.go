@@ -1,6 +1,7 @@
 package rangedbws
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -54,7 +55,7 @@ func WithStore(store rangedb.Store) Option {
 }
 
 // New constructs a websocketAPI.
-func New(options ...Option) *websocketAPI {
+func New(options ...Option) (*websocketAPI, error) {
 	api := &websocketAPI{
 		store: inmemorystore.New(),
 		upgrader: &websocket.Upgrader{
@@ -73,10 +74,13 @@ func New(options ...Option) *websocketAPI {
 	}
 
 	api.initRoutes()
-	api.initProjections()
+	err := api.initProjections()
+	if err != nil {
+		return nil, err
+	}
 	go api.startBroadcaster()
 
-	return api
+	return api, nil
 }
 
 func (a *websocketAPI) initRoutes() {
@@ -86,8 +90,9 @@ func (a *websocketAPI) initRoutes() {
 	a.handler = router
 }
 
-func (a *websocketAPI) initProjections() {
-	a.store.Subscribe(
+func (a *websocketAPI) initProjections() error {
+	ctx := context.Background()
+	return a.store.Subscribe(ctx,
 		rangedb.RecordSubscriberFunc(a.accept),
 	)
 }

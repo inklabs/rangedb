@@ -1,6 +1,7 @@
 package chat_test
 
 import (
+	"log"
 	"testing"
 
 	"github.com/inklabs/rangedb/examples/chat"
@@ -296,9 +297,12 @@ func Test_SendPrivateMessageToRoom(t *testing.T) {
 func newTestCase() *bdd.TestCase {
 	store := inmemorystore.New()
 	chat.BindEvents(store)
+	app, err := chat.New(store)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	return bdd.New(store, func(command bdd.Command) {
-		app := chat.New(store)
 		app.Dispatch(command)
 	})
 }

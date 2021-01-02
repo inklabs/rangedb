@@ -281,22 +281,24 @@ func (s *postgresStore) saveEvents(ctx context.Context, expectedStreamSequenceNu
 	return nil
 }
 
-func (s *postgresStore) Subscribe(subscribers ...rangedb.RecordSubscriber) {
+func (s *postgresStore) SubscribeStartingWith(ctx context.Context, globalSequenceNumber uint64, subscribers ...rangedb.RecordSubscriber) error {
+	rangedb.ReplayEvents(ctx, s, globalSequenceNumber, subscribers...)
+	return s.Subscribe(ctx, subscribers...)
+}
+
+func (s *postgresStore) Subscribe(ctx context.Context, subscribers ...rangedb.RecordSubscriber) error {
+	select {
+	case <-ctx.Done():
+		return context.Canceled
+
+	default:
+	}
+
 	s.subscriberMux.Lock()
 	s.subscribers = append(s.subscribers, subscribers...)
 	s.subscriberMux.Unlock()
-}
 
-func (s *postgresStore) SubscribeStartingWith(ctx context.Context, globalSequenceNumber uint64, subscribers ...rangedb.RecordSubscriber) {
-	rangedb.ReplayEvents(ctx, s, globalSequenceNumber, subscribers...)
-
-	select {
-	case <-ctx.Done():
-		return
-
-	default:
-		s.Subscribe(subscribers...)
-	}
+	return nil
 }
 
 func (s *postgresStore) TotalEventsInStream(ctx context.Context, streamName string) (uint64, error) {

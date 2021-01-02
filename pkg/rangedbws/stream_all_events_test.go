@@ -23,7 +23,8 @@ func Example_streamAllEvents() {
 	// Given
 	shortuuid.SetRand(100)
 	inMemoryStore := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
-	websocketApi := rangedbws.New(rangedbws.WithStore(inMemoryStore))
+	websocketApi, err := rangedbws.New(rangedbws.WithStore(inMemoryStore))
+	PrintError(err)
 	defer websocketApi.Stop()
 
 	server := httptest.NewServer(websocketApi)

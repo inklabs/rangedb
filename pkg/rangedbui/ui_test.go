@@ -214,9 +214,10 @@ func Test_ServesStaticAssets(t *testing.T) {
 func storeWithTwoEvents(t *testing.T) (rangedb.Store, *projection.AggregateTypeStats) {
 	store := inmemorystore.New()
 	aggregateTypeStats := projection.NewAggregateTypeStats()
-	store.Subscribe(aggregateTypeStats)
 
 	ctx := rangedbtest.TimeoutContext(t)
+	require.NoError(t, store.Subscribe(ctx, aggregateTypeStats))
+
 	require.NoError(t, store.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{
 			ID:     "f6b6f8ed682c4b5180f625e53b3c4bac",

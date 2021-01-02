@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
@@ -28,10 +29,11 @@ func Test_Private_writeEventsToConnection_Fails(t *testing.T) {
 		recordIterator := rangedb.NewRecordIterator(resultRecords)
 		var logBuffer bytes.Buffer
 		logger := log.New(&logBuffer, "", 0)
-		api := New(
+		api, err := New(
 			WithStore(inmemorystore.New()),
 			WithLogger(logger),
 		)
+		require.NoError(t, err)
 		t.Cleanup(api.Stop)
 
 		// When
@@ -56,10 +58,11 @@ func Test_Private_writeEventsToConnection_Fails(t *testing.T) {
 
 		var logBuffer bytes.Buffer
 		logger := log.New(&logBuffer, "", 0)
-		api := New(
+		api, err := New(
 			WithStore(inmemorystore.New()),
 			WithLogger(logger),
 		)
+		require.NoError(t, err)
 		t.Cleanup(api.Stop)
 
 		// When
@@ -76,10 +79,11 @@ func Test_Private_broadcastRecord(t *testing.T) {
 		// Given
 		var logBuffer bytes.Buffer
 		logger := log.New(&logBuffer, "", 0)
-		api := New(
+		api, err := New(
 			WithStore(inmemorystore.New()),
 			WithLogger(logger),
 		)
+		require.NoError(t, err)
 		t.Cleanup(api.Stop)
 		record := &rangedb.Record{
 			Data: math.Inf(1),

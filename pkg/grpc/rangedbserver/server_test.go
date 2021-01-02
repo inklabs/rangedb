@@ -519,7 +519,8 @@ func getClient(t *testing.T, store rangedb.Store) rangedbpb.RangeDBClient {
 	bufListener := bufconn.Listen(7)
 	server := grpc.NewServer()
 	t.Cleanup(server.Stop)
-	rangeDBServer := rangedbserver.New(rangedbserver.WithStore(store))
+	rangeDBServer, err := rangedbserver.New(rangedbserver.WithStore(store))
+	require.NoError(t, err)
 	t.Cleanup(rangeDBServer.Stop)
 	rangedbpb.RegisterRangeDBServer(server, rangeDBServer)
 

@@ -38,7 +38,8 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 	bufListener := bufconn.Listen(7)
 	server := grpc.NewServer()
 	defer server.Stop()
-	rangeDBServer := rangedbserver.New(rangedbserver.WithStore(inMemoryStore))
+	rangeDBServer, err := rangedbserver.New(rangedbserver.WithStore(inMemoryStore))
+	PrintError(err)
 	defer rangeDBServer.Stop()
 	rangedbpb.RegisterRangeDBServer(server, rangeDBServer)
 	go func() {

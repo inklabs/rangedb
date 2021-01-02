@@ -928,129 +928,6 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			)
 		})
 
-		t.Run("Subscribe sends new events to subscribers on save", func(t *testing.T) {
-			// Given
-			shortuuid.SetRand(100)
-			const aggregateID = "fe7a973d57bb4693a997bb445776da6a"
-			store := newStore(t, sequentialclock.New())
-			event1 := &ThingWasDone{ID: aggregateID, Number: 2}
-			event2 := &ThingWasDone{ID: aggregateID, Number: 3}
-			ctx := TimeoutContext(t)
-			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event1}))
-			countSubscriber1 := NewCountSubscriber()
-			countSubscriber2 := NewCountSubscriber()
-			store.Subscribe(countSubscriber1, countSubscriber2)
-
-			// When
-			err := store.Save(ctx, &rangedb.EventRecord{Event: event2})
-			require.NoError(t, err)
-
-			// Then
-			<-countSubscriber1.AcceptRecordChan
-			<-countSubscriber2.AcceptRecordChan
-			assert.Equal(t, 1, countSubscriber1.TotalEvents())
-			assert.Equal(t, 3, countSubscriber1.TotalThingWasDoneNumber())
-			assert.Equal(t, 1, countSubscriber2.TotalEvents())
-			assert.Equal(t, 3, countSubscriber2.TotalThingWasDoneNumber())
-			expectedRecord := &rangedb.Record{
-				AggregateType:        event2.AggregateType(),
-				AggregateID:          event2.AggregateID(),
-				GlobalSequenceNumber: 1,
-				StreamSequenceNumber: 1,
-				EventType:            event2.EventType(),
-				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
-				InsertTimestamp:      1,
-				Data:                 event2,
-				Metadata:             nil,
-			}
-			require.Equal(t, 1, len(countSubscriber1.AcceptedRecords))
-			require.Equal(t, 1, len(countSubscriber2.AcceptedRecords))
-			assert.Equal(t, expectedRecord, countSubscriber1.AcceptedRecords[0])
-			assert.Equal(t, expectedRecord, countSubscriber2.AcceptedRecords[0])
-		})
-
-		t.Run("SubscribeStartingWith sends previous and new events to subscribers on save, by pointer", func(t *testing.T) {
-			// Given
-			shortuuid.SetRand(100)
-			const aggregateID = "bbdd8eef5187430e8f4c52fcdc511356"
-			store := newStore(t, sequentialclock.New())
-			event1 := &ThingWasDone{ID: aggregateID, Number: 2}
-			ctx := TimeoutContext(t)
-			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event1}))
-			event2 := &ThingWasDone{ID: aggregateID, Number: 3}
-			countSubscriber1 := NewCountSubscriber()
-			countSubscriber2 := NewCountSubscriber()
-			store.SubscribeStartingWith(ctx, 0, countSubscriber1, countSubscriber2)
-			<-countSubscriber1.AcceptRecordChan
-			<-countSubscriber2.AcceptRecordChan
-
-			// When
-			err := store.Save(ctx, &rangedb.EventRecord{Event: event2})
-			require.NoError(t, err)
-
-			// Then
-			<-countSubscriber1.AcceptRecordChan
-			<-countSubscriber2.AcceptRecordChan
-			assert.Equal(t, 2, countSubscriber1.TotalEvents())
-			assert.Equal(t, 5, countSubscriber1.TotalThingWasDoneNumber())
-			assert.Equal(t, 2, countSubscriber2.TotalEvents())
-			assert.Equal(t, 5, countSubscriber2.TotalThingWasDoneNumber())
-		})
-
-		t.Run("SubscribeStartingWith sends previous and new events to subscribers on save, by value", func(t *testing.T) {
-			// Given
-			shortuuid.SetRand(100)
-			const aggregateID = "5a960e5b7f0e4443ac320e01fcfacbcb"
-			store := newStore(t, sequentialclock.New())
-			event1 := ThingWasDone{ID: aggregateID, Number: 2}
-			ctx := TimeoutContext(t)
-			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event1}))
-			event2 := ThingWasDone{ID: aggregateID, Number: 3}
-			countSubscriber1 := NewCountSubscriber()
-			countSubscriber2 := NewCountSubscriber()
-			store.SubscribeStartingWith(ctx, 0, countSubscriber1, countSubscriber2)
-			<-countSubscriber1.AcceptRecordChan
-			<-countSubscriber2.AcceptRecordChan
-
-			// When
-			err := store.Save(ctx, &rangedb.EventRecord{Event: event2})
-			require.NoError(t, err)
-
-			// Then
-			<-countSubscriber1.AcceptRecordChan
-			<-countSubscriber2.AcceptRecordChan
-			assert.Equal(t, 2, countSubscriber1.TotalEvents())
-			assert.Equal(t, 5, countSubscriber1.TotalThingWasDoneNumber())
-			assert.Equal(t, 2, countSubscriber2.TotalEvents())
-			assert.Equal(t, 5, countSubscriber2.TotalThingWasDoneNumber())
-		})
-
-		t.Run("SubscribeStartingWith stops before subscribing", func(t *testing.T) {
-			// Given
-			shortuuid.SetRand(100)
-			const aggregateID = "0039fe2c54b7443290751ab379ae8d98"
-			store := newStore(t, sequentialclock.New())
-			event1 := ThingWasDone{ID: aggregateID, Number: 2}
-			ctx := TimeoutContext(t)
-			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event1}))
-			event2 := ThingWasDone{ID: aggregateID, Number: 3}
-			countSubscriber1 := NewCountSubscriber()
-			countSubscriber2 := NewCountSubscriber()
-			subscribeCtx, done := context.WithCancel(TimeoutContext(t))
-			done()
-			store.SubscribeStartingWith(subscribeCtx, 0, countSubscriber1, countSubscriber2)
-
-			// When
-			err := store.Save(ctx, &rangedb.EventRecord{Event: event2})
-			require.NoError(t, err)
-
-			// Then
-			assert.Equal(t, 0, countSubscriber1.TotalEvents())
-			assert.Equal(t, 0, countSubscriber1.TotalThingWasDoneNumber())
-			assert.Equal(t, 0, countSubscriber2.TotalEvents())
-			assert.Equal(t, 0, countSubscriber2.TotalThingWasDoneNumber())
-		})
-
 		t.Run("does not allow saving multiple events from different aggregate types", func(t *testing.T) {
 			// Given
 			store := newStore(t, sequentialclock.New())
@@ -1106,6 +983,142 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		})
 	})
 
+	t.Run("Subscribe", func(t *testing.T) {
+		t.Run("Save sends new events to subscribers on save", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			const aggregateID = "fe7a973d57bb4693a997bb445776da6a"
+			store := newStore(t, sequentialclock.New())
+			event1 := &ThingWasDone{ID: aggregateID, Number: 2}
+			event2 := &ThingWasDone{ID: aggregateID, Number: 3}
+			ctx := TimeoutContext(t)
+			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event1}))
+			countSubscriber1 := NewCountSubscriber()
+			countSubscriber2 := NewCountSubscriber()
+
+			// When
+			err := store.Subscribe(ctx, countSubscriber1, countSubscriber2)
+
+			// Then
+			require.NoError(t, err)
+			err = store.Save(ctx, &rangedb.EventRecord{Event: event2})
+			require.NoError(t, err)
+			<-countSubscriber1.AcceptRecordChan
+			<-countSubscriber2.AcceptRecordChan
+			assert.Equal(t, 1, countSubscriber1.TotalEvents())
+			assert.Equal(t, 3, countSubscriber1.TotalThingWasDoneNumber())
+			assert.Equal(t, 1, countSubscriber2.TotalEvents())
+			assert.Equal(t, 3, countSubscriber2.TotalThingWasDoneNumber())
+			expectedRecord := &rangedb.Record{
+				AggregateType:        event2.AggregateType(),
+				AggregateID:          event2.AggregateID(),
+				GlobalSequenceNumber: 1,
+				StreamSequenceNumber: 1,
+				EventType:            event2.EventType(),
+				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+				InsertTimestamp:      1,
+				Data:                 event2,
+				Metadata:             nil,
+			}
+			require.Equal(t, 1, len(countSubscriber1.AcceptedRecords))
+			require.Equal(t, 1, len(countSubscriber2.AcceptedRecords))
+			assert.Equal(t, expectedRecord, countSubscriber1.AcceptedRecords[0])
+			assert.Equal(t, expectedRecord, countSubscriber2.AcceptedRecords[0])
+		})
+
+		t.Run("stops before subscribing with context.Done", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			store := newStore(t, sequentialclock.New())
+			ctx := TimeoutContext(t)
+			countSubscriber1 := NewCountSubscriber()
+			countSubscriber2 := NewCountSubscriber()
+			ctx, done := context.WithCancel(TimeoutContext(t))
+			done()
+
+			// When
+			err := store.Subscribe(ctx, countSubscriber1, countSubscriber2)
+
+			// Then
+			assert.Equal(t, context.Canceled, err)
+		})
+	})
+
+	t.Run("SubscribeStartingWith", func(t *testing.T) {
+		t.Run("sends previous and new events to subscribers on save, by pointer", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			const aggregateID = "bbdd8eef5187430e8f4c52fcdc511356"
+			store := newStore(t, sequentialclock.New())
+			event1 := &ThingWasDone{ID: aggregateID, Number: 2}
+			ctx := TimeoutContext(t)
+			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event1}))
+			event2 := &ThingWasDone{ID: aggregateID, Number: 3}
+			countSubscriber1 := NewCountSubscriber()
+			countSubscriber2 := NewCountSubscriber()
+
+			// When
+			require.NoError(t, store.SubscribeStartingWith(ctx, 0, countSubscriber1, countSubscriber2))
+
+			// Then
+			<-countSubscriber1.AcceptRecordChan
+			<-countSubscriber2.AcceptRecordChan
+			err := store.Save(ctx, &rangedb.EventRecord{Event: event2})
+			require.NoError(t, err)
+			<-countSubscriber1.AcceptRecordChan
+			<-countSubscriber2.AcceptRecordChan
+			assert.Equal(t, 2, countSubscriber1.TotalEvents())
+			assert.Equal(t, 5, countSubscriber1.TotalThingWasDoneNumber())
+			assert.Equal(t, 2, countSubscriber2.TotalEvents())
+			assert.Equal(t, 5, countSubscriber2.TotalThingWasDoneNumber())
+		})
+
+		t.Run("sends previous and new events to subscribers on save, by value", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			const aggregateID = "5a960e5b7f0e4443ac320e01fcfacbcb"
+			store := newStore(t, sequentialclock.New())
+			event1 := ThingWasDone{ID: aggregateID, Number: 2}
+			ctx := TimeoutContext(t)
+			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event1}))
+			event2 := ThingWasDone{ID: aggregateID, Number: 3}
+			countSubscriber1 := NewCountSubscriber()
+			countSubscriber2 := NewCountSubscriber()
+
+			// When
+			require.NoError(t, store.SubscribeStartingWith(ctx, 0, countSubscriber1, countSubscriber2))
+
+			// Then
+			<-countSubscriber1.AcceptRecordChan
+			<-countSubscriber2.AcceptRecordChan
+			err := store.Save(ctx, &rangedb.EventRecord{Event: event2})
+			require.NoError(t, err)
+			<-countSubscriber1.AcceptRecordChan
+			<-countSubscriber2.AcceptRecordChan
+			assert.Equal(t, 2, countSubscriber1.TotalEvents())
+			assert.Equal(t, 5, countSubscriber1.TotalThingWasDoneNumber())
+			assert.Equal(t, 2, countSubscriber2.TotalEvents())
+			assert.Equal(t, 5, countSubscriber2.TotalThingWasDoneNumber())
+		})
+
+		t.Run("stops before subscribing with context.Done", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			store := newStore(t, sequentialclock.New())
+			ctx := TimeoutContext(t)
+			countSubscriber1 := NewCountSubscriber()
+			countSubscriber2 := NewCountSubscriber()
+			ctx, done := context.WithCancel(TimeoutContext(t))
+			done()
+
+			// When
+			err := store.SubscribeStartingWith(ctx, 0, countSubscriber1, countSubscriber2)
+
+			// Then
+			assert.Equal(t, context.Canceled, err)
+		})
+	})
+
 	t.Run("Subscriber dispatches command that results in saving another event", func(t *testing.T) {
 		// Given
 		shortuuid.SetRand(100)
@@ -1114,7 +1127,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		event := ThingWasDone{ID: aggregateID, Number: 2}
 		triggerProcessManager := newTriggerProcessManager(store.Save)
 		ctx := TimeoutContext(t)
-		store.SubscribeStartingWith(ctx, 0, triggerProcessManager)
+		require.NoError(t, store.SubscribeStartingWith(ctx, 0, triggerProcessManager))
 
 		// When
 		err := store.Save(ctx, &rangedb.EventRecord{Event: event})

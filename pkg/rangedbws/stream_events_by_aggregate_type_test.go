@@ -23,7 +23,8 @@ func Example_streamAggregateTypeEvents() {
 	// Given
 	shortuuid.SetRand(100)
 	inMemoryStore := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
-	api := rangedbws.New(rangedbws.WithStore(inMemoryStore))
+	api, err := rangedbws.New(rangedbws.WithStore(inMemoryStore))
+	PrintError(err)
 	defer api.Stop()
 
 	server := httptest.NewServer(api)

@@ -54,8 +54,9 @@ func Test_ReplayEvents(t *testing.T) {
 	t.Run("replays from the first event", func(t *testing.T) {
 		// Given
 		inMemoryStore := inmemorystore.New()
-		event1 := rangedbtest.ThingWasDone{ID: "A", Number: 1}
-		event2 := rangedbtest.ThingWasDone{ID: "A", Number: 2}
+		const aggregateID = "4a4c36de56f94ae29f0b89497f2ba72f"
+		event1 := rangedbtest.ThingWasDone{ID: aggregateID, Number: 1}
+		event2 := rangedbtest.ThingWasDone{ID: aggregateID, Number: 2}
 		ctx := rangedbtest.TimeoutContext(t)
 		require.NoError(t, inMemoryStore.Save(ctx,
 			&rangedb.EventRecord{Event: event1},
@@ -73,8 +74,9 @@ func Test_ReplayEvents(t *testing.T) {
 	t.Run("replays from the second event", func(t *testing.T) {
 		// Given
 		inMemoryStore := inmemorystore.New()
-		event1 := rangedbtest.ThingWasDone{ID: "A", Number: 1}
-		event2 := rangedbtest.ThingWasDone{ID: "A", Number: 2}
+		const aggregateID = "67db313520884005b2657dfebfac74ae"
+		event1 := rangedbtest.ThingWasDone{ID: aggregateID, Number: 1}
+		event2 := rangedbtest.ThingWasDone{ID: aggregateID, Number: 2}
 		ctx := rangedbtest.TimeoutContext(t)
 		require.NoError(t, inMemoryStore.Save(ctx,
 			&rangedb.EventRecord{Event: event1},
@@ -130,9 +132,10 @@ func TestRecordSubscriberFunc_Accept(t *testing.T) {
 
 func TestRawEvent(t *testing.T) {
 	// When
+	const aggregateID = "e9bf256fce3449c19864b171a9593cb0"
 	rawEvent := rangedb.NewRawEvent(
 		"thing",
-		"3d2e5ee4c4a049c6b33d564eb0d285ed",
+		aggregateID,
 		"ThingWasDone",
 		map[string]interface{}{
 			"number": 100,
@@ -140,7 +143,7 @@ func TestRawEvent(t *testing.T) {
 	)
 
 	// Then
-	assert.Equal(t, "3d2e5ee4c4a049c6b33d564eb0d285ed", rawEvent.AggregateID())
+	assert.Equal(t, aggregateID, rawEvent.AggregateID())
 	assert.Equal(t, "thing", rawEvent.AggregateType())
 	assert.Equal(t, "ThingWasDone", rawEvent.EventType())
 	eventJSON, err := json.Marshal(rawEvent)

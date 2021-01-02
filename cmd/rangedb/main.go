@@ -53,13 +53,21 @@ func main() {
 		rangedbapi.WithBaseUri(*baseURI+"/api"),
 		rangedbapi.WithSnapshotStore(projection.NewDiskSnapshotStore(snapshotBasePath(*dbPath))),
 	)
-	websocketAPI := rangedbws.New(
+
+	websocketAPI, err := rangedbws.New(
 		rangedbws.WithStore(leveldbStore),
 		rangedbws.WithLogger(logger),
 	)
-	rangeDBServer := rangedbserver.New(
+	if err != nil {
+		log.Fatalf("unable to create WebSocket API: %v", err)
+	}
+
+	rangeDBServer, err := rangedbserver.New(
 		rangedbserver.WithStore(leveldbStore),
 	)
+	if err != nil {
+		log.Fatalf("unable to create RangeDB Server: %v", err)
+	}
 
 	var templateManager templatemanager.TemplateManager
 	if *templatesPath != "" {

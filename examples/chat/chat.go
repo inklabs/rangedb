@@ -10,7 +10,7 @@ import (
 //go:generate go run ../../gen/eventbinder/main.go -package chat -files room_events.go,user_events.go
 
 // New constructs a new CQRS chat application that accepts commands to be dispatched.
-func New(store rangedb.Store) cqrs.CommandDispatcher {
+func New(store rangedb.Store) (cqrs.CommandDispatcher, error) {
 	app := cqrs.New(
 		store,
 		cqrs.WithAggregates(
@@ -20,11 +20,18 @@ func New(store rangedb.Store) cqrs.CommandDispatcher {
 	)
 
 	warnedUsers := NewWarnedUsersProjection()
-	store.SubscribeStartingWith(context.Background(), 0, warnedUsers)
+	ctx := context.Background()
+	err := store.SubscribeStartingWith(ctx, 0, warnedUsers)
+	if err != nil {
+		return nil, err
+	}
 
-	store.Subscribe(
+	err = store.Subscribe(ctx,
 		newRestrictedWordProcessor(app, warnedUsers),
 	)
+	if err != nil {
+		return nil, err
+	}
 
-	return app
+	return app, nil
 }

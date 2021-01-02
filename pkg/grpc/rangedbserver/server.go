@@ -47,7 +47,7 @@ func WithStore(store rangedb.Store) Option {
 }
 
 // New constructs a new rangeDBServer.
-func New(options ...Option) *rangeDBServer {
+func New(options ...Option) (*rangeDBServer, error) {
 	server := &rangeDBServer{
 		store:                    inmemorystore.New(),
 		bufferedRecords:          make(chan *rangedb.Record, recordBuffSize),
@@ -60,14 +60,19 @@ func New(options ...Option) *rangeDBServer {
 		option(server)
 	}
 
-	server.initProjections()
+	err := server.initProjections()
+	if err != nil {
+		return nil, err
+	}
+
 	go server.startBroadcaster()
 
-	return server
+	return server, nil
 }
 
-func (s *rangeDBServer) initProjections() {
-	s.store.Subscribe(
+func (s *rangeDBServer) initProjections() error {
+	ctx := context.Background()
+	return s.store.Subscribe(ctx,
 		rangedb.RecordSubscriberFunc(s.accept),
 	)
 }
