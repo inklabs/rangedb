@@ -212,11 +212,12 @@ func (s *remoteStore) Save(eventRecords ...*rangedb.EventRecord) error {
 }
 
 func (s *remoteStore) SubscribeStartingWith(ctx context.Context, globalSequenceNumber uint64, subscribers ...rangedb.RecordSubscriber) {
-	rangedb.ReplayEvents(s, globalSequenceNumber, subscribers...)
+	rangedb.ReplayEvents(ctx, s, globalSequenceNumber, subscribers...)
 
 	select {
 	case <-ctx.Done():
 		return
+
 	default:
 		s.Subscribe(subscribers...)
 	}

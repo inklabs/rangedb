@@ -106,7 +106,7 @@ func ParseStream(streamName string) (aggregateType, aggregateID string) {
 }
 
 // ReplayEvents applies all events to each subscriber.
-func ReplayEvents(store Store, globalSequenceNumber uint64, subscribers ...RecordSubscriber) {
+func ReplayEvents(ctx context.Context, store Store, globalSequenceNumber uint64, subscribers ...RecordSubscriber) {
 	recordIterator := store.EventsStartingWith(context.Background(), globalSequenceNumber)
 	for recordIterator.Next() {
 		if recordIterator.Err() != nil {
@@ -115,7 +115,13 @@ func ReplayEvents(store Store, globalSequenceNumber uint64, subscribers ...Recor
 		}
 
 		for _, subscriber := range subscribers {
-			subscriber.Accept(recordIterator.Record())
+			select {
+			case <-ctx.Done():
+				return
+
+			default:
+				subscriber.Accept(recordIterator.Record())
+			}
 		}
 	}
 }

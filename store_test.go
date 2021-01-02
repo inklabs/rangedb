@@ -61,9 +61,10 @@ func Test_ReplayEvents(t *testing.T) {
 			&rangedb.EventRecord{Event: event2},
 		))
 		subscriber := rangedbtest.NewTotalEventsSubscriber()
+		ctx := rangedbtest.TimeoutContext(t)
 
 		// When
-		rangedb.ReplayEvents(inMemoryStore, 0, subscriber)
+		rangedb.ReplayEvents(ctx, inMemoryStore, 0, subscriber)
 
 		// Then
 		assert.Equal(t, 2, subscriber.TotalEvents())
@@ -79,9 +80,10 @@ func Test_ReplayEvents(t *testing.T) {
 			&rangedb.EventRecord{Event: event2},
 		))
 		subscriber := rangedbtest.NewTotalEventsSubscriber()
+		ctx := rangedbtest.TimeoutContext(t)
 
 		// When
-		rangedb.ReplayEvents(inMemoryStore, 1, subscriber)
+		rangedb.ReplayEvents(ctx, inMemoryStore, 1, subscriber)
 
 		// Then
 		assert.Equal(t, 1, subscriber.TotalEvents())
