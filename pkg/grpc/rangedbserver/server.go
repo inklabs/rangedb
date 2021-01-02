@@ -319,8 +319,11 @@ func (s *rangeDBServer) SubscribeToEventsByAggregateType(req *rangedbpb.Subscrib
 	return nil
 }
 
-func (s *rangeDBServer) TotalEventsInStream(_ context.Context, request *rangedbpb.TotalEventsInStreamRequest) (*rangedbpb.TotalEventsInStreamResponse, error) {
-	totalEvents := s.store.TotalEventsInStream(request.StreamName)
+func (s *rangeDBServer) TotalEventsInStream(ctx context.Context, request *rangedbpb.TotalEventsInStreamRequest) (*rangedbpb.TotalEventsInStreamResponse, error) {
+	totalEvents, err := s.store.TotalEventsInStream(ctx, request.StreamName)
+	if err != nil {
+		return nil, err
+	}
 	return &rangedbpb.TotalEventsInStreamResponse{
 		TotalEvents: totalEvents,
 	}, nil

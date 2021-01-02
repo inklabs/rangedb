@@ -280,10 +280,17 @@ func (s *inMemoryStore) Subscribe(subscribers ...rangedb.RecordSubscriber) {
 	s.subscriberMux.Unlock()
 }
 
-func (s *inMemoryStore) TotalEventsInStream(streamName string) uint64 {
+func (s *inMemoryStore) TotalEventsInStream(ctx context.Context, streamName string) (uint64, error) {
+	select {
+	case <-ctx.Done():
+		return 0, context.Canceled
+
+	default:
+	}
+
 	s.mux.RLock()
 	defer s.mux.RUnlock()
-	return uint64(len(s.recordsByStream[streamName]))
+	return uint64(len(s.recordsByStream[streamName])), nil
 }
 
 func (s *inMemoryStore) getNextStreamSequenceNumber(stream string) uint64 {

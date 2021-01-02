@@ -231,17 +231,21 @@ func (s *remoteStore) SubscribeStartingWith(ctx context.Context, globalSequenceN
 	}
 }
 
-func (s *remoteStore) TotalEventsInStream(streamName string) uint64 {
+func (s *remoteStore) TotalEventsInStream(ctx context.Context, streamName string) (uint64, error) {
 	request := &rangedbpb.TotalEventsInStreamRequest{
 		StreamName: streamName,
 	}
 
-	response, err := s.client.TotalEventsInStream(context.Background(), request)
+	response, err := s.client.TotalEventsInStream(ctx, request)
 	if err != nil {
-		return 0
+		if strings.Contains(err.Error(), rpcErrContextCanceled) {
+			return 0, context.Canceled
+		}
+
+		return 0, err
 	}
 
-	return response.TotalEvents
+	return response.TotalEvents, nil
 }
 
 func (s *remoteStore) readRecords(ctx context.Context, events PbRecordReceiver) rangedb.RecordIterator {

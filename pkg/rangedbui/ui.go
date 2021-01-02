@@ -2,6 +2,7 @@ package rangedbui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -139,7 +140,17 @@ func (a *webUI) stream(w http.ResponseWriter, r *http.Request) {
 	)
 
 	baseURI := fmt.Sprintf("/e/%s/%s", aggregateTypeName, aggregateID)
-	totalRecords := a.store.TotalEventsInStream(streamName)
+	totalRecords, err := a.store.TotalEventsInStream(r.Context(), streamName)
+	if err != nil {
+		if errors.Is(err, context.Canceled) {
+			http.Error(w, "Request Timeout", http.StatusRequestTimeout)
+			return
+		}
+
+		http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
 	aggregateURL := fmt.Sprintf("/e/%s", aggregateTypeName)
 
 	a.renderWithValues(w, "stream.html", streamTemplateVars{
@@ -147,7 +158,7 @@ func (a *webUI) stream(w http.ResponseWriter, r *http.Request) {
 		Records:         records,
 		StreamInfo: StreamInfo{
 			Name:        streamName,
-			TotalEvents: a.store.TotalEventsInStream(streamName),
+			TotalEvents: totalRecords,
 		},
 		AggregateType:    aggregateTypeName,
 		AggregateTypeURL: aggregateURL,

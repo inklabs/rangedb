@@ -41,8 +41,8 @@ func (f failingEventStore) Subscribe(_ ...rangedb.RecordSubscriber) {}
 func (f failingEventStore) SubscribeStartingWith(_ context.Context, _ uint64, _ ...rangedb.RecordSubscriber) {
 }
 
-func (f failingEventStore) TotalEventsInStream(_ string) uint64 {
-	return 0
+func (f failingEventStore) TotalEventsInStream(_ context.Context, _ string) (uint64, error) {
+	return 0, fmt.Errorf("failingEventStore.TotalEventsInStream")
 }
 
 func getClosedIterator() rangedb.RecordIterator {

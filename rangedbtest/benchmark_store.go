@@ -1,8 +1,10 @@
 package rangedbtest
 
 import (
+	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -49,11 +51,12 @@ func StoreBenchmark(b *testing.B, newStore func(b *testing.B) rangedb.Store) {
 		)
 
 		aggregateID := ""
-		ctx := TimeoutContext(b)
+		saveCtx, done := context.WithTimeout(context.Background(), 30*time.Second)
+		b.Cleanup(done)
 		for i := 0; i < (totalEvents / eventsPerStream); i++ {
 			aggregateID = uuid.New().String()
 			eventRecords := getNEvents(eventsPerStream, aggregateID)
-			err := store.Save(ctx, eventRecords...)
+			err := store.Save(saveCtx, eventRecords...)
 			require.NoError(b, err)
 		}
 
@@ -104,10 +107,12 @@ func StoreBenchmark(b *testing.B, newStore func(b *testing.B) rangedb.Store) {
 		})
 
 		b.Run("TotalEventsInStream", func(b *testing.B) {
+			ctx := TimeoutContext(b)
 			stream := rangedb.GetStream(ThingWasDone{}.AggregateType(), aggregateID)
 			for i := 0; i < b.N; i++ {
-				totalEventsInStream := store.TotalEventsInStream(stream)
+				totalEventsInStream, err := store.TotalEventsInStream(ctx, stream)
 				require.Equal(b, uint64(eventsPerStream), totalEventsInStream)
+				require.NoError(b, err)
 			}
 		})
 	})

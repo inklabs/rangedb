@@ -1202,11 +1202,31 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			))
 
 			// When
-			totalEvents := store.TotalEventsInStream(rangedb.GetEventStream(eventA1))
+			totalEvents, err := store.TotalEventsInStream(ctx, rangedb.GetEventStream(eventA1))
 
 			// Then
 			assert.Equal(t, 2, int(totalEvents))
+			assert.Nil(t, err)
 		})
+
+		t.Run("stops before returning with context.Done", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			store := newStore(t, sequentialclock.New())
+			const aggregateID = "6a073d2113544c37a8ae3cfdef78b164"
+			event := &ThingWasDone{ID: aggregateID, Number: 1}
+			ctx, done := context.WithCancel(TimeoutContext(t))
+			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event}))
+			done()
+
+			// When
+			totalEvents, err := store.TotalEventsInStream(ctx, rangedb.GetEventStream(event))
+
+			// Then
+			assert.Equal(t, 0, int(totalEvents))
+			assert.Equal(t, context.Canceled, err)
+		})
+
 	})
 }
 

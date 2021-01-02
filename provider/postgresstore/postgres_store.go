@@ -145,7 +145,10 @@ func (s *postgresStore) saveEvents(ctx context.Context, expectedStreamSequenceNu
 
 	aggregateType := eventRecords[0].Event.AggregateType()
 	aggregateID := eventRecords[0].Event.AggregateID()
-	nextStreamSequenceNumber := s.getNextStreamSequenceNumber(transaction, aggregateType, aggregateID)
+	nextStreamSequenceNumber, err := s.getNextStreamSequenceNumber(ctx, transaction, aggregateType, aggregateID)
+	if err != nil {
+		return err
+	}
 
 	if expectedStreamSequenceNumber != nil && nextStreamSequenceNumber != *expectedStreamSequenceNumber {
 		_ = transaction.Rollback()
@@ -296,9 +299,9 @@ func (s *postgresStore) SubscribeStartingWith(ctx context.Context, globalSequenc
 	}
 }
 
-func (s *postgresStore) TotalEventsInStream(streamName string) uint64 {
+func (s *postgresStore) TotalEventsInStream(ctx context.Context, streamName string) (uint64, error) {
 	aggregateType, aggregateID := rangedb.ParseStream(streamName)
-	return s.getNextStreamSequenceNumber(s.db, aggregateType, aggregateID)
+	return s.getNextStreamSequenceNumber(ctx, s.db, aggregateType, aggregateID)
 }
 
 func (s *postgresStore) notifySubscribers(record *rangedb.Record) {
@@ -346,25 +349,26 @@ func (s *postgresStore) initDB() {
 }
 
 type dbRowQueryable interface {
-	QueryRow(query string, args ...interface{}) *sql.Row
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 }
 
-func (s *postgresStore) getNextStreamSequenceNumber(queryable dbRowQueryable, aggregateType string, aggregateID string) uint64 {
+func (s *postgresStore) getNextStreamSequenceNumber(ctx context.Context, queryable dbRowQueryable, aggregateType string, aggregateID string) (uint64, error) {
 	var lastStreamSequenceNumber uint64
 
-	err := queryable.QueryRow("SELECT MAX(StreamSequenceNumber) FROM record WHERE AggregateType = $1 AND AggregateID = $2 GROUP BY AggregateType, AggregateID",
+	err := queryable.QueryRowContext(ctx, "SELECT MAX(StreamSequenceNumber) FROM record WHERE AggregateType = $1 AND AggregateID = $2 GROUP BY AggregateType, AggregateID",
 		aggregateType,
 		aggregateID,
 	).Scan(&lastStreamSequenceNumber)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return 0
+			return 0, nil
 		}
-		panic(err) // TODO: test this error path
+
+		return 0, err
 	}
 
-	return lastStreamSequenceNumber + 1
+	return lastStreamSequenceNumber + 1, nil
 }
 
 func (s *postgresStore) readResultRecords(ctx context.Context, rows *sql.Rows, resultRecords chan rangedb.ResultRecord) {

@@ -45,7 +45,7 @@ type Store interface {
 	Save(ctx context.Context, eventRecords ...*EventRecord) error
 	Subscribe(subscribers ...RecordSubscriber)
 	SubscribeStartingWith(ctx context.Context, globalSequenceNumber uint64, subscribers ...RecordSubscriber)
-	TotalEventsInStream(streamName string) uint64
+	TotalEventsInStream(ctx context.Context, streamName string) (uint64, error)
 }
 
 // ResultRecord combines Record and error as a result struct for event queries.

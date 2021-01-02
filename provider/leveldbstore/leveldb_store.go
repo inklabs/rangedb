@@ -262,8 +262,15 @@ func (s *levelDbStore) Subscribe(subscribers ...rangedb.RecordSubscriber) {
 	s.subscriberMux.Unlock()
 }
 
-func (s *levelDbStore) TotalEventsInStream(streamName string) uint64 {
-	return s.getNextStreamSequenceNumber(s.db, streamName)
+func (s *levelDbStore) TotalEventsInStream(ctx context.Context, streamName string) (uint64, error) {
+	select {
+	case <-ctx.Done():
+		return 0, context.Canceled
+
+	default:
+	}
+
+	return s.getNextStreamSequenceNumber(s.db, streamName), nil
 }
 
 func (s *levelDbStore) notifySubscribers(record *rangedb.Record) {
