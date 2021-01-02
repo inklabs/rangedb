@@ -1,10 +1,12 @@
 package rangedbws_test
 
 import (
+	"context"
 	"fmt"
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 
@@ -48,10 +50,12 @@ func Example_streamAllEvents() {
 	}()
 
 	// When
-	PrintError(inMemoryStore.Save(
+	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
+	defer done()
+	PrintError(inMemoryStore.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "52e247a7c0a54a65906e006dac9be108", Number: 100}},
 	))
-	PrintError(inMemoryStore.Save(
+	PrintError(inMemoryStore.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a3d9faa7614a46b388c6dce9984b6620"}},
 	))
 

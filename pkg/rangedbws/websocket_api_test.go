@@ -27,8 +27,9 @@ func Test_WebsocketApi_SubscribeToAllEvents_ReadsEventsOverWebsocket(t *testing.
 	store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 	event1 := &rangedbtest.ThingWasDone{ID: "6595a5c206c746c3a9d9006c7df5784e", Number: 1}
 	event2 := &rangedbtest.ThingWasDone{ID: "8cc839e1fd3545b7a0fe67808d84cbd4", Number: 2}
-	require.NoError(t, store.Save(&rangedb.EventRecord{Event: event1}))
-	require.NoError(t, store.Save(&rangedb.EventRecord{Event: event2}))
+	ctx := rangedbtest.TimeoutContext(t)
+	require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event1}))
+	require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event2}))
 	api := rangedbws.New(rangedbws.WithStore(store))
 	t.Cleanup(api.Stop)
 	server := httptest.NewServer(api)
@@ -117,7 +118,8 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
 		event := &rangedbtest.ThingWasDone{ID: "372b47686e1b43d29d2fd48f2a0e83f0", Number: 1}
-		require.NoError(t, store.Save(
+		ctx := rangedbtest.TimeoutContext(t)
+		require.NoError(t, store.Save(ctx,
 			&rangedb.EventRecord{Event: event},
 		))
 		api := rangedbws.New(rangedbws.WithStore(store))

@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/inklabs/rangedb"
+	"github.com/inklabs/rangedb/rangedbtest"
 )
 
 // Command defines a CQRS command.
@@ -54,10 +55,11 @@ func (c *TestCase) Then(expectedEvents ...rangedb.Event) func(*testing.T) {
 	return func(t *testing.T) {
 		t.Helper()
 
+		ctx := rangedbtest.TimeoutContext(t)
 		streamPreviousEventCounts := make(map[string]uint64)
 		for _, event := range c.previousEvents {
 			streamPreviousEventCounts[rangedb.GetEventStream(event)]++
-			require.NoError(t, c.store.Save(&rangedb.EventRecord{Event: event}))
+			require.NoError(t, c.store.Save(ctx, &rangedb.EventRecord{Event: event}))
 		}
 
 		c.dispatch(c.command)
@@ -78,7 +80,6 @@ func (c *TestCase) Then(expectedEvents ...rangedb.Event) func(*testing.T) {
 			streamExpectedEvents[stream] = append(streamExpectedEvents[stream], event)
 		}
 
-		ctx := context.Background()
 		for stream, expectedEventsInStream := range streamExpectedEvents {
 			streamSequenceNumber := streamPreviousEventCounts[stream]
 			actualEvents, err := recordIteratorToSlice(c.store.EventsByStreamStartingWith(ctx, streamSequenceNumber, stream))
@@ -94,15 +95,15 @@ func (c *TestCase) ThenInspectEvents(f func(t *testing.T, events []rangedb.Event
 	return func(t *testing.T) {
 		t.Helper()
 
+		ctx := rangedbtest.TimeoutContext(t)
 		streamPreviousEventCounts := make(map[string]uint64)
 		for _, event := range c.previousEvents {
 			streamPreviousEventCounts[rangedb.GetEventStream(event)]++
-			require.NoError(t, c.store.Save(&rangedb.EventRecord{Event: event}))
+			require.NoError(t, c.store.Save(ctx, &rangedb.EventRecord{Event: event}))
 		}
 
 		c.dispatch(c.command)
 
-		ctx := context.Background()
 		var events []rangedb.Event
 		for _, stream := range getStreamsFromStore(c.store) {
 			streamSequenceNumber := streamPreviousEventCounts[stream]

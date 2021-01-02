@@ -28,11 +28,13 @@ func ExampleRangeDBServer_Events() {
 		inmemorystore.WithClock(sequentialclock.New()),
 	)
 	rangedbtest.BindEvents(inMemoryStore)
-	PrintError(inMemoryStore.Save(
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	PrintError(inMemoryStore.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "605f20348fb940e386c171d51c877bf1", Number: 100}},
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "605f20348fb940e386c171d51c877bf1", Number: 200}},
 	))
-	PrintError(inMemoryStore.Save(
+	PrintError(inMemoryStore.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a095086e52bc4617a1763a62398cd645"}},
 	))
 
@@ -51,16 +53,12 @@ func ExampleRangeDBServer_Events() {
 	dialer := grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 		return bufListener.Dial()
 	})
-	connCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	conn, err := grpc.DialContext(connCtx, "bufnet", dialer, grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.DialContext(ctx, "bufnet", dialer, grpc.WithInsecure(), grpc.WithBlock())
 	defer Close(conn)
 	PrintError(err)
 
 	// Setup gRPC client
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
-	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
-	defer done()
 	eventsRequest := &rangedbpb.EventsRequest{
 		GlobalSequenceNumber: 0,
 	}

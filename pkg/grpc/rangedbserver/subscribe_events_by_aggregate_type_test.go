@@ -28,7 +28,9 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 		inmemorystore.WithClock(sequentialclock.New()),
 	)
 	rangedbtest.BindEvents(inMemoryStore)
-	PrintError(inMemoryStore.Save(
+	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
+	defer done()
+	PrintError(inMemoryStore.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "9f5b723b51fe4703883bde0d6d6f3fa9", Number: 1}},
 	))
 
@@ -47,16 +49,12 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 	dialer := grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 		return bufListener.Dial()
 	})
-	connCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	conn, err := grpc.DialContext(connCtx, "bufnet", dialer, grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.DialContext(ctx, "bufnet", dialer, grpc.WithInsecure(), grpc.WithBlock())
 	PrintError(err)
 	defer Close(conn)
 
 	// Setup gRPC client
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
-	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
-	defer done()
 	request := &rangedbpb.SubscribeToEventsByAggregateTypeRequest{
 		GlobalSequenceNumber: 0,
 		AggregateTypes:       []string{"thing", "another"},
@@ -82,13 +80,13 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 		wg.Done()
 	}()
 
-	PrintError(inMemoryStore.Save(
+	PrintError(inMemoryStore.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "52e247a7c0a54a65906e006dac9be108", Number: 2}},
 	))
-	PrintError(inMemoryStore.Save(
+	PrintError(inMemoryStore.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.ThatWasDone{ID: "de33dd02222f443b86861a9fb4574ce9"}},
 	))
-	PrintError(inMemoryStore.Save(
+	PrintError(inMemoryStore.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a3d9faa7614a46b388c6dce9984b6620"}},
 	))
 

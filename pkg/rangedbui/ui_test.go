@@ -78,7 +78,8 @@ func Test_AggregateType(t *testing.T) {
 	templateManager, err := memorytemplate.New(rangedbui.GetTemplates())
 	require.NoError(t, err)
 	store, aggregateTypeStats := storeWithTwoEvents(t)
-	require.NoError(t, store.Save(
+	ctx := rangedbtest.TimeoutContext(t)
+	require.NoError(t, store.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{
 			ID:     "1ce1d596e54744b3b878d579ccc31d81",
 			Number: 0,
@@ -149,7 +150,8 @@ func Test_Stream(t *testing.T) {
 	templateManager, err := memorytemplate.New(rangedbui.GetTemplates())
 	require.NoError(t, err)
 	store, aggregateTypeStats := storeWithTwoEvents(t)
-	require.NoError(t, store.Save(
+	ctx := rangedbtest.TimeoutContext(t)
+	require.NoError(t, store.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{
 			ID:     "f6b6f8ed682c4b5180f625e53b3c4bac",
 			Number: 0,
@@ -214,13 +216,14 @@ func storeWithTwoEvents(t *testing.T) (rangedb.Store, *projection.AggregateTypeS
 	aggregateTypeStats := projection.NewAggregateTypeStats()
 	store.Subscribe(aggregateTypeStats)
 
-	require.NoError(t, store.Save(
+	ctx := rangedbtest.TimeoutContext(t)
+	require.NoError(t, store.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{
 			ID:     "f6b6f8ed682c4b5180f625e53b3c4bac",
 			Number: 0,
 		}},
 	))
-	require.NoError(t, store.Save(
+	require.NoError(t, store.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{
 			ID: "5e4a649230924041a7ccf18887ccc153",
 		}},

@@ -24,11 +24,12 @@ func TestAggregateTypeStats(t *testing.T) {
 		event1 := rangedbtest.ThingWasDone{ID: "A", Number: 1}
 		event2 := rangedbtest.ThingWasDone{ID: "B", Number: 2}
 		event3 := rangedbtest.AnotherWasComplete{ID: "C"}
+		ctx := rangedbtest.TimeoutContext(t)
 
 		// When
-		require.NoError(t, store.Save(&rangedb.EventRecord{Event: event1}))
-		require.NoError(t, store.Save(&rangedb.EventRecord{Event: event2}))
-		require.NoError(t, store.Save(&rangedb.EventRecord{Event: event3}))
+		require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event1}))
+		require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event2}))
+		require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event3}))
 
 		// Then
 		assert.Equal(t, uint64(3), aggregateTypeStats.TotalEvents())
@@ -47,9 +48,10 @@ func TestAggregateTypeStats(t *testing.T) {
 		event1 := rangedbtest.ThingWasDone{ID: "A", Number: 1}
 		event2 := rangedbtest.ThingWasDone{ID: "B", Number: 2}
 		event3 := rangedbtest.AnotherWasComplete{ID: "C"}
-		require.NoError(t, store.Save(&rangedb.EventRecord{Event: event1}))
-		require.NoError(t, store.Save(&rangedb.EventRecord{Event: event2}))
-		require.NoError(t, store.Save(&rangedb.EventRecord{Event: event3}))
+		ctx := rangedbtest.TimeoutContext(t)
+		require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event1}))
+		require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event2}))
+		require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event3}))
 		snapshotStore := inmemorySnapshotStore{}
 		require.NoError(t, snapshotStore.Save(aggregateTypeStats))
 		aggregateTypeStats2 := projection.NewAggregateTypeStats()

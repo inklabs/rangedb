@@ -1,7 +1,6 @@
 package rangedbtest
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -19,8 +18,9 @@ func StoreBenchmark(b *testing.B, newStore func(b *testing.B) rangedb.Store) {
 		eventRecords := getNEvents(totalEvents, "eb4b1c61fa344272a61e039cc4247258")
 		b.Run(fmt.Sprintf("Save %d at a time", totalEvents), func(b *testing.B) {
 			store := newStore(b)
+			ctx := TimeoutContext(b)
 			for i := 0; i < b.N; i++ {
-				err := store.Save(eventRecords...)
+				err := store.Save(ctx, eventRecords...)
 				if err != nil {
 					require.NoError(b, err)
 				}
@@ -29,8 +29,9 @@ func StoreBenchmark(b *testing.B, newStore func(b *testing.B) rangedb.Store) {
 
 		b.Run(fmt.Sprintf("Optimistic Save %d at a time", totalEvents), func(b *testing.B) {
 			store := newStore(b)
+			ctx := TimeoutContext(b)
 			for i := 0; i < b.N; i++ {
-				err := store.OptimisticSave(uint64(i*totalEvents), eventRecords...)
+				err := store.OptimisticSave(ctx, uint64(i*totalEvents), eventRecords...)
 				if err != nil {
 					require.NoError(b, err)
 				}
@@ -48,15 +49,16 @@ func StoreBenchmark(b *testing.B, newStore func(b *testing.B) rangedb.Store) {
 		)
 
 		aggregateID := ""
+		ctx := TimeoutContext(b)
 		for i := 0; i < (totalEvents / eventsPerStream); i++ {
 			aggregateID = uuid.New().String()
 			eventRecords := getNEvents(eventsPerStream, aggregateID)
-			err := store.Save(eventRecords...)
+			err := store.Save(ctx, eventRecords...)
 			require.NoError(b, err)
 		}
 
-		ctx := context.Background()
 		b.Run("EventsStartingWith", func(b *testing.B) {
+			ctx := TimeoutContext(b)
 			for i := 0; i < b.N; i++ {
 				recordIterator := store.EventsStartingWith(ctx, startingGlobalSequenceNumber)
 				cnt := 0
@@ -71,6 +73,7 @@ func StoreBenchmark(b *testing.B, newStore func(b *testing.B) rangedb.Store) {
 		})
 
 		b.Run("EventsByAggregateTypesStartingWith", func(b *testing.B) {
+			ctx := TimeoutContext(b)
 			for i := 0; i < b.N; i++ {
 				recordIterator := store.EventsByAggregateTypesStartingWith(ctx, startingGlobalSequenceNumber, ThingWasDone{}.AggregateType())
 				cnt := 0
@@ -85,6 +88,7 @@ func StoreBenchmark(b *testing.B, newStore func(b *testing.B) rangedb.Store) {
 		})
 
 		b.Run("EventsByStreamStartingWith", func(b *testing.B) {
+			ctx := TimeoutContext(b)
 			stream := rangedb.GetStream(ThingWasDone{}.AggregateType(), aggregateID)
 			for i := 0; i < b.N; i++ {
 				recordIterator := store.EventsByStreamStartingWith(ctx, 0, stream)

@@ -28,14 +28,14 @@ func TestWarnedUsersProjection(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
 		chat.BindEvents(store)
-		require.NoError(t, store.Save(
+		ctx := rangedbtest.TimeoutContext(t)
+		require.NoError(t, store.Save(ctx,
 			&rangedb.EventRecord{Event: chat.UserWasWarned{
 				UserID: userID,
 				Reason: "language",
 			}},
 		))
 		warnedUsers := chat.NewWarnedUsersProjection()
-		ctx := rangedbtest.TimeoutContext(t)
 		store.SubscribeStartingWith(ctx, 0, warnedUsers)
 
 		// When

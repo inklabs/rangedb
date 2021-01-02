@@ -28,11 +28,11 @@ func (f failingEventStore) EventsByStreamStartingWith(_ context.Context, _ uint6
 	return getClosedIterator()
 }
 
-func (f failingEventStore) OptimisticSave(_ uint64, _ ...*rangedb.EventRecord) error {
+func (f failingEventStore) OptimisticSave(_ context.Context, _ uint64, _ ...*rangedb.EventRecord) error {
 	return fmt.Errorf("failingEventStore.OptimisticSave")
 }
 
-func (f failingEventStore) Save(_ ...*rangedb.EventRecord) error {
+func (f failingEventStore) Save(_ context.Context, _ ...*rangedb.EventRecord) error {
 	return fmt.Errorf("failingEventStore.Save")
 }
 

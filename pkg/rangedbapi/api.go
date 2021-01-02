@@ -176,9 +176,9 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 			writeBadRequest(w, "invalid ExpectedStreamSequenceNumber")
 			return
 		}
-		saveErr = a.store.OptimisticSave(expectedStreamSequenceNumber, eventRecords...)
+		saveErr = a.store.OptimisticSave(r.Context(), expectedStreamSequenceNumber, eventRecords...)
 	} else {
-		saveErr = a.store.Save(eventRecords...)
+		saveErr = a.store.Save(r.Context(), eventRecords...)
 	}
 
 	if saveErr != nil {

@@ -108,7 +108,7 @@ func (s *remoteStore) EventsByStreamStartingWith(ctx context.Context, streamSequ
 	return s.readRecords(ctx, events)
 }
 
-func (s *remoteStore) OptimisticSave(expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) error {
+func (s *remoteStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) error {
 	var aggregateType, aggregateID string
 
 	var events []*rangedbpb.Event
@@ -148,8 +148,12 @@ func (s *remoteStore) OptimisticSave(expectedStreamSequenceNumber uint64, eventR
 		ExpectedStreamSequenceNumber: expectedStreamSequenceNumber,
 	}
 
-	_, err := s.client.OptimisticSave(context.Background(), request)
+	_, err := s.client.OptimisticSave(ctx, request)
 	if err != nil {
+		if strings.Contains(err.Error(), rpcErrContextCanceled) {
+			return context.Canceled
+		}
+
 		if strings.Contains(err.Error(), rpcErrUnexpectedSequenceNumber) {
 			return rangedberror.NewUnexpectedSequenceNumberFromString(err.Error())
 		}
@@ -160,7 +164,7 @@ func (s *remoteStore) OptimisticSave(expectedStreamSequenceNumber uint64, eventR
 	return nil
 }
 
-func (s *remoteStore) Save(eventRecords ...*rangedb.EventRecord) error {
+func (s *remoteStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRecord) error {
 	var aggregateType, aggregateID string
 
 	var events []*rangedbpb.Event
@@ -199,9 +203,13 @@ func (s *remoteStore) Save(eventRecords ...*rangedb.EventRecord) error {
 		Events:        events,
 	}
 
-	_, err := s.client.Save(context.Background(), request)
+	_, err := s.client.Save(ctx, request)
 	if err != nil {
-		if strings.Contains(err.Error(), "unable to save to store: unexpected sequence number") {
+		if strings.Contains(err.Error(), rpcErrContextCanceled) {
+			return context.Canceled
+		}
+
+		if strings.Contains(err.Error(), rpcErrUnexpectedSequenceNumber) {
 			return rangedberror.NewUnexpectedSequenceNumberFromString(err.Error())
 		}
 

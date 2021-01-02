@@ -79,9 +79,10 @@ func Test_Failures(t *testing.T) {
 			require.NoError(t, store.Stop())
 			require.NoError(t, os.RemoveAll(dbPath))
 		})
+		ctx := rangedbtest.TimeoutContext(t)
 
 		// When
-		err = store.Save(&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{}})
+		err = store.Save(ctx, &rangedb.EventRecord{Event: rangedbtest.ThingWasDone{}})
 
 		// Then
 		assert.EqualError(t, err, "failingSerializer.Serialize")
@@ -102,8 +103,8 @@ func Test_Failures(t *testing.T) {
 			require.NoError(t, os.RemoveAll(dbPath))
 		})
 		event := rangedbtest.ThingWasDone{}
-		require.NoError(t, store.Save(&rangedb.EventRecord{Event: event}))
 		ctx := rangedbtest.TimeoutContext(t)
+		require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event}))
 
 		// When
 		recordIterator := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event))

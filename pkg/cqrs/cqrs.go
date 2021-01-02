@@ -77,19 +77,20 @@ func (c *cqrs) Dispatch(command Command) []rangedb.Event {
 		return preHandlerEvents
 	}
 
+	ctx := context.Background()
 	streamName := rangedb.GetEventStream(command)
-	eventStream := c.store.EventsByStreamStartingWith(context.Background(), 0, streamName)
+	eventStream := c.store.EventsByStreamStartingWith(ctx, 0, streamName)
 	commandHandler.Load(eventStream)
 	handlerEvents := commandHandler.Handle(command)
 
 	events := append(preHandlerEvents, handlerEvents...)
-	return c.saveEvents(events)
+	return c.saveEvents(ctx, events)
 }
 
-func (c *cqrs) saveEvents(events []rangedb.Event) []rangedb.Event {
+func (c *cqrs) saveEvents(ctx context.Context, events []rangedb.Event) []rangedb.Event {
 	var savedEvents []rangedb.Event
 	for _, event := range events {
-		err := c.store.Save(&rangedb.EventRecord{Event: event})
+		err := c.store.Save(ctx, &rangedb.EventRecord{Event: event})
 		if err != nil {
 			c.logger.Printf("unable to save event: %v", err)
 			continue

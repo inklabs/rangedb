@@ -113,15 +113,15 @@ func (s *levelDbStore) EventsByStreamStartingWith(ctx context.Context, streamSeq
 	return s.getEventsByPrefixStartingWith(ctx, stream, streamSequenceNumber)
 }
 
-func (s *levelDbStore) OptimisticSave(expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) error {
-	return s.saveEvents(&expectedStreamSequenceNumber, eventRecords...)
+func (s *levelDbStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) error {
+	return s.saveEvents(ctx, &expectedStreamSequenceNumber, eventRecords...)
 }
 
-func (s *levelDbStore) Save(eventRecords ...*rangedb.EventRecord) error {
-	return s.saveEvents(nil, eventRecords...)
+func (s *levelDbStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRecord) error {
+	return s.saveEvents(ctx, nil, eventRecords...)
 }
 
-func (s *levelDbStore) saveEvents(expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) error {
+func (s *levelDbStore) saveEvents(ctx context.Context, expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) error {
 	nextExpectedStreamSequenceNumber := expectedStreamSequenceNumber
 
 	var pendingEventsData [][]byte
@@ -150,6 +150,7 @@ func (s *levelDbStore) saveEvents(expectedStreamSequenceNumber *uint64, eventRec
 		aggregateID = eventRecord.Event.AggregateID()
 
 		data, err := s.saveEvent(
+			ctx,
 			transaction,
 			aggregateType,
 			aggregateID,
@@ -186,10 +187,17 @@ func (s *levelDbStore) saveEvents(expectedStreamSequenceNumber *uint64, eventRec
 }
 
 // saveEvent persists a single event without locking the mutex, or notifying subscribers.
-func (s *levelDbStore) saveEvent(transaction *leveldb.Transaction,
+func (s *levelDbStore) saveEvent(ctx context.Context, transaction *leveldb.Transaction,
 	aggregateType, aggregateID, eventType, eventID string,
 	expectedStreamSequenceNumber *uint64,
 	event, metadata interface{}) ([]byte, error) {
+
+	select {
+	case <-ctx.Done():
+		return nil, context.Canceled
+
+	default:
+	}
 
 	stream := rangedb.GetStream(aggregateType, aggregateID)
 	nextSequenceNumber := s.getNextStreamSequenceNumber(transaction, stream)

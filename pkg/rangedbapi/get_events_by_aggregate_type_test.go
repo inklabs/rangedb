@@ -1,10 +1,12 @@
 package rangedbapi_test
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"time"
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock/provider/sequentialclock"
@@ -26,10 +28,12 @@ func Example_getEventsByAggregateType() {
 	server := httptest.NewServer(api)
 	defer server.Close()
 
-	PrintError(inMemoryStore.Save(
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	PrintError(inMemoryStore.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "605f20348fb940e386c171d51c877bf1", Number: 100}},
 	))
-	PrintError(inMemoryStore.Save(
+	PrintError(inMemoryStore.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a095086e52bc4617a1763a62398cd645"}},
 	))
 	url := fmt.Sprintf("%s/events/thing.json", server.URL)

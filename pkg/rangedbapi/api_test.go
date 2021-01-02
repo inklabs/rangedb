@@ -603,11 +603,12 @@ func TestApi_ListAggregates(t *testing.T) {
 	event1 := rangedbtest.ThingWasDone{ID: "A", Number: 1}
 	event2 := rangedbtest.ThingWasDone{ID: "A", Number: 2}
 	event3 := rangedbtest.AnotherWasComplete{ID: "B"}
-	require.NoError(t, store.Save(
+	ctx := rangedbtest.TimeoutContext(t)
+	require.NoError(t, store.Save(ctx,
 		&rangedb.EventRecord{Event: event1},
 		&rangedb.EventRecord{Event: event2},
 	))
-	require.NoError(t, store.Save(
+	require.NoError(t, store.Save(ctx,
 		&rangedb.EventRecord{Event: event3},
 	))
 	api := rangedbapi.New(

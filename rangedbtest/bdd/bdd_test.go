@@ -8,6 +8,7 @@ import (
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
+	"github.com/inklabs/rangedb/rangedbtest"
 	"github.com/inklabs/rangedb/rangedbtest/bdd"
 )
 
@@ -126,8 +127,9 @@ func assertFailed(t *testing.T, tt func(*testing.T)) {
 func noopDispatcher(_ bdd.Command) {}
 func stubEventDispatcher(t *testing.T, store rangedb.Store, events ...rangedb.Event) func(bdd.Command) {
 	return func(_ bdd.Command) {
+		ctx := rangedbtest.TimeoutContext(t)
 		for _, event := range events {
-			require.NoError(t, store.Save(&rangedb.EventRecord{Event: event}))
+			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event}))
 		}
 	}
 }

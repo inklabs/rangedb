@@ -128,17 +128,17 @@ func (s *postgresStore) EventsByStreamStartingWith(ctx context.Context, streamSe
 	return rangedb.NewRecordIterator(resultRecords)
 }
 
-func (s *postgresStore) OptimisticSave(expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) error {
-	return s.saveEvents(&expectedStreamSequenceNumber, eventRecords...)
+func (s *postgresStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) error {
+	return s.saveEvents(ctx, &expectedStreamSequenceNumber, eventRecords...)
 }
 
-func (s *postgresStore) Save(eventRecords ...*rangedb.EventRecord) error {
-	return s.saveEvents(nil, eventRecords...)
+func (s *postgresStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRecord) error {
+	return s.saveEvents(ctx, nil, eventRecords...)
 }
 
 // saveEvents persists one or more events inside a locked mutex, and notifies subscribers.
-func (s *postgresStore) saveEvents(expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) error {
-	transaction, err := s.db.Begin()
+func (s *postgresStore) saveEvents(ctx context.Context, expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) error {
+	transaction, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -227,7 +227,7 @@ func (s *postgresStore) saveEvents(expectedStreamSequenceNumber *uint64, eventRe
 		strings.Join(valueStrings, ","))
 
 	globalSequenceNumber := uint64(0)
-	err = transaction.QueryRow(sqlStatement, valueArgs...).Scan(&globalSequenceNumber)
+	err = transaction.QueryRowContext(ctx, sqlStatement, valueArgs...).Scan(&globalSequenceNumber)
 	if err != nil {
 		err = transaction.Rollback()
 		return err

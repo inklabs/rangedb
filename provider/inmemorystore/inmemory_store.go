@@ -141,16 +141,16 @@ func (s *inMemoryStore) recordsStartingWith(ctx context.Context, serializedRecor
 	return rangedb.NewRecordIterator(resultRecords)
 }
 
-func (s *inMemoryStore) OptimisticSave(expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) error {
-	return s.saveEvents(&expectedStreamSequenceNumber, eventRecords...)
+func (s *inMemoryStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) error {
+	return s.saveEvents(ctx, &expectedStreamSequenceNumber, eventRecords...)
 }
 
-func (s *inMemoryStore) Save(eventRecords ...*rangedb.EventRecord) error {
-	return s.saveEvents(nil, eventRecords...)
+func (s *inMemoryStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRecord) error {
+	return s.saveEvents(ctx, nil, eventRecords...)
 }
 
 // saveEvents persists one or more events inside a locked mutex, and notifies subscribers.
-func (s *inMemoryStore) saveEvents(expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) error {
+func (s *inMemoryStore) saveEvents(ctx context.Context, expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) error {
 	nextExpectedStreamSequenceNumber := expectedStreamSequenceNumber
 
 	var pendingEventsData [][]byte
@@ -171,6 +171,13 @@ func (s *inMemoryStore) saveEvents(expectedStreamSequenceNumber *uint64, eventRe
 
 		aggregateType = eventRecord.Event.AggregateType()
 		aggregateID = eventRecord.Event.AggregateID()
+
+		select {
+		case <-ctx.Done():
+			return context.Canceled
+
+		default:
+		}
 
 		data, err := s.saveEvent(
 			aggregateType,

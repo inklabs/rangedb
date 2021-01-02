@@ -41,8 +41,8 @@ type Store interface {
 	EventsStartingWith(ctx context.Context, globalSequenceNumber uint64) RecordIterator
 	EventsByAggregateTypesStartingWith(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) RecordIterator
 	EventsByStreamStartingWith(ctx context.Context, streamSequenceNumber uint64, streamName string) RecordIterator
-	OptimisticSave(expectedStreamSequenceNumber uint64, eventRecords ...*EventRecord) error
-	Save(eventRecords ...*EventRecord) error
+	OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*EventRecord) error
+	Save(ctx context.Context, eventRecords ...*EventRecord) error
 	Subscribe(subscribers ...RecordSubscriber)
 	SubscribeStartingWith(ctx context.Context, globalSequenceNumber uint64, subscribers ...RecordSubscriber)
 	TotalEventsInStream(streamName string) uint64

@@ -56,12 +56,12 @@ func Test_ReplayEvents(t *testing.T) {
 		inMemoryStore := inmemorystore.New()
 		event1 := rangedbtest.ThingWasDone{ID: "A", Number: 1}
 		event2 := rangedbtest.ThingWasDone{ID: "A", Number: 2}
-		require.NoError(t, inMemoryStore.Save(
+		ctx := rangedbtest.TimeoutContext(t)
+		require.NoError(t, inMemoryStore.Save(ctx,
 			&rangedb.EventRecord{Event: event1},
 			&rangedb.EventRecord{Event: event2},
 		))
 		subscriber := rangedbtest.NewTotalEventsSubscriber()
-		ctx := rangedbtest.TimeoutContext(t)
 
 		// When
 		rangedb.ReplayEvents(ctx, inMemoryStore, 0, subscriber)
@@ -75,12 +75,12 @@ func Test_ReplayEvents(t *testing.T) {
 		inMemoryStore := inmemorystore.New()
 		event1 := rangedbtest.ThingWasDone{ID: "A", Number: 1}
 		event2 := rangedbtest.ThingWasDone{ID: "A", Number: 2}
-		require.NoError(t, inMemoryStore.Save(
+		ctx := rangedbtest.TimeoutContext(t)
+		require.NoError(t, inMemoryStore.Save(ctx,
 			&rangedb.EventRecord{Event: event1},
 			&rangedb.EventRecord{Event: event2},
 		))
 		subscriber := rangedbtest.NewTotalEventsSubscriber()
-		ctx := rangedbtest.TimeoutContext(t)
 
 		// When
 		rangedb.ReplayEvents(ctx, inMemoryStore, 1, subscriber)

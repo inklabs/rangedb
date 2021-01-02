@@ -68,9 +68,10 @@ func Test_Failures(t *testing.T) {
 			// Given
 			store, err := postgresstore.New(config)
 			require.NoError(t, err)
+			ctx := rangedbtest.TimeoutContext(t)
 
 			// When
-			err = store.Save(&rangedb.EventRecord{Event: rangedbtest.FloatWasDone{Number: math.Inf(1)}})
+			err = store.Save(ctx, &rangedb.EventRecord{Event: rangedbtest.FloatWasDone{Number: math.Inf(1)}})
 
 			// Then
 			assert.EqualError(t, err, "json: unsupported value: +Inf")
@@ -80,9 +81,10 @@ func Test_Failures(t *testing.T) {
 			// Given
 			store, err := postgresstore.New(config)
 			require.NoError(t, err)
+			ctx := rangedbtest.TimeoutContext(t)
 
 			// When
-			err = store.Save(&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{}, Metadata: math.Inf(-1)})
+			err = store.Save(ctx, &rangedb.EventRecord{Event: rangedbtest.ThingWasDone{}, Metadata: math.Inf(-1)})
 
 			// Then
 			assert.EqualError(t, err, "json: unsupported value: -Inf")
