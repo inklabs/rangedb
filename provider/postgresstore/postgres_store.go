@@ -81,7 +81,7 @@ func (s *postgresStore) EventsStartingWith(ctx context.Context, globalSequenceNu
 	go func() {
 		defer close(resultRecords)
 
-		rows, err := s.db.QueryContext(ctx, "SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE GlobalSequenceNumber > $1 ORDER BY GlobalSequenceNumber",
+		rows, err := s.db.QueryContext(ctx, "SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE GlobalSequenceNumber >= $1 ORDER BY GlobalSequenceNumber",
 			globalSequenceNumber)
 		if err != nil {
 			resultRecords <- rangedb.ResultRecord{Err: err}
@@ -99,7 +99,7 @@ func (s *postgresStore) EventsByAggregateTypesStartingWith(ctx context.Context, 
 
 	go func() {
 		defer close(resultRecords)
-		rows, err := s.db.QueryContext(ctx, "SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE AggregateType = ANY($1) AND GlobalSequenceNumber > $2 ORDER BY GlobalSequenceNumber",
+		rows, err := s.db.QueryContext(ctx, "SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE AggregateType = ANY($1) AND GlobalSequenceNumber >= $2 ORDER BY GlobalSequenceNumber",
 			pq.Array(aggregateTypes), globalSequenceNumber)
 		if err != nil {
 			resultRecords <- rangedb.ResultRecord{Err: err}
@@ -236,11 +236,22 @@ func (s *postgresStore) saveEvents(ctx context.Context, expectedStreamSequenceNu
 		"INSERT INTO record (AggregateType,AggregateID,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata) VALUES %s RETURNING GlobalSequenceNumber;",
 		strings.Join(valueStrings, ","))
 
-	globalSequenceNumber := uint64(0)
-	err = transaction.QueryRowContext(ctx, sqlStatement, valueArgs...).Scan(&globalSequenceNumber)
+	globalSequenceNumbers := make([]uint64, 0)
+	rows, err := transaction.QueryContext(ctx, sqlStatement, valueArgs...)
 	if err != nil {
-		err = transaction.Rollback()
-		return err
+		rollbackErr := transaction.Rollback()
+		return fmt.Errorf("unable to insert: %v, %v", err, rollbackErr)
+	}
+
+	for rows.Next() {
+		var globalSequenceNumber uint64
+		err := rows.Scan(&globalSequenceNumber)
+		if err != nil {
+			rollbackErr := transaction.Rollback()
+			return fmt.Errorf("unable to get global sequence number: %v, %v", err, rollbackErr)
+		}
+
+		globalSequenceNumbers = append(globalSequenceNumbers, globalSequenceNumber)
 	}
 
 	err = transaction.Commit()
@@ -248,12 +259,11 @@ func (s *postgresStore) saveEvents(ctx context.Context, expectedStreamSequenceNu
 		return err
 	}
 
-	cnt = globalSequenceNumber - uint64(len(batchEvents))
-	for _, batchEvent := range batchEvents {
+	for i, batchEvent := range batchEvents {
 		record := &rangedb.Record{
 			AggregateType:        aggregateType,
 			AggregateID:          aggregateID,
-			GlobalSequenceNumber: cnt,
+			GlobalSequenceNumber: globalSequenceNumbers[i],
 			StreamSequenceNumber: batchEvent.StreamSequenceNumber,
 			EventType:            batchEvent.EventType,
 			EventID:              batchEvent.EventID,
@@ -340,10 +350,11 @@ func (s *postgresStore) connectToDB(config Config) error {
 
 func (s *postgresStore) initDB() error {
 	sqlStatements := []string{
+		`CREATE SEQUENCE IF NOT EXISTS global_sequence_number INCREMENT 1 MINVALUE 0 START 0;`,
 		`CREATE TABLE IF NOT EXISTS record (
 		AggregateType TEXT,
 		AggregateID TEXT,
-		GlobalSequenceNumber BIGSERIAL PRIMARY KEY,
+		GlobalSequenceNumber BIGINT DEFAULT NEXTVAL('global_sequence_number') PRIMARY KEY,
 		StreamSequenceNumber BIGINT,
 		InsertTimestamp BIGINT,
 		EventID TEXT,
@@ -433,7 +444,7 @@ func (s *postgresStore) readResultRecords(ctx context.Context, rows *sql.Rows, r
 		record := &rangedb.Record{
 			AggregateType:        aggregateType,
 			AggregateID:          aggregateID,
-			GlobalSequenceNumber: globalSequenceNumber - 1,
+			GlobalSequenceNumber: globalSequenceNumber,
 			StreamSequenceNumber: streamSequenceNumber,
 			InsertTimestamp:      insertTimestamp,
 			EventID:              eventID,
