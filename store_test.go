@@ -90,6 +90,32 @@ func Test_ReplayEvents(t *testing.T) {
 		// Then
 		assert.Equal(t, 1, subscriber.TotalEvents())
 	})
+
+	t.Run("stops from context.Done", func(t *testing.T) {
+		// Given
+		inMemoryStore := inmemorystore.New()
+		const aggregateID = "67db313520884005b2657dfebfac74ae"
+		event1 := rangedbtest.ThingWasDone{ID: aggregateID, Number: 1}
+		event2 := rangedbtest.ThingWasDone{ID: aggregateID, Number: 2}
+		saveCtx := rangedbtest.TimeoutContext(t)
+		require.NoError(t, inMemoryStore.Save(saveCtx,
+			&rangedb.EventRecord{Event: event1},
+			&rangedb.EventRecord{Event: event2},
+		))
+		subscriber := rangedbtest.NewTotalEventsSubscriber()
+		ctx, done := context.WithCancel(rangedbtest.TimeoutContext(t))
+		done()
+
+		// When
+		rangedb.ReplayEvents(ctx, inMemoryStore, 1, subscriber)
+
+		// Then
+		assert.Equal(t, 0, subscriber.TotalEvents())
+	})
+
+	t.Run("stops after first record from context.Done", func(t *testing.T) {
+		// TODO
+	})
 }
 
 func TestReadNRecords(t *testing.T) {
@@ -105,8 +131,8 @@ func TestReadNRecords(t *testing.T) {
 		// When
 		records := rangedb.ReadNRecords(
 			2,
-			func(ctx context.Context) rangedb.RecordIterator {
-				return recordIterator
+			func() (rangedb.RecordIterator, context.CancelFunc) {
+				return recordIterator, func() {}
 			},
 		)
 

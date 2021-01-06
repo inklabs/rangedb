@@ -66,12 +66,10 @@ func StoreBenchmark(b *testing.B, newStore func(b *testing.B) rangedb.Store) {
 				recordIterator := store.EventsStartingWith(ctx, startingGlobalSequenceNumber)
 				cnt := 0
 				for recordIterator.Next() {
-					if recordIterator.Err() != nil {
-						break
-					}
 					cnt++
 				}
 				require.Equal(b, totalEventsToRead, cnt)
+				require.NoError(b, recordIterator.Err())
 			}
 		})
 
@@ -81,12 +79,10 @@ func StoreBenchmark(b *testing.B, newStore func(b *testing.B) rangedb.Store) {
 				recordIterator := store.EventsByAggregateTypesStartingWith(ctx, startingGlobalSequenceNumber, ThingWasDone{}.AggregateType())
 				cnt := 0
 				for recordIterator.Next() {
-					if recordIterator.Err() != nil {
-						break
-					}
 					cnt++
 				}
 				require.Equal(b, totalEventsToRead, cnt)
+				require.NoError(b, recordIterator.Err())
 			}
 		})
 
@@ -97,12 +93,10 @@ func StoreBenchmark(b *testing.B, newStore func(b *testing.B) rangedb.Store) {
 				recordIterator := store.EventsByStreamStartingWith(ctx, 0, stream)
 				cnt := 0
 				for recordIterator.Next() {
-					if recordIterator.Err() != nil {
-						break
-					}
 					cnt++
 				}
 				require.Equal(b, eventsPerStream, cnt)
+				require.NoError(b, recordIterator.Err())
 			}
 		})
 

@@ -13,6 +13,7 @@ import (
 
 	"google.golang.org/grpc"
 
+	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/grpc/rangedbpb"
 	"github.com/inklabs/rangedb/pkg/grpc/rangedbserver"
 	"github.com/inklabs/rangedb/pkg/projection"
@@ -22,7 +23,10 @@ import (
 	"github.com/inklabs/rangedb/pkg/rangedbui/pkg/templatemanager/provider/filesystemtemplate"
 	"github.com/inklabs/rangedb/pkg/rangedbui/pkg/templatemanager/provider/memorytemplate"
 	"github.com/inklabs/rangedb/pkg/rangedbws"
+	"github.com/inklabs/rangedb/pkg/shortuuid"
+	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/provider/leveldbstore"
+	"github.com/inklabs/rangedb/provider/postgresstore"
 )
 
 const (
@@ -35,7 +39,7 @@ func main() {
 
 	port := flag.Int("port", 8080, "port")
 	baseURI := flag.String("baseUri", "http://0.0.0.0:8080", "")
-	dbPath := flag.String("dbPath", ".leveldb", "path to LevelDB directory")
+	dbPath := flag.String("levelDBPath", "", "path to LevelDB directory")
 	templatesPath := flag.String("templates", "", "optional templates path")
 	gRPCPort := flag.Int("gRPCPort", 8081, "gRPC port")
 	flag.Parse()
@@ -43,19 +47,16 @@ func main() {
 	httpAddress := fmt.Sprintf("0.0.0.0:%d", *port)
 
 	logger := log.New(os.Stderr, "", 0)
-	leveldbStore, err := leveldbstore.New(*dbPath, leveldbstore.WithLogger(logger))
-	if err != nil {
-		log.Fatalf("Unable to load db (%s): %v", *dbPath, err)
-	}
+	store, snapshotName, closeStore, err := getStore(*dbPath, logger)
 
 	api := rangedbapi.New(
-		rangedbapi.WithStore(leveldbStore),
+		rangedbapi.WithStore(store),
 		rangedbapi.WithBaseUri(*baseURI+"/api"),
-		rangedbapi.WithSnapshotStore(projection.NewDiskSnapshotStore(snapshotBasePath(*dbPath))),
+		rangedbapi.WithSnapshotStore(projection.NewDiskSnapshotStore(snapshotBasePath(snapshotName))),
 	)
 
 	websocketAPI, err := rangedbws.New(
-		rangedbws.WithStore(leveldbStore),
+		rangedbws.WithStore(store),
 		rangedbws.WithLogger(logger),
 	)
 	if err != nil {
@@ -63,7 +64,7 @@ func main() {
 	}
 
 	rangeDBServer, err := rangedbserver.New(
-		rangedbserver.WithStore(leveldbStore),
+		rangedbserver.WithStore(store),
 	)
 	if err != nil {
 		log.Fatalf("unable to create RangeDB Server: %v", err)
@@ -83,7 +84,7 @@ func main() {
 		}
 	}
 
-	ui := rangedbui.New(templateManager, api.AggregateTypeStatsProjection(), leveldbStore)
+	ui := rangedbui.New(templateManager, api.AggregateTypeStatsProjection(), store)
 
 	muxServer := http.NewServeMux()
 	muxServer.Handle("/", ui)
@@ -123,11 +124,42 @@ func main() {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Shutting down LevelDB store")
-	err = leveldbStore.Stop()
+	fmt.Println("Shutting down store")
+	err = closeStore()
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+func getStore(levelDBPath string, logger *log.Logger) (rangedb.Store, string, func() error, error) {
+	postgreSQLConfig, err := postgreSQLConfigFromEnvironment()
+	if err == nil {
+		postgresStore, err := postgresstore.New(*postgreSQLConfig)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Println("Using PostgreSQL Store")
+		return postgresStore, postgreSQLConfig.DataSourceName(), nilFunc, nil
+	}
+
+	if levelDBPath != "" {
+		levelDBStore, err := leveldbstore.New(levelDBPath, leveldbstore.WithLogger(logger))
+		if err != nil {
+			log.Fatalf("Unable to load db (%s): %v", levelDBPath, err)
+		}
+
+		fmt.Println("Using LevelDB Store")
+		return levelDBStore, levelDBPath, levelDBStore.Stop, nil
+	}
+
+	inMemoryStore := inmemorystore.New(inmemorystore.WithLogger(logger))
+	fmt.Println("Using In Memory Store")
+	return inMemoryStore, shortuuid.New().String(), nilFunc, nil
+}
+
+func nilFunc() error {
+	return nil
 }
 
 func serveHTTP(srv *http.Server, addr string) {
@@ -151,11 +183,30 @@ func serveGRPC(srv *grpc.Server, gRPCPort int) {
 	}
 }
 
-func snapshotBasePath(dbPath string) string {
-	snapshotBasePath := fmt.Sprintf("%s%s/shapshots", os.TempDir(), dbPath)
+func snapshotBasePath(uniqueName string) string {
+	snapshotBasePath := fmt.Sprintf("%s%s/shapshots", os.TempDir(), uniqueName)
 	err := os.MkdirAll(snapshotBasePath, 0700)
 	if err != nil && os.IsNotExist(err) {
 		log.Fatalf("unable to create snapshot directory: %v", err)
 	}
 	return snapshotBasePath
+}
+
+func postgreSQLConfigFromEnvironment() (*postgresstore.Config, error) {
+	pgHost := os.Getenv("PG_HOST")
+	pgUser := os.Getenv("PG_USER")
+	pgPassword := os.Getenv("PG_PASSWORD")
+	pgDBName := os.Getenv("PG_DBNAME")
+
+	if pgHost+pgUser+pgPassword+pgDBName == "" {
+		return nil, fmt.Errorf("postgreSQL DB has not been configured via environment variables to run integration tests")
+	}
+
+	return &postgresstore.Config{
+		Host:     pgHost,
+		Port:     5432,
+		User:     pgUser,
+		Password: pgPassword,
+		DBName:   pgDBName,
+	}, nil
 }

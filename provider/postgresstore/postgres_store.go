@@ -54,7 +54,10 @@ func New(config Config, options ...Option) (*postgresStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.initDB()
+	err = s.initDB()
+	if err != nil {
+		return nil, err
+	}
 
 	for _, option := range options {
 		option(s)
@@ -138,6 +141,10 @@ func (s *postgresStore) Save(ctx context.Context, eventRecords ...*rangedb.Event
 
 // saveEvents persists one or more events inside a locked mutex, and notifies subscribers.
 func (s *postgresStore) saveEvents(ctx context.Context, expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) error {
+	if len(eventRecords) < 1 {
+		return fmt.Errorf("missing events")
+	}
+
 	transaction, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -262,14 +269,14 @@ func (s *postgresStore) saveEvents(ctx context.Context, expectedStreamSequenceNu
 			s.serializer,
 		)
 		if err != nil {
-			panic(err) // TODO: test this error path
+			return fmt.Errorf("unable to decode data: %v", err)
 		}
 
 		var metadata interface{}
 		if batchEvent.Metadata != "null" {
 			err = json.Unmarshal([]byte(batchEvent.Metadata), metadata)
 			if err != nil {
-				panic(err) // TODO: test this error path
+				return fmt.Errorf("unable to unmarshal metadata: %v", err)
 			}
 		}
 
@@ -331,8 +338,9 @@ func (s *postgresStore) connectToDB(config Config) error {
 	return nil
 }
 
-func (s *postgresStore) initDB() {
-	createSQL := `CREATE TABLE IF NOT EXISTS record (
+func (s *postgresStore) initDB() error {
+	sqlStatements := []string{
+		`CREATE TABLE IF NOT EXISTS record (
 		AggregateType TEXT,
 		AggregateID TEXT,
 		GlobalSequenceNumber BIGSERIAL PRIMARY KEY,
@@ -342,12 +350,23 @@ func (s *postgresStore) initDB() {
 		EventType TEXT,
 		Data TEXT,
 		Metadata TEXT
-	);`
-
-	_, err := s.db.Exec(createSQL)
-	if err != nil {
-		panic(err) // TODO: test this error path
+	);`,
+		`CREATE INDEX IF NOT EXISTS record_idx_aggregate_type ON record USING HASH (
+		AggregateType
+	);`,
+		`CREATE INDEX IF NOT EXISTS record_idx_aggregate_id ON record USING HASH (
+		AggregateID
+	);`,
 	}
+
+	for _, statement := range sqlStatements {
+		_, err := s.db.Exec(statement)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 type dbRowQueryable interface {
@@ -423,13 +442,8 @@ func (s *postgresStore) readResultRecords(ctx context.Context, rows *sql.Rows, r
 			Metadata:             metadata,
 		}
 
-		select {
-		case <-ctx.Done():
-			resultRecords <- rangedb.ResultRecord{Err: ctx.Err()}
+		if !rangedb.PublishRecordOrCancel(ctx, resultRecords, record) {
 			return
-
-		default:
-			resultRecords <- rangedb.ResultRecord{Record: record}
 		}
 	}
 

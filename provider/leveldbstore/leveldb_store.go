@@ -122,6 +122,10 @@ func (s *levelDbStore) Save(ctx context.Context, eventRecords ...*rangedb.EventR
 }
 
 func (s *levelDbStore) saveEvents(ctx context.Context, expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) error {
+	if len(eventRecords) < 1 {
+		return fmt.Errorf("missing events")
+	}
+
 	nextExpectedStreamSequenceNumber := expectedStreamSequenceNumber
 
 	var pendingEventsData [][]byte
@@ -304,13 +308,8 @@ func (s *levelDbStore) getEventsByPrefixStartingWith(ctx context.Context, prefix
 				continue
 			}
 
-			select {
-			case <-ctx.Done():
-				resultRecords <- rangedb.ResultRecord{Err: ctx.Err()}
+			if !rangedb.PublishRecordOrCancel(ctx, resultRecords, record) {
 				return
-
-			default:
-				resultRecords <- rangedb.ResultRecord{Record: record}
 			}
 		}
 		iter.Release()
@@ -331,6 +330,16 @@ func (s *levelDbStore) getEventsByLookup(ctx context.Context, key string, global
 
 		iter := s.db.NewIterator(util.BytesPrefix([]byte(key)), nil)
 
+		// TODO: Optimize seek to global position
+		// TODO: Document key format
+		// if key == allEventsPrefix && globalSequenceNumber > 0 {
+		// 	seekKey := getKeyWithNumber(key+separator, globalSequenceNumber)
+		// 	found := iter.Seek(seekKey)
+		// 	if !found {
+		// 		iter.First()
+		// 	}
+		// }
+
 		for iter.Next() {
 			targetKey := iter.Value()
 
@@ -343,13 +352,9 @@ func (s *levelDbStore) getEventsByLookup(ctx context.Context, key string, global
 			if record.GlobalSequenceNumber < globalSequenceNumber {
 				continue
 			}
-			select {
-			case <-ctx.Done():
-				resultRecords <- rangedb.ResultRecord{Err: ctx.Err()}
-				return
 
-			default:
-				resultRecords <- rangedb.ResultRecord{Record: record}
+			if !rangedb.PublishRecordOrCancel(ctx, resultRecords, record) {
+				return
 			}
 		}
 		iter.Release()

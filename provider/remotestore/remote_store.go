@@ -109,6 +109,10 @@ func (s *remoteStore) EventsByStreamStartingWith(ctx context.Context, streamSequ
 }
 
 func (s *remoteStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) error {
+	if len(eventRecords) < 1 {
+		return fmt.Errorf("missing events")
+	}
+
 	var aggregateType, aggregateID string
 
 	var events []*rangedbpb.Event
@@ -165,6 +169,10 @@ func (s *remoteStore) OptimisticSave(ctx context.Context, expectedStreamSequence
 }
 
 func (s *remoteStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRecord) error {
+	if len(eventRecords) < 1 {
+		return fmt.Errorf("missing events")
+	}
+
 	var aggregateType, aggregateID string
 
 	var events []*rangedbpb.Event
@@ -291,13 +299,8 @@ func (s *remoteStore) readRecords(ctx context.Context, events PbRecordReceiver) 
 				return
 			}
 
-			select {
-			case <-ctx.Done():
-				resultRecords <- rangedb.ResultRecord{Err: ctx.Err()}
+			if !rangedb.PublishRecordOrCancel(ctx, resultRecords, record) {
 				return
-
-			default:
-				resultRecords <- rangedb.ResultRecord{Record: record}
 			}
 		}
 	}()

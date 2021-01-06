@@ -126,13 +126,8 @@ func (s *inMemoryStore) recordsStartingWith(ctx context.Context, serializedRecor
 			}
 
 			if compare(record) {
-				select {
-				case <-ctx.Done():
-					resultRecords <- rangedb.ResultRecord{Err: ctx.Err()}
+				if !rangedb.PublishRecordOrCancel(ctx, resultRecords, record) {
 					return
-
-				default:
-					resultRecords <- rangedb.ResultRecord{Record: record}
 				}
 			}
 		}
@@ -151,6 +146,10 @@ func (s *inMemoryStore) Save(ctx context.Context, eventRecords ...*rangedb.Event
 
 // saveEvents persists one or more events inside a locked mutex, and notifies subscribers.
 func (s *inMemoryStore) saveEvents(ctx context.Context, expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) error {
+	if len(eventRecords) < 1 {
+		return fmt.Errorf("missing events")
+	}
+
 	nextExpectedStreamSequenceNumber := expectedStreamSequenceNumber
 
 	var pendingEventsData [][]byte
@@ -174,6 +173,7 @@ func (s *inMemoryStore) saveEvents(ctx context.Context, expectedStreamSequenceNu
 
 		select {
 		case <-ctx.Done():
+			s.mux.Unlock()
 			return context.Canceled
 
 		default:

@@ -245,8 +245,9 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			store := newStore(t, sequentialclock.New())
 			const aggregateID = "a1a112b026cc4ee287df2b201ebeae31"
 			event := &ThingWasDone{ID: aggregateID, Number: 1}
+			saveCtx := TimeoutContext(t)
+			require.NoError(t, store.Save(saveCtx, &rangedb.EventRecord{Event: event}))
 			ctx, done := context.WithCancel(TimeoutContext(t))
-			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event}))
 			done()
 
 			// When
@@ -422,8 +423,9 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			store := newStore(t, sequentialclock.New())
 			const aggregateID = "af6e43e45b284fb2b8e3e8cf055acd93"
 			event := &ThingWasDone{ID: aggregateID, Number: 1}
+			saveCtx := TimeoutContext(t)
+			require.NoError(t, store.Save(saveCtx, &rangedb.EventRecord{Event: event}))
 			ctx, done := context.WithCancel(TimeoutContext(t))
-			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event}))
 			done()
 
 			// When
@@ -895,6 +897,19 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			// Then
 			assert.Equal(t, context.Canceled, err)
 		})
+
+		t.Run("errors from missing events", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			store := newStore(t, sequentialclock.New())
+			ctx := TimeoutContext(t)
+
+			// When
+			err := store.OptimisticSave(ctx, 0)
+
+			// Then
+			assert.EqualError(t, err, "missing events")
+		})
 	})
 
 	t.Run("Save", func(t *testing.T) {
@@ -980,6 +995,19 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 			// Then
 			assert.Equal(t, context.Canceled, err)
+		})
+
+		t.Run("errors from missing events", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			store := newStore(t, sequentialclock.New())
+			ctx := TimeoutContext(t)
+
+			// When
+			err := store.Save(ctx)
+
+			// Then
+			assert.EqualError(t, err, "missing events")
 		})
 	})
 
@@ -1248,10 +1276,12 @@ func assertCanceledIterator(t *testing.T, iter rangedb.RecordIterator) {
 	for iter.Next() {
 		select {
 		case <-timeout:
+			require.Fail(t, "unexpected timeout")
 			break
 		default:
 		}
 	}
+
 	assert.False(t, iter.Next())
 	assert.Nil(t, iter.Record())
 	assert.Equal(t, context.Canceled, iter.Err())

@@ -107,7 +107,7 @@ func ParseStream(streamName string) (aggregateType, aggregateID string) {
 
 // ReplayEvents applies all events to each subscriber.
 func ReplayEvents(ctx context.Context, store Store, globalSequenceNumber uint64, subscribers ...RecordSubscriber) {
-	recordIterator := store.EventsStartingWith(context.Background(), globalSequenceNumber)
+	recordIterator := store.EventsStartingWith(ctx, globalSequenceNumber)
 	for recordIterator.Next() {
 		if recordIterator.Err() != nil {
 			log.Printf("unable to apply event to subscriber: %v", recordIterator.Err())
@@ -127,11 +127,11 @@ func ReplayEvents(ctx context.Context, store Store, globalSequenceNumber uint64,
 }
 
 // ReadNRecords reads up to N records from the channel returned by f into a slice
-func ReadNRecords(totalEvents uint64, f func(context.Context) RecordIterator) []*Record {
+func ReadNRecords(totalEvents uint64, f func() (RecordIterator, context.CancelFunc)) []*Record {
 	var records []*Record
-	ctx, done := context.WithCancel(context.Background())
 	cnt := uint64(0)
-	recordIterator := f(ctx)
+	recordIterator, done := f()
+
 	for recordIterator.Next() {
 		if recordIterator.Err() != nil {
 			break
@@ -143,7 +143,10 @@ func ReadNRecords(totalEvents uint64, f func(context.Context) RecordIterator) []
 
 		records = append(records, recordIterator.Record())
 	}
+
 	done()
+	for recordIterator.Next() {
+	}
 
 	return records
 }

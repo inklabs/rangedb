@@ -99,8 +99,9 @@ func (a *webUI) aggregateType(w http.ResponseWriter, r *http.Request) {
 	globalSequenceNumber := uint64(pagination.FirstRecordPosition())
 	records := rangedb.ReadNRecords(
 		uint64(pagination.ItemsPerPage),
-		func(ctx context.Context) rangedb.RecordIterator {
-			return a.store.EventsByAggregateTypesStartingWith(ctx, globalSequenceNumber, aggregateTypeName)
+		func() (rangedb.RecordIterator, context.CancelFunc) {
+			ctx, done := context.WithCancel(r.Context())
+			return a.store.EventsByAggregateTypesStartingWith(ctx, globalSequenceNumber, aggregateTypeName), done
 		},
 	)
 
@@ -110,7 +111,7 @@ func (a *webUI) aggregateType(w http.ResponseWriter, r *http.Request) {
 	a.renderWithValues(w, "aggregate-type.html", aggregateTypeTemplateVars{
 		AggregateTypeInfo: AggregateTypeInfo{
 			Name:        aggregateTypeName,
-			TotalEvents: a.aggregateTypeStats.TotalEventsByAggregateType(aggregateTypeName),
+			TotalEvents: totalRecords,
 		},
 		PaginationLinks: pagination.Links(baseURI, totalRecords),
 		Records:         records,
@@ -134,8 +135,9 @@ func (a *webUI) stream(w http.ResponseWriter, r *http.Request) {
 	streamSequenceNumber := uint64(pagination.FirstRecordPosition())
 	records := rangedb.ReadNRecords(
 		uint64(pagination.ItemsPerPage),
-		func(ctx context.Context) rangedb.RecordIterator {
-			return a.store.EventsByStreamStartingWith(ctx, streamSequenceNumber, streamName)
+		func() (rangedb.RecordIterator, context.CancelFunc) {
+			ctx, done := context.WithCancel(r.Context())
+			return a.store.EventsByStreamStartingWith(ctx, streamSequenceNumber, streamName), done
 		},
 	)
 

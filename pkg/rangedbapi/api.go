@@ -97,18 +97,24 @@ func (a *api) initProjections() {
 	globalSequenceNumber := uint64(0)
 
 	if a.snapshotStore != nil {
-		_ = a.snapshotStore.Load(a.projections.aggregateTypeStats)
+		err := a.snapshotStore.Load(a.projections.aggregateTypeStats)
+		if err != nil {
+			log.Print(err)
+		}
 
 		if a.projections.aggregateTypeStats.TotalEvents() > 0 {
 			globalSequenceNumber = a.projections.aggregateTypeStats.LatestGlobalSequenceNumber() + 1
 		}
 	}
 
-	a.store.SubscribeStartingWith(
+	err := a.store.SubscribeStartingWith(
 		context.Background(),
 		globalSequenceNumber,
 		a.projections.aggregateTypeStats,
 	)
+	if err != nil {
+		log.Print(err)
+	}
 
 	if a.snapshotStore != nil {
 		err := a.snapshotStore.Save(a.projections.aggregateTypeStats)

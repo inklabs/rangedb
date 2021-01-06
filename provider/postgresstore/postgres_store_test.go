@@ -52,7 +52,6 @@ func BenchmarkPostgresStore(b *testing.B) {
 			require.NoError(b, err)
 			_, err = db.Exec(`TRUNCATE record RESTART IDENTITY;`)
 			require.NoError(b, err)
-			require.NoError(b, db.Close())
 			require.NoError(b, store.CloseDB())
 		})
 
