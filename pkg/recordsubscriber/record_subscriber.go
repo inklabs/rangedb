@@ -48,8 +48,8 @@ func (s *recordSubscriber) Receiver() broadcast.SendRecordChan {
 	return s.bufferedRecords
 }
 
-func (s *recordSubscriber) Start() error {
-	err := s.writeRecords(0)
+func (s *recordSubscriber) StartFrom(globalSequenceNumber uint64) error {
+	err := s.writeRecords(globalSequenceNumber)
 	if err != nil {
 		return err
 	}
@@ -62,32 +62,40 @@ func (s *recordSubscriber) Start() error {
 		return err
 	}
 
-	go func() {
-		for {
-			select {
-			case <-s.stopChan:
-				s.unsubscribe(s)
-				return
-
-			case <-s.doneChan:
-				s.unsubscribe(s)
-				return
-
-			case record := <-s.bufferedRecords:
-				if record.GlobalSequenceNumber <= s.lastGlobalSequenceNumber && s.totalEventsSent > 0 {
-					continue
-				}
-
-				err := s.writeRecord(record)
-				if err != nil {
-					s.unsubscribe(s)
-					return
-				}
-			}
-		}
-	}()
+	go s.work()
 
 	return nil
+}
+
+func (s *recordSubscriber) Start() error {
+	s.subscribe(s)
+	go s.work()
+	return nil
+}
+
+func (s *recordSubscriber) work() {
+	for {
+		select {
+		case <-s.stopChan:
+			s.unsubscribe(s)
+			return
+
+		case <-s.doneChan:
+			s.unsubscribe(s)
+			return
+
+		case record := <-s.bufferedRecords:
+			if record.GlobalSequenceNumber <= s.lastGlobalSequenceNumber && s.totalEventsSent > 0 {
+				continue
+			}
+
+			err := s.writeRecord(record)
+			if err != nil {
+				s.unsubscribe(s)
+				return
+			}
+		}
+	}
 }
 
 func (s *recordSubscriber) Stop() {

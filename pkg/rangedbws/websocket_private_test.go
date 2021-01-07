@@ -24,7 +24,7 @@ func Test_Private_broadcastRecord(t *testing.T) {
 		)
 		require.NoError(t, err)
 		t.Cleanup(func() {
-			require.NoError(t, api.Close())
+			require.NoError(t, api.Stop())
 		})
 		record := &rangedb.Record{
 			Data: math.Inf(1),

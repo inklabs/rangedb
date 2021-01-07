@@ -32,7 +32,7 @@ func TestRecordSubscriber(t *testing.T) {
 		subscriber := recordsubscriber.New(config)
 
 		// When
-		err := subscriber.Start()
+		err := subscriber.StartFrom(0)
 		defer subscriber.Stop()
 
 		// Then
@@ -61,7 +61,7 @@ func TestRecordSubscriber(t *testing.T) {
 		subscriber := recordsubscriber.New(config)
 
 		// When
-		err := subscriber.Start()
+		err := subscriber.StartFrom(0)
 		defer subscriber.Stop()
 
 		// Then
@@ -90,7 +90,7 @@ func TestRecordSubscriber(t *testing.T) {
 		subscriber.Receiver() <- record
 
 		// When
-		err := subscriber.Start()
+		err := subscriber.StartFrom(0)
 		defer subscriber.Stop()
 
 		// Then
@@ -115,7 +115,7 @@ func TestRecordSubscriber(t *testing.T) {
 			DoneChan:    doneChan,
 		}
 		subscriber := recordsubscriber.New(config)
-		err := subscriber.Start()
+		err := subscriber.StartFrom(0)
 		defer subscriber.Stop()
 		require.NoError(t, err)
 
@@ -130,26 +130,21 @@ func TestRecordSubscriber(t *testing.T) {
 	t.Run("consumes no existing record, errors when consuming record on subscription", func(t *testing.T) {
 		// Given
 		doneChan := make(chan struct{})
-		unsubscribed := false
-		waitChan := make(chan struct{})
+		unsubscribed := make(chan bool)
 		config := recordsubscriber.Config{
 			BufLen:     10,
 			GetRecords: returnNRecordsIterator(0),
 			ConsumeRecord: func(record *rangedb.Record) error {
-				defer func() {
-					waitChan <- struct{}{}
-				}()
-
 				return fmt.Errorf("consume record error")
 			},
 			Subscribe: stubSubscribeFunc,
 			Unsubscribe: func(subscriber broadcast.RecordSubscriber) {
-				unsubscribed = true
+				unsubscribed <- true
 			},
 			DoneChan: doneChan,
 		}
 		subscriber := recordsubscriber.New(config)
-		err := subscriber.Start()
+		err := subscriber.StartFrom(0)
 		defer subscriber.Stop()
 		require.NoError(t, err)
 
@@ -158,8 +153,7 @@ func TestRecordSubscriber(t *testing.T) {
 		subscriber.Receiver() <- record
 
 		// Then
-		<-waitChan
-		assert.True(t, unsubscribed)
+		assert.True(t, <-unsubscribed)
 	})
 
 	t.Run("consume record errors on first call", func(t *testing.T) {
@@ -178,7 +172,7 @@ func TestRecordSubscriber(t *testing.T) {
 		subscriber := recordsubscriber.New(config)
 
 		// When
-		err := subscriber.Start()
+		err := subscriber.StartFrom(0)
 		defer subscriber.Stop()
 
 		// Then
@@ -206,7 +200,7 @@ func TestRecordSubscriber(t *testing.T) {
 		subscriber := recordsubscriber.New(config)
 
 		// When
-		err := subscriber.Start()
+		err := subscriber.StartFrom(0)
 		defer subscriber.Stop()
 
 		// Then
@@ -237,7 +231,7 @@ func TestRecordSubscriber(t *testing.T) {
 		subscriber := recordsubscriber.New(config)
 
 		// When
-		err := subscriber.Start()
+		err := subscriber.StartFrom(0)
 		defer subscriber.Stop()
 
 		// Then
@@ -246,10 +240,9 @@ func TestRecordSubscriber(t *testing.T) {
 
 	t.Run("stops from done channel", func(t *testing.T) {
 		// Given
-		waitChan := make(chan struct{})
 		doneChan := make(chan struct{})
 		close(doneChan)
-		unsubscribed := false
+		unsubscribed := make(chan bool)
 		config := recordsubscriber.Config{
 			BufLen: 10,
 			GetRecords: func(globalSequenceNumber uint64) rangedb.RecordIterator {
@@ -262,21 +255,19 @@ func TestRecordSubscriber(t *testing.T) {
 			},
 			Subscribe: stubSubscribeFunc,
 			Unsubscribe: func(subscriber broadcast.RecordSubscriber) {
-				unsubscribed = true
-				waitChan <- struct{}{}
+				unsubscribed <- true
 			},
 			DoneChan: doneChan,
 		}
 		subscriber := recordsubscriber.New(config)
 
 		// When
-		err := subscriber.Start()
+		err := subscriber.StartFrom(0)
 		defer subscriber.Stop()
 
 		// Then
-		<-waitChan
 		require.NoError(t, err)
-		assert.True(t, unsubscribed)
+		assert.True(t, <-unsubscribed)
 	})
 }
 

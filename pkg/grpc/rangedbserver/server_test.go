@@ -521,7 +521,9 @@ func getClient(t *testing.T, store rangedb.Store) rangedbpb.RangeDBClient {
 	t.Cleanup(server.Stop)
 	rangeDBServer, err := rangedbserver.New(rangedbserver.WithStore(store))
 	require.NoError(t, err)
-	t.Cleanup(rangeDBServer.Stop)
+	t.Cleanup(func() {
+		require.NoError(t, rangeDBServer.Stop())
+	})
 	rangedbpb.RegisterRangeDBServer(server, rangeDBServer)
 
 	go func() {

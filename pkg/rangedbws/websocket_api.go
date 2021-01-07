@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gorilla/mux"
@@ -91,7 +92,7 @@ func (a *websocketAPI) initProjections() error {
 	)
 }
 
-func (a *websocketAPI) Close() error {
+func (a *websocketAPI) Stop() error {
 	err := a.broadcaster.Close()
 	if err != nil {
 		return err
@@ -106,6 +107,8 @@ func (a *websocketAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *websocketAPI) SubscribeToAllEvents(w http.ResponseWriter, r *http.Request) {
+	globalSequenceNumber, err := globalSequenceNumberFromRequest(r)
+
 	conn, err := a.upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		http.Error(w, "unable to upgrade websocket connection", http.StatusBadRequest)
@@ -131,7 +134,7 @@ func (a *websocketAPI) SubscribeToAllEvents(w http.ResponseWriter, r *http.Reque
 		},
 	}
 	subscriber := recordsubscriber.New(config)
-	err = subscriber.Start()
+	err = subscriber.StartFrom(globalSequenceNumber)
 	if err != nil {
 		return
 	}
@@ -139,7 +142,23 @@ func (a *websocketAPI) SubscribeToAllEvents(w http.ResponseWriter, r *http.Reque
 	_, _, _ = conn.ReadMessage()
 }
 
+func globalSequenceNumberFromRequest(r *http.Request) (uint64, error) {
+	globalSequenceNumberInput := r.URL.Query().Get("global-sequence-number")
+	if globalSequenceNumberInput == "" {
+		return 0, nil
+	}
+
+	globalSequenceNumber, err := strconv.ParseUint(globalSequenceNumberInput, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+
+	return globalSequenceNumber, nil
+}
+
 func (a *websocketAPI) SubscribeToEventsByAggregateTypes(w http.ResponseWriter, r *http.Request) {
+	globalSequenceNumber, err := globalSequenceNumberFromRequest(r)
+
 	aggregateTypeInput := mux.Vars(r)["aggregateType"]
 	aggregateTypes := strings.Split(aggregateTypeInput, ",")
 
@@ -168,7 +187,7 @@ func (a *websocketAPI) SubscribeToEventsByAggregateTypes(w http.ResponseWriter, 
 		},
 	}
 	subscriber := recordsubscriber.New(config)
-	err = subscriber.Start()
+	err = subscriber.StartFrom(globalSequenceNumber)
 	if err != nil {
 		return
 	}

@@ -264,8 +264,12 @@ func assertJsonEqual(t *testing.T, expectedJson, actualJson string) {
 	assert.Equal(t, jsontools.PrettyJSONString(expectedJson), jsontools.PrettyJSONString(actualJson))
 }
 
-func cleanup(t *testing.T, closer io.Closer) {
+type Stopper interface {
+	Stop() error
+}
+
+func cleanup(t *testing.T, stopper Stopper) {
 	t.Cleanup(func() {
-		require.NoError(t, closer.Close())
+		require.NoError(t, stopper.Stop())
 	})
 }
