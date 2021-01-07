@@ -218,10 +218,6 @@ func (s *remoteStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRe
 			return context.Canceled
 		}
 
-		if strings.Contains(err.Error(), rpcErrUnexpectedSequenceNumber) {
-			return rangedberror.NewUnexpectedSequenceNumberFromString(err.Error())
-		}
-
 		return err
 	}
 

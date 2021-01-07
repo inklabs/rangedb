@@ -3,7 +3,6 @@ package postgresstore_test
 import (
 	"database/sql"
 	"math"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -52,7 +51,7 @@ func BenchmarkPostgresStore(b *testing.B) {
 	})
 }
 
-func truncateRecords(t require.TestingT, config postgresstore.Config) {
+func truncateRecords(t require.TestingT, config *postgresstore.Config) {
 	db, err := sql.Open("postgres", config.DataSourceName())
 	require.NoError(t, err)
 	_, err = db.Exec(`TRUNCATE record;`)
@@ -185,7 +184,7 @@ func Test_Failures(t *testing.T) {
 	})
 }
 
-func insertEventWithBadMetadata(t *testing.T, config postgresstore.Config) {
+func insertEventWithBadMetadata(t *testing.T, config *postgresstore.Config) {
 	event := rangedbtest.ThingWasDone{}
 	values := []interface{}{
 		event.AggregateType(),
@@ -200,7 +199,7 @@ func insertEventWithBadMetadata(t *testing.T, config postgresstore.Config) {
 	insertRecordValues(t, config, values)
 }
 
-func insertEventWithBadData(t *testing.T, config postgresstore.Config) {
+func insertEventWithBadData(t *testing.T, config *postgresstore.Config) {
 	event := rangedbtest.ThingWasDone{}
 	values := []interface{}{
 		event.AggregateType(),
@@ -215,7 +214,7 @@ func insertEventWithBadData(t *testing.T, config postgresstore.Config) {
 	insertRecordValues(t, config, values)
 }
 
-func insertEventWithBadStreamSequenceNumber(t *testing.T, config postgresstore.Config) {
+func insertEventWithBadStreamSequenceNumber(t *testing.T, config *postgresstore.Config) {
 	event := rangedbtest.ThingWasDone{}
 	values := []interface{}{
 		event.AggregateType(),
@@ -230,7 +229,7 @@ func insertEventWithBadStreamSequenceNumber(t *testing.T, config postgresstore.C
 	insertRecordValues(t, config, values)
 }
 
-func insertRecordValues(t *testing.T, config postgresstore.Config, values []interface{}) {
+func insertRecordValues(t *testing.T, config *postgresstore.Config, values []interface{}) {
 	sqlStatement := "INSERT INTO record (AggregateType,AggregateID,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8);"
 	db, err := sql.Open("postgres", config.DataSourceName())
 	require.NoError(t, err)
@@ -243,21 +242,11 @@ type testSkipper interface {
 	Skip(args ...interface{})
 }
 
-func configFromEnvironment(t testSkipper) postgresstore.Config {
-	pgHost := os.Getenv("PG_HOST")
-	pgUser := os.Getenv("PG_USER")
-	pgPassword := os.Getenv("PG_PASSWORD")
-	pgDBName := os.Getenv("PG_DBNAME")
-
-	if pgHost+pgUser+pgPassword+pgDBName == "" {
+func configFromEnvironment(t testSkipper) *postgresstore.Config {
+	config, err := postgresstore.NewConfigFromEnvironment()
+	if err != nil {
 		t.Skip("Postgres DB has not been configured via environment variables to run integration tests")
 	}
 
-	return postgresstore.Config{
-		Host:     pgHost,
-		Port:     5432,
-		User:     pgUser,
-		Password: pgPassword,
-		DBName:   pgDBName,
-	}
+	return config
 }

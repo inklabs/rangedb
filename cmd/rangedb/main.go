@@ -139,9 +139,9 @@ func main() {
 }
 
 func getStore(levelDBPath string, logger *log.Logger) (rangedb.Store, string, func() error, error) {
-	postgreSQLConfig, err := postgreSQLConfigFromEnvironment()
+	postgreSQLConfig, err := postgresstore.NewConfigFromEnvironment()
 	if err == nil {
-		postgresStore, err := postgresstore.New(*postgreSQLConfig)
+		postgresStore, err := postgresstore.New(postgreSQLConfig)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -197,23 +197,4 @@ func snapshotBasePath(uniqueName string) string {
 		log.Fatalf("unable to create snapshot directory: %v", err)
 	}
 	return snapshotBasePath
-}
-
-func postgreSQLConfigFromEnvironment() (*postgresstore.Config, error) {
-	pgHost := os.Getenv("PG_HOST")
-	pgUser := os.Getenv("PG_USER")
-	pgPassword := os.Getenv("PG_PASSWORD")
-	pgDBName := os.Getenv("PG_DBNAME")
-
-	if pgHost+pgUser+pgPassword+pgDBName == "" {
-		return nil, fmt.Errorf("postgreSQL DB has not been configured via environment variables to run integration tests")
-	}
-
-	return &postgresstore.Config{
-		Host:     pgHost,
-		Port:     5432,
-		User:     pgUser,
-		Password: pgPassword,
-		DBName:   pgDBName,
-	}, nil
 }
