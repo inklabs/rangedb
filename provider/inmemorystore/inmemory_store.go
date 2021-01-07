@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
@@ -126,7 +127,7 @@ func (s *inMemoryStore) recordsStartingWith(ctx context.Context, serializedRecor
 			}
 
 			if compare(record) {
-				if !rangedb.PublishRecordOrCancel(ctx, resultRecords, record) {
+				if !rangedb.PublishRecordOrCancel(ctx, resultRecords, record, time.Second) {
 					return
 				}
 			}

@@ -5,14 +5,11 @@ import (
 	"time"
 )
 
-const timeoutDuration = time.Second * 1
-
-func PublishRecordOrCancel(ctx context.Context, resultRecords chan ResultRecord, record *Record) bool {
+func PublishRecordOrCancel(ctx context.Context, resultRecords chan ResultRecord, record *Record, timeout time.Duration) bool {
 	select {
 	case <-ctx.Done():
-		timeout := time.After(timeoutDuration)
 		select {
-		case <-timeout:
+		case <-time.After(timeout):
 		case resultRecords <- ResultRecord{Err: ctx.Err()}:
 		}
 		return false
@@ -22,9 +19,8 @@ func PublishRecordOrCancel(ctx context.Context, resultRecords chan ResultRecord,
 
 	select {
 	case <-ctx.Done():
-		timeout := time.After(timeoutDuration)
 		select {
-		case <-timeout:
+		case <-time.After(timeout):
 		case resultRecords <- ResultRecord{Err: ctx.Err()}:
 		}
 		return false

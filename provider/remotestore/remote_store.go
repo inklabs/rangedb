@@ -8,6 +8,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc"
 
@@ -299,7 +300,7 @@ func (s *remoteStore) readRecords(ctx context.Context, events PbRecordReceiver) 
 				return
 			}
 
-			if !rangedb.PublishRecordOrCancel(ctx, resultRecords, record) {
+			if !rangedb.PublishRecordOrCancel(ctx, resultRecords, record, time.Second) {
 				return
 			}
 		}

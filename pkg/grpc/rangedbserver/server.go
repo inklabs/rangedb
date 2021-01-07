@@ -354,28 +354,6 @@ func (s *rangeDBServer) broadcastRecord(stream streamSender, record *rangedb.Rec
 	return nil
 }
 
-func (s *rangeDBServer) writeEventsToStream(stream streamSender, recordIterator rangedb.RecordIterator) (uint64, error) {
-	var lastGlobalSequenceNumber uint64
-	for recordIterator.Next() {
-		if recordIterator.Err() != nil {
-			return lastGlobalSequenceNumber, recordIterator.Err()
-		}
-
-		pbRecord, err := rangedbpb.ToPbRecord(recordIterator.Record())
-		if err != nil {
-			return lastGlobalSequenceNumber, err
-		}
-
-		err = stream.Send(pbRecord)
-		if err != nil {
-			return lastGlobalSequenceNumber, err
-		}
-		lastGlobalSequenceNumber = recordIterator.Record().GlobalSequenceNumber
-	}
-
-	return lastGlobalSequenceNumber, nil
-}
-
 // PbRecordSender defines the interface for sending a protobuf record.
 type PbRecordSender interface {
 	Send(*rangedbpb.Record) error

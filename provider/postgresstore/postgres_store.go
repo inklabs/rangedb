@@ -5,8 +5,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/lib/pq"
 
@@ -87,11 +89,15 @@ func (s *postgresStore) EventsStartingWith(ctx context.Context, globalSequenceNu
 			resultRecords <- rangedb.ResultRecord{Err: err}
 			return
 		}
-		defer rows.Close()
+		defer ignoreClose(rows)
 		s.readResultRecords(ctx, rows, resultRecords)
 	}()
 
 	return rangedb.NewRecordIterator(resultRecords)
+}
+
+func ignoreClose(closer io.Closer) {
+	_ = closer.Close()
 }
 
 func (s *postgresStore) EventsByAggregateTypesStartingWith(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) rangedb.RecordIterator {
@@ -105,7 +111,7 @@ func (s *postgresStore) EventsByAggregateTypesStartingWith(ctx context.Context, 
 			resultRecords <- rangedb.ResultRecord{Err: err}
 			return
 		}
-		defer rows.Close()
+		defer ignoreClose(rows)
 		s.readResultRecords(ctx, rows, resultRecords)
 	}()
 
@@ -124,7 +130,7 @@ func (s *postgresStore) EventsByStreamStartingWith(ctx context.Context, streamSe
 			resultRecords <- rangedb.ResultRecord{Err: err}
 			return
 		}
-		defer rows.Close()
+		defer ignoreClose(rows)
 		s.readResultRecords(ctx, rows, resultRecords)
 	}()
 
@@ -453,7 +459,7 @@ func (s *postgresStore) readResultRecords(ctx context.Context, rows *sql.Rows, r
 			Metadata:             metadata,
 		}
 
-		if !rangedb.PublishRecordOrCancel(ctx, resultRecords, record) {
+		if !rangedb.PublishRecordOrCancel(ctx, resultRecords, record, time.Second) {
 			return
 		}
 	}

@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/syndtr/goleveldb/leveldb"
 	"github.com/syndtr/goleveldb/leveldb/iterator"
@@ -308,7 +309,7 @@ func (s *levelDbStore) getEventsByPrefixStartingWith(ctx context.Context, prefix
 				continue
 			}
 
-			if !rangedb.PublishRecordOrCancel(ctx, resultRecords, record) {
+			if !rangedb.PublishRecordOrCancel(ctx, resultRecords, record, time.Second) {
 				return
 			}
 		}
@@ -353,7 +354,7 @@ func (s *levelDbStore) getEventsByLookup(ctx context.Context, key string, global
 				continue
 			}
 
-			if !rangedb.PublishRecordOrCancel(ctx, resultRecords, record) {
+			if !rangedb.PublishRecordOrCancel(ctx, resultRecords, record, time.Second) {
 				return
 			}
 		}
