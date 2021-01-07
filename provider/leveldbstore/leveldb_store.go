@@ -298,6 +298,8 @@ func (s *levelDbStore) getEventsByPrefixStartingWith(ctx context.Context, prefix
 		defer close(resultRecords)
 
 		iter := s.db.NewIterator(util.BytesPrefix([]byte(prefix)), nil)
+		defer iter.Release()
+
 		for iter.Next() {
 			record, err := s.getRecordByValue(iter.Value())
 			if err != nil {
@@ -313,7 +315,6 @@ func (s *levelDbStore) getEventsByPrefixStartingWith(ctx context.Context, prefix
 				return
 			}
 		}
-		iter.Release()
 
 		_ = iter.Error()
 	}()
@@ -330,16 +331,15 @@ func (s *levelDbStore) getEventsByLookup(ctx context.Context, key string, global
 		defer close(resultRecords)
 
 		iter := s.db.NewIterator(util.BytesPrefix([]byte(key)), nil)
+		defer iter.Release()
 
-		// TODO: Optimize seek to global position
-		// TODO: Document key format
-		// if key == allEventsPrefix && globalSequenceNumber > 0 {
-		// 	seekKey := getKeyWithNumber(key+separator, globalSequenceNumber)
-		// 	found := iter.Seek(seekKey)
-		// 	if !found {
-		// 		iter.First()
-		// 	}
-		// }
+		if globalSequenceNumber > 0 {
+			seekKey := getKeyWithNumber(key, globalSequenceNumber)
+			found := iter.Seek(seekKey)
+			if found {
+				iter.Prev()
+			}
+		}
 
 		for iter.Next() {
 			targetKey := iter.Value()
@@ -358,7 +358,6 @@ func (s *levelDbStore) getEventsByLookup(ctx context.Context, key string, global
 				return
 			}
 		}
-		iter.Release()
 	}()
 
 	return rangedb.NewRecordIterator(resultRecords)
