@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
@@ -29,6 +30,7 @@ type api struct {
 	store                 rangedb.Store
 	snapshotStore         projection.SnapshotStore
 	handler               http.Handler
+	logger                *log.Logger
 	baseUri               string
 	projections           struct {
 		aggregateTypeStats *projection.AggregateTypeStats
@@ -38,10 +40,17 @@ type api struct {
 // Option defines functional option parameters for api.
 type Option func(*api)
 
-// WithStore is a functional option to inject a Store.
-func WithStore(store rangedb.Store) Option {
+// WithBaseUri is a functional option to inject the base URI for use in API links.
+func WithBaseUri(baseUri string) Option {
 	return func(api *api) {
-		api.store = store
+		api.baseUri = baseUri
+	}
+}
+
+// WithLogger is a functional option to inject a Logger.
+func WithLogger(logger *log.Logger) Option {
+	return func(api *api) {
+		api.logger = logger
 	}
 }
 
@@ -52,10 +61,10 @@ func WithSnapshotStore(snapshotStore projection.SnapshotStore) Option {
 	}
 }
 
-// WithBaseUri is a functional option to inject the base URI for use in API links.
-func WithBaseUri(baseUri string) Option {
+// WithStore is a functional option to inject a Store.
+func WithStore(store rangedb.Store) Option {
 	return func(api *api) {
-		api.baseUri = baseUri
+		api.store = store
 	}
 }
 
@@ -66,6 +75,7 @@ func New(options ...Option) *api {
 		ndJSONRecordIoStream:  ndjsonrecordiostream.New(),
 		msgpackRecordIoStream: msgpackrecordiostream.New(),
 		store:                 inmemorystore.New(),
+		logger:                log.New(ioutil.Discard, "", 0),
 		baseUri:               "http://127.0.0.1",
 	}
 
@@ -99,7 +109,7 @@ func (a *api) initProjections() {
 	if a.snapshotStore != nil {
 		err := a.snapshotStore.Load(a.projections.aggregateTypeStats)
 		if err != nil {
-			log.Print(err)
+			a.logger.Printf("unable to load from snapshot store: %v", err)
 		}
 
 		if a.projections.aggregateTypeStats.TotalEvents() > 0 {
@@ -113,13 +123,13 @@ func (a *api) initProjections() {
 		a.projections.aggregateTypeStats,
 	)
 	if err != nil {
-		log.Print(err)
+		a.logger.Print(err)
 	}
 
 	if a.snapshotStore != nil {
 		err := a.snapshotStore.Save(a.projections.aggregateTypeStats)
 		if err != nil {
-			log.Print(err)
+			a.logger.Print(err)
 		}
 	}
 }

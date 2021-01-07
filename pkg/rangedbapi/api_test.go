@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -163,7 +164,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		assert.Equal(t, `{"status":"OK"}`, response.Body.String())
 	})
 
-	t.Run("fails to save from json with wrong expected stream sequence number", func(t *testing.T) {
+	t.Run("errors to save from json with wrong expected stream sequence number", func(t *testing.T) {
 		// Given
 		jsonEvent := `[
 			{
@@ -194,7 +195,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		assert.Equal(t, `{"status":"Failed", "message": "unexpected sequence number: 1, next: 0"}`, response.Body.String())
 	})
 
-	t.Run("fails when content type not set", func(t *testing.T) {
+	t.Run("errors when content type not set", func(t *testing.T) {
 		// Given
 		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
 		const aggregateType = "thing"
@@ -211,7 +212,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		assert.Equal(t, "invalid content type\n", response.Body.String())
 	})
 
-	t.Run("fails when store save fails", func(t *testing.T) {
+	t.Run("errors when store save errors", func(t *testing.T) {
 		// Given
 		const aggregateID = "cbba5f386b2d4924ac34d1b9e9217d67"
 		const aggregateType = "thing"
@@ -240,7 +241,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		assert.Equal(t, `{"status":"Failed"}`, response.Body.String())
 	})
 
-	t.Run("fails when input json is invalid", func(t *testing.T) {
+	t.Run("errors when input json is invalid", func(t *testing.T) {
 		// Given
 		const aggregateID = "cbba5f386b2d4924ac34d1b9e9217d67"
 		const aggregateType = "thing"
@@ -258,6 +259,26 @@ func TestApi_SaveEvents(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
 		assert.Equal(t, `{"status":"Failed", "message": "invalid json request body"}`, response.Body.String())
+	})
+
+	t.Run("errors from invalid expected stream sequence number", func(t *testing.T) {
+		// Given
+		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
+		const aggregateType = "thing"
+		api := rangedbapi.New()
+		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
+		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(singleJsonEvent))
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("ExpectedStreamSequenceNumber", "xyz")
+		response := httptest.NewRecorder()
+
+		// When
+		api.ServeHTTP(response, request)
+
+		// Then
+		assert.Equal(t, http.StatusBadRequest, response.Code)
+		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
+		assert.Equal(t, `{"status":"Failed", "message": "invalid ExpectedStreamSequenceNumber"}`, response.Body.String())
 	})
 }
 
@@ -651,14 +672,50 @@ func TestApi_ListAggregates(t *testing.T) {
 }
 
 func TestApi_AggregateTypeStatsProjection(t *testing.T) {
-	// Given
-	api := rangedbapi.New()
+	t.Run("contains projection", func(t *testing.T) {
+		// Given
+		api := rangedbapi.New()
 
-	// When
-	aggregateTypeStats := api.AggregateTypeStatsProjection()
+		// When
+		aggregateTypeStats := api.AggregateTypeStatsProjection()
 
-	// Then
-	assert.IsType(t, &projection.AggregateTypeStats{}, aggregateTypeStats)
+		// Then
+		assert.IsType(t, &projection.AggregateTypeStats{}, aggregateTypeStats)
+	})
+
+	t.Run("logs error from failing snapshot store", func(t *testing.T) {
+		// Given
+		var logBuffer bytes.Buffer
+		logger := log.New(&logBuffer, "", 0)
+		api := rangedbapi.New(
+			rangedbapi.WithSnapshotStore(newFailingSnapshotStore()),
+			rangedbapi.WithLogger(logger),
+		)
+
+		// When
+		stats := api.AggregateTypeStatsProjection()
+
+		// Then
+		assert.Equal(t, uint64(0), stats.TotalEvents())
+		assert.Equal(t, "unable to load from snapshot store: failingSnapshotStore.Load\nfailingSnapshotStore.Save\n", logBuffer.String())
+	})
+
+	t.Run("loads projection from snapshot store", func(t *testing.T) {
+		// Given
+		aggregateTypeStats := projection.NewAggregateTypeStats()
+		aggregateTypeStats.Accept(rangedbtest.DummyRecord())
+		inMemorySnapshotStore := newInmemorySnapshotStore()
+		require.NoError(t, inMemorySnapshotStore.Save(aggregateTypeStats))
+		api := rangedbapi.New(
+			rangedbapi.WithSnapshotStore(inMemorySnapshotStore),
+		)
+
+		// When
+		stats := api.AggregateTypeStatsProjection()
+
+		// Then
+		assert.Equal(t, uint64(1), stats.TotalEvents())
+	})
 }
 
 func assertJsonEqual(t *testing.T, expectedJson, actualJson string) {
@@ -692,4 +749,39 @@ type SaveEventRequest struct {
 	EventType string      `msgpack:"t" json:"eventType"`
 	Data      interface{} `msgpack:"d" json:"data"`
 	Metadata  interface{} `msgpack:"m" json:"metadata"`
+}
+
+type failingSnapshotStore struct{}
+
+func newFailingSnapshotStore() *failingSnapshotStore {
+	return &failingSnapshotStore{}
+}
+
+func (s failingSnapshotStore) Load(_ projection.SnapshotProjection) error {
+	return fmt.Errorf("failingSnapshotStore.Load")
+}
+
+func (s failingSnapshotStore) Save(_ projection.SnapshotProjection) error {
+	return fmt.Errorf("failingSnapshotStore.Save")
+}
+
+type inmemorySnapshotStore struct {
+	bytes []byte
+}
+
+func newInmemorySnapshotStore() *inmemorySnapshotStore {
+	return &inmemorySnapshotStore{}
+}
+
+func (s *inmemorySnapshotStore) Load(p projection.SnapshotProjection) error {
+	return p.LoadFromSnapshot(bytes.NewReader(s.bytes))
+}
+
+func (s *inmemorySnapshotStore) Save(p projection.SnapshotProjection) error {
+	buff := &bytes.Buffer{}
+	err := p.SaveSnapshot(buff)
+
+	s.bytes = buff.Bytes()
+
+	return err
 }

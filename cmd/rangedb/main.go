@@ -53,6 +53,7 @@ func main() {
 		rangedbapi.WithStore(store),
 		rangedbapi.WithBaseUri(*baseURI+"/api"),
 		rangedbapi.WithSnapshotStore(projection.NewDiskSnapshotStore(snapshotBasePath(snapshotName))),
+		rangedbapi.WithLogger(logger),
 	)
 
 	websocketAPI, err := rangedbws.New(
