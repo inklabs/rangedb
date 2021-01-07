@@ -253,9 +253,7 @@ func (s *rangeDBServer) SubscribeToLiveEvents(_ *rangedbpb.SubscribeToLiveEvents
 		Unsubscribe: func(subscriber broadcast.RecordSubscriber) {
 			s.broadcaster.UnsubscribeAllEvents(subscriber)
 		},
-		GetRecords: func(globalSequenceNumber uint64) rangedb.RecordIterator {
-			return s.store.EventsStartingWith(stream.Context(), globalSequenceNumber)
-		},
+		GetRecords: nil,
 		ConsumeRecord: func(record *rangedb.Record) error {
 			return s.broadcastRecord(stream, record)
 		},
