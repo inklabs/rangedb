@@ -1,4 +1,4 @@
-package chat_test
+package rangedbtest
 
 import (
 	"context"
@@ -9,7 +9,8 @@ import (
 
 type failingSubscribeEventStore struct{}
 
-func newFailingSubscribeEventStore() *failingSubscribeEventStore {
+// NewFailingSubscribeEventStore constructs a failing event store for testing.
+func NewFailingSubscribeEventStore() *failingSubscribeEventStore {
 	return &failingSubscribeEventStore{}
 }
 

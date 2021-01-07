@@ -313,7 +313,7 @@ func TestNew_Failures(t *testing.T) {
 
 	t.Run("unable to subscribe", func(t *testing.T) {
 		// Given
-		failingStore := newFailingSubscribeEventStore()
+		failingStore := rangedbtest.NewFailingSubscribeEventStore()
 
 		// When
 		app, err := chat.New(failingStore)

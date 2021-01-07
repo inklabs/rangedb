@@ -85,6 +85,90 @@ func Test_WebsocketApi(t *testing.T) {
 			assertJsonEqual(t, expectedEvent2, string(actualBytes2))
 		})
 
+		t.Run("reads two events, starting from second event", func(t *testing.T) {
+			// Given
+			uuid.SetRand(rand.New(rand.NewSource(100)))
+			store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+			event1 := &rangedbtest.ThingWasDone{ID: "24f4ffa9bd2c43468241d648f16b6786", Number: 1}
+			event2 := &rangedbtest.ThingWasDone{ID: "b75064a917054396a9bb3a6b46d7bd4c", Number: 2}
+			event3 := &rangedbtest.ThingWasDone{ID: "d8e3d651d1e9477d9af18893a2e337b9", Number: 3}
+			ctx := rangedbtest.TimeoutContext(t)
+			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event1}))
+			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event2}))
+			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event3}))
+			api, err := rangedbws.New(rangedbws.WithStore(store))
+			require.NoError(t, err)
+			cleanup(t, api)
+			server := httptest.NewServer(api)
+			t.Cleanup(server.Close)
+			const globalSequenceNumber = 1
+			url := fmt.Sprintf("ws://%s/events?global-sequence-number=%d", strings.TrimPrefix(server.URL, "http://"), globalSequenceNumber)
+
+			// When
+			socket, response, err := websocket.DefaultDialer.Dial(url, nil)
+
+			// Then
+			require.NoError(t, err)
+			defer closeOrFail(t, socket)
+			defer closeOrFail(t, response.Body)
+			_, actualBytes1, err := socket.ReadMessage()
+			require.NoError(t, err)
+			_, actualBytes2, err := socket.ReadMessage()
+			require.NoError(t, err)
+			expectedEvent1 := `{
+				"aggregateType": "thing",
+				"aggregateID": "b75064a917054396a9bb3a6b46d7bd4c",
+				"globalSequenceNumber":1,
+				"sequenceNumber":0,
+				"insertTimestamp":1,
+				"eventID": "99cbd88bbcaf482ba1cc96ed12541707",
+				"eventType": "ThingWasDone",
+				"data":{
+					"id": "b75064a917054396a9bb3a6b46d7bd4c",
+					"number": 2
+				},
+				"metadata":null
+			}`
+			expectedEvent2 := `{
+				"aggregateType": "thing",
+				"aggregateID": "d8e3d651d1e9477d9af18893a2e337b9",
+				"globalSequenceNumber":2,
+				"sequenceNumber":0,
+				"insertTimestamp":2,
+				"eventID": "2e9e6918af10498cb7349c89a351fdb7",
+				"eventType": "ThingWasDone",
+				"data":{
+					"id": "d8e3d651d1e9477d9af18893a2e337b9",
+					"number": 3
+				},
+				"metadata":null
+			}`
+			assert.Equal(t, http.StatusSwitchingProtocols, response.StatusCode)
+			assertJsonEqual(t, expectedEvent1, string(actualBytes1))
+			assertJsonEqual(t, expectedEvent2, string(actualBytes2))
+		})
+
+		t.Run("errors from invalid global sequence number", func(t *testing.T) {
+			// Given
+			uuid.SetRand(rand.New(rand.NewSource(100)))
+			store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+			api, err := rangedbws.New(rangedbws.WithStore(store))
+			require.NoError(t, err)
+			cleanup(t, api)
+			server := httptest.NewServer(api)
+			t.Cleanup(server.Close)
+			url := fmt.Sprintf("ws://%s/events?global-sequence-number=invalid", strings.TrimPrefix(server.URL, "http://"))
+
+			// When
+			socket, response, err := websocket.DefaultDialer.Dial(url, nil)
+
+			// Then
+			require.EqualError(t, err, "websocket: bad handshake")
+			assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+			assert.Nil(t, socket)
+			closeOrFail(t, response.Body)
+		})
+
 		t.Run("unable to upgrade HTTP connection to the WebSocket protocol", func(t *testing.T) {
 			// Given
 			uuid.SetRand(rand.New(rand.NewSource(100)))
@@ -190,6 +274,27 @@ func Test_WebsocketApi(t *testing.T) {
 			assertJsonEqual(t, expectedEvent1, string(actualBytes1))
 			assertJsonEqual(t, expectedEvent2, string(actualBytes2))
 		})
+
+		t.Run("errors from invalid global sequence number", func(t *testing.T) {
+			// Given
+			uuid.SetRand(rand.New(rand.NewSource(100)))
+			store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+			api, err := rangedbws.New(rangedbws.WithStore(store))
+			require.NoError(t, err)
+			cleanup(t, api)
+			server := httptest.NewServer(api)
+			t.Cleanup(server.Close)
+			url := fmt.Sprintf("ws://%s/events/thing,that?global-sequence-number=invalid", strings.TrimPrefix(server.URL, "http://"))
+
+			// When
+			socket, response, err := websocket.DefaultDialer.Dial(url, nil)
+
+			// Then
+			require.EqualError(t, err, "websocket: bad handshake")
+			assert.Equal(t, http.StatusBadRequest, response.StatusCode)
+			assert.Nil(t, socket)
+			closeOrFail(t, response.Body)
+		})
 	})
 }
 
@@ -228,7 +333,7 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		assert.Equal(t, "Bad Request\nunable to upgrade websocket connection\n", response.Body.String())
 	})
 
-	t.Run("fails when writing existing events to connection", func(t *testing.T) {
+	t.Run("errors when writing existing events to connection", func(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
 		event := &rangedbtest.ThingWasDone{ID: "372b47686e1b43d29d2fd48f2a0e83f0", Number: 1}
@@ -253,6 +358,19 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		// Then
 
 	})
+
+	t.Run("errors from failing store", func(t *testing.T) {
+		// Given
+		failingStore := rangedbtest.NewFailingSubscribeEventStore()
+
+		// When
+		api, err := rangedbws.New(rangedbws.WithStore(failingStore))
+
+		// Then
+		assert.EqualError(t, err, "failingSubscribeEventStore.Subscribe")
+		assert.Nil(t, api)
+	})
+
 }
 
 func closeOrFail(t *testing.T, c io.Closer) {

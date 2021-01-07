@@ -2,6 +2,7 @@ package rangedbws
 
 import (
 	"bytes"
+	"fmt"
 	"log"
 	"math"
 	"testing"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
+	"github.com/inklabs/rangedb/rangedbtest"
 )
 
 func Test_Private_broadcastRecord(t *testing.T) {
@@ -34,7 +36,40 @@ func Test_Private_broadcastRecord(t *testing.T) {
 		err = api.broadcastRecord(nil, record)
 
 		// Then
-		assert.EqualError(t, err, "json: unsupported value: +Inf")
+		assert.EqualError(t, err, "unable to marshal record: json: unsupported value: +Inf")
 		assert.Equal(t, "unable to marshal record: json: unsupported value: +Inf\n", logBuffer.String())
 	})
+
+	t.Run("when unable to send message to client", func(t *testing.T) {
+		// Given
+		var logBuffer bytes.Buffer
+		logger := log.New(&logBuffer, "", 0)
+		api, err := New(
+			WithStore(inmemorystore.New()),
+			WithLogger(logger),
+		)
+		require.NoError(t, err)
+		t.Cleanup(func() {
+			require.NoError(t, api.Stop())
+		})
+		record := rangedbtest.DummyRecord()
+		failingMessageWriter := newFailingMessageWriter()
+
+		// When
+		err = api.broadcastRecord(failingMessageWriter, record)
+
+		// Then
+		assert.EqualError(t, err, "unable to send record to WebSocket client: failingMessageWriter.WriteMessage")
+		assert.Equal(t, "unable to send record to WebSocket client: failingMessageWriter.WriteMessage\n", logBuffer.String())
+	})
+}
+
+type failingMessageWriter struct{}
+
+func newFailingMessageWriter() *failingMessageWriter {
+	return &failingMessageWriter{}
+}
+
+func (f failingMessageWriter) WriteMessage(messageType int, data []byte) error {
+	return fmt.Errorf("failingMessageWriter.WriteMessage")
 }

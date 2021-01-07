@@ -108,6 +108,10 @@ func (a *websocketAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (a *websocketAPI) SubscribeToAllEvents(w http.ResponseWriter, r *http.Request) {
 	globalSequenceNumber, err := globalSequenceNumberFromRequest(r)
+	if err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
 
 	conn, err := a.upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -158,6 +162,10 @@ func globalSequenceNumberFromRequest(r *http.Request) (uint64, error) {
 
 func (a *websocketAPI) SubscribeToEventsByAggregateTypes(w http.ResponseWriter, r *http.Request) {
 	globalSequenceNumber, err := globalSequenceNumberFromRequest(r)
+	if err != nil {
+		http.Error(w, "invalid request", http.StatusBadRequest)
+		return
+	}
 
 	aggregateTypeInput := mux.Vars(r)["aggregateType"]
 	aggregateTypes := strings.Split(aggregateTypeInput, ",")
@@ -195,16 +203,18 @@ func (a *websocketAPI) SubscribeToEventsByAggregateTypes(w http.ResponseWriter, 
 	_, _, _ = conn.ReadMessage()
 }
 
-func (a *websocketAPI) broadcastRecord(conn *websocket.Conn, record *rangedb.Record) error {
+func (a *websocketAPI) broadcastRecord(conn MessageWriter, record *rangedb.Record) error {
 	jsonEvent, err := json.Marshal(record)
 	if err != nil {
-		a.logger.Printf("unable to marshal record: %v", err)
+		err = fmt.Errorf("unable to marshal record: %v", err)
+		a.logger.Print(err)
 		return err
 	}
 
 	err = a.sendMessage(conn, jsonEvent)
 	if err != nil {
-		a.logger.Printf("unable to send record to WebSocket client: %v", err)
+		err = fmt.Errorf("unable to send record to WebSocket client: %v", err)
+		a.logger.Print(err)
 		return err
 	}
 
@@ -219,8 +229,6 @@ type MessageWriter interface {
 func (a *websocketAPI) sendMessage(conn MessageWriter, message []byte) error {
 	err := conn.WriteMessage(websocket.TextMessage, message)
 	if err != nil {
-		err := fmt.Errorf("unable to send record to client: %v", err)
-		a.logger.Printf("%v", err)
 		return err
 	}
 
