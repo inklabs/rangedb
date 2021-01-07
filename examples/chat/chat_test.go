@@ -4,8 +4,12 @@ import (
 	"log"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/inklabs/rangedb/examples/chat"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
+	"github.com/inklabs/rangedb/rangedbtest"
 	"github.com/inklabs/rangedb/rangedbtest/bdd"
 )
 
@@ -292,6 +296,32 @@ func Test_SendPrivateMessageToRoom(t *testing.T) {
 			Message:      warnMessage,
 		}).
 		Then())
+}
+
+func TestNew_Failures(t *testing.T) {
+	t.Run("unable to subscribe starting with", func(t *testing.T) {
+		// Given
+		failingStore := rangedbtest.NewFailingEventStore()
+
+		// When
+		app, err := chat.New(failingStore)
+
+		// Then
+		require.EqualError(t, err, "failingEventStore.SubscribeStartingWith")
+		assert.Nil(t, app)
+	})
+
+	t.Run("unable to subscribe", func(t *testing.T) {
+		// Given
+		failingStore := newFailingSubscribeEventStore()
+
+		// When
+		app, err := chat.New(failingStore)
+
+		// Then
+		require.EqualError(t, err, "failingSubscribeEventStore.Subscribe")
+		assert.Nil(t, app)
+	})
 }
 
 func newTestCase() *bdd.TestCase {

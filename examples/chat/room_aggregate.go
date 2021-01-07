@@ -120,12 +120,10 @@ func (a *room) Load(recordIterator rangedb.RecordIterator) {
 	a.pendingEvents = nil
 
 	for recordIterator.Next() {
-		if recordIterator.Err() != nil {
-			break
-		}
-
-		if event, ok := recordIterator.Record().Data.(rangedb.Event); ok {
-			a.apply(event)
+		if recordIterator.Err() == nil {
+			if event, ok := recordIterator.Record().Data.(rangedb.Event); ok {
+				a.apply(event)
+			}
 		}
 	}
 }

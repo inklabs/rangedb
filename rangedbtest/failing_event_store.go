@@ -41,7 +41,7 @@ func (f failingEventStore) Subscribe(_ context.Context, _ ...rangedb.RecordSubsc
 }
 
 func (f failingEventStore) SubscribeStartingWith(_ context.Context, _ uint64, _ ...rangedb.RecordSubscriber) error {
-	return nil
+	return fmt.Errorf("failingEventStore.SubscribeStartingWith")
 }
 
 func (f failingEventStore) TotalEventsInStream(_ context.Context, _ string) (uint64, error) {
