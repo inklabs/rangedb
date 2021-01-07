@@ -27,22 +27,12 @@ func Test_Postgres_VerifyStoreInterface(t *testing.T) {
 		rangedbtest.BindEvents(store)
 
 		t.Cleanup(func() {
-			require.NoError(t, store.CloseDB())
 			truncateRecords(t, config)
+			require.NoError(t, store.CloseDB())
 		})
 
 		return store
 	})
-}
-
-func truncateRecords(t *testing.T, config postgresstore.Config) {
-	db, err := sql.Open("postgres", config.DataSourceName())
-	require.NoError(t, err)
-	_, err = db.Exec(`TRUNCATE record;`)
-	require.NoError(t, err)
-	_, err = db.Exec(`ALTER SEQUENCE global_sequence_number RESTART WITH 0;`)
-	require.NoError(t, err)
-	require.NoError(t, db.Close())
 }
 
 func BenchmarkPostgresStore(b *testing.B) {
@@ -54,15 +44,22 @@ func BenchmarkPostgresStore(b *testing.B) {
 		rangedbtest.BindEvents(store)
 
 		b.Cleanup(func() {
-			db, err := sql.Open("postgres", config.DataSourceName())
-			require.NoError(b, err)
-			_, err = db.Exec(`TRUNCATE record RESTART IDENTITY;`)
-			require.NoError(b, err)
+			truncateRecords(b, config)
 			require.NoError(b, store.CloseDB())
 		})
 
 		return store
 	})
+}
+
+func truncateRecords(t require.TestingT, config postgresstore.Config) {
+	db, err := sql.Open("postgres", config.DataSourceName())
+	require.NoError(t, err)
+	_, err = db.Exec(`TRUNCATE record;`)
+	require.NoError(t, err)
+	_, err = db.Exec(`ALTER SEQUENCE global_sequence_number RESTART WITH 0;`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
 }
 
 func Test_Failures(t *testing.T) {
