@@ -434,7 +434,7 @@ func (s *postgresStore) readResultRecords(ctx context.Context, rows *sql.Rows, r
 			s.serializer,
 		)
 		if err != nil {
-			resultRecords <- rangedb.ResultRecord{Err: err}
+			resultRecords <- rangedb.ResultRecord{Err: fmt.Errorf("unable to decode data: %v", err)}
 			return
 		}
 
@@ -442,7 +442,7 @@ func (s *postgresStore) readResultRecords(ctx context.Context, rows *sql.Rows, r
 		if serializedMetadata != "null" {
 			err = json.Unmarshal([]byte(serializedMetadata), metadata)
 			if err != nil {
-				resultRecords <- rangedb.ResultRecord{Err: err}
+				resultRecords <- rangedb.ResultRecord{Err: fmt.Errorf("unable to unmarshal metadata: %v", err)}
 				return
 			}
 		}

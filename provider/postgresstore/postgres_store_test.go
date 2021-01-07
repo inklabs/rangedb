@@ -28,17 +28,21 @@ func Test_Postgres_VerifyStoreInterface(t *testing.T) {
 
 		t.Cleanup(func() {
 			require.NoError(t, store.CloseDB())
-			db, err := sql.Open("postgres", config.DataSourceName())
-			require.NoError(t, err)
-			_, err = db.Exec(`TRUNCATE record;`)
-			require.NoError(t, err)
-			_, err = db.Exec(`ALTER SEQUENCE global_sequence_number RESTART WITH 0;`)
-			require.NoError(t, err)
-			require.NoError(t, db.Close())
+			truncateRecords(t, config)
 		})
 
 		return store
 	})
+}
+
+func truncateRecords(t *testing.T, config postgresstore.Config) {
+	db, err := sql.Open("postgres", config.DataSourceName())
+	require.NoError(t, err)
+	_, err = db.Exec(`TRUNCATE record;`)
+	require.NoError(t, err)
+	_, err = db.Exec(`ALTER SEQUENCE global_sequence_number RESTART WITH 0;`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
 }
 
 func BenchmarkPostgresStore(b *testing.B) {
@@ -109,6 +113,65 @@ func Test_Failures(t *testing.T) {
 			require.EqualError(t, iter.Err(), "sql: database is closed")
 		})
 
+		t.Run("errors from corrupt metadata in db", func(t *testing.T) {
+			// Given
+			store, err := postgresstore.New(config)
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				require.NoError(t, store.CloseDB())
+				truncateRecords(t, config)
+			})
+			insertEventWithBadMetadata(t, config)
+			ctx := rangedbtest.TimeoutContext(t)
+
+			// When
+			iter := store.EventsStartingWith(ctx, 0)
+
+			// Then
+			require.False(t, iter.Next())
+			require.Nil(t, iter.Record())
+			require.EqualError(t, iter.Err(), "unable to unmarshal metadata: invalid character 'i' looking for beginning of object key string")
+		})
+
+		t.Run("errors from corrupt data in db", func(t *testing.T) {
+			// Given
+			store, err := postgresstore.New(config)
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				require.NoError(t, store.CloseDB())
+				truncateRecords(t, config)
+			})
+			insertEventWithBadData(t, config)
+			ctx := rangedbtest.TimeoutContext(t)
+
+			// When
+			iter := store.EventsStartingWith(ctx, 0)
+
+			// Then
+			require.False(t, iter.Next())
+			require.Nil(t, iter.Record())
+			require.EqualError(t, iter.Err(), "unable to decode data: invalid character 'i' looking for beginning of object key string")
+		})
+
+		t.Run("errors from corrupt sequence number in db", func(t *testing.T) {
+			// Given
+			store, err := postgresstore.New(config)
+			require.NoError(t, err)
+			t.Cleanup(func() {
+				require.NoError(t, store.CloseDB())
+				truncateRecords(t, config)
+			})
+			insertEventWithBadStreamSequenceNumber(t, config)
+			ctx := rangedbtest.TimeoutContext(t)
+
+			// When
+			iter := store.EventsStartingWith(ctx, 0)
+
+			// Then
+			require.False(t, iter.Next())
+			require.Nil(t, iter.Record())
+			require.EqualError(t, iter.Err(), `sql: Scan error on column index 3, name "streamsequencenumber": converting NULL to uint64 is unsupported`)
+		})
 	})
 
 	t.Run("connect to DB fails from invalid DSN", func(t *testing.T) {
@@ -123,6 +186,60 @@ func Test_Failures(t *testing.T) {
 		require.NotNil(t, err)
 		assert.Contains(t, err.Error(), `unable to connect to DB:`)
 	})
+}
+
+func insertEventWithBadMetadata(t *testing.T, config postgresstore.Config) {
+	event := rangedbtest.ThingWasDone{}
+	values := []interface{}{
+		event.AggregateType(),
+		event.AggregateID(),
+		0,
+		0,
+		"38f40e85b40346eea98e96e9ebe60413",
+		event.EventType(),
+		"{}",
+		"{invalid-json",
+	}
+	insertRecordValues(t, config, values)
+}
+
+func insertEventWithBadData(t *testing.T, config postgresstore.Config) {
+	event := rangedbtest.ThingWasDone{}
+	values := []interface{}{
+		event.AggregateType(),
+		event.AggregateID(),
+		0,
+		0,
+		"38f40e85b40346eea98e96e9ebe60413",
+		event.EventType(),
+		"{invalid-json",
+		"null",
+	}
+	insertRecordValues(t, config, values)
+}
+
+func insertEventWithBadStreamSequenceNumber(t *testing.T, config postgresstore.Config) {
+	event := rangedbtest.ThingWasDone{}
+	values := []interface{}{
+		event.AggregateType(),
+		event.AggregateID(),
+		nil,
+		0,
+		"38f40e85b40346eea98e96e9ebe60413",
+		event.EventType(),
+		"{invalid-json",
+		"null",
+	}
+	insertRecordValues(t, config, values)
+}
+
+func insertRecordValues(t *testing.T, config postgresstore.Config, values []interface{}) {
+	sqlStatement := "INSERT INTO record (AggregateType,AggregateID,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8);"
+	db, err := sql.Open("postgres", config.DataSourceName())
+	require.NoError(t, err)
+	_, err = db.Exec(sqlStatement, values...)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
 }
 
 type testSkipper interface {
