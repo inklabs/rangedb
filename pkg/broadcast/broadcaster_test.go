@@ -21,7 +21,7 @@ func TestBroadcast(t *testing.T) {
 			broadcaster := broadcast.New(10)
 			cleanup(t, broadcaster)
 			spySubscriber := newSpySubscriber()
-			record := dummyRecord()
+			record := rangedbtest.DummyRecord()
 			broadcaster.SubscribeAllEvents(spySubscriber)
 
 			// When
@@ -37,7 +37,7 @@ func TestBroadcast(t *testing.T) {
 			cleanup(t, broadcaster)
 			spySubscriber1 := newSpySubscriber()
 			spySubscriber2 := newSpySubscriber()
-			record := dummyRecord()
+			record := rangedbtest.DummyRecord()
 			broadcaster.SubscribeAllEvents(
 				spySubscriber1,
 				spySubscriber2,
@@ -58,7 +58,7 @@ func TestBroadcast(t *testing.T) {
 			broadcaster.SetTimeout(time.Millisecond)
 			blockingSubscriber := newBlockingSubscriber()
 			spySubscriber := newSpySubscriber()
-			record := dummyRecord()
+			record := rangedbtest.DummyRecord()
 			broadcaster.SubscribeAllEvents(
 				blockingSubscriber,
 				spySubscriber,
@@ -76,7 +76,7 @@ func TestBroadcast(t *testing.T) {
 			broadcaster := broadcast.New(10)
 			cleanup(t, broadcaster)
 			spySubscriber := newSpySubscriber()
-			record := dummyRecord()
+			record := rangedbtest.DummyRecord()
 			broadcaster.SubscribeAllEvents(spySubscriber)
 			broadcaster.UnsubscribeAllEvents(spySubscriber)
 
@@ -96,7 +96,7 @@ func TestBroadcast(t *testing.T) {
 			broadcaster := broadcast.New(10)
 			cleanup(t, broadcaster)
 			spySubscriber := newSpySubscriber()
-			record := dummyRecord()
+			record := rangedbtest.DummyRecord()
 			broadcaster.SubscribeAggregateTypes(spySubscriber, record.AggregateType)
 
 			// When
@@ -111,7 +111,7 @@ func TestBroadcast(t *testing.T) {
 			broadcaster := broadcast.New(10)
 			cleanup(t, broadcaster)
 			spySubscriber := newSpySubscriber()
-			record := dummyRecord()
+			record := rangedbtest.DummyRecord()
 			broadcaster.SubscribeAggregateTypes(spySubscriber, record.AggregateType)
 			broadcaster.UnsubscribeAggregateTypes(spySubscriber, record.AggregateType)
 
@@ -173,22 +173,4 @@ func newBlockingSubscriber() *blockingSubscriber {
 
 func (s *blockingSubscriber) Receiver() broadcast.SendRecordChan {
 	return s.UnbufferedRecords
-}
-
-func dummyRecord() *rangedb.Record {
-	event := rangedbtest.ThingWasDone{
-		ID:     "016b9872688041adb82e1536327bf153",
-		Number: 100,
-	}
-	return &rangedb.Record{
-		AggregateType:        event.AggregateType(),
-		AggregateID:          event.AggregateID(),
-		GlobalSequenceNumber: 0,
-		StreamSequenceNumber: 0,
-		InsertTimestamp:      0,
-		EventID:              "231fdd0542bf48f1abc5d508c16ca66d",
-		EventType:            event.EventType(),
-		Data:                 event,
-		Metadata:             nil,
-	}
 }

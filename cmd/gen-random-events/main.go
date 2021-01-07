@@ -24,6 +24,7 @@ import (
 func main() {
 	fmt.Println("Random Event Generator")
 
+	eventType := flag.String("eventType", "", "event type: ThingWasDone, ThatWasDone, etc.")
 	totalEventsInput := flag.String("total", "", "total number of random events to generate")
 	maxEventsPerStream := flag.Int("maxPerStream", 10, "max events per stream")
 	host := flag.String("host", "127.0.0.1:8081", "RangeDB gRPC host address")
@@ -60,7 +61,7 @@ func main() {
 
 	store := remotestore.New(conn)
 	ctx, done := context.WithCancel(context.Background())
-	go generateRandomEvents(ctx, store, totalEvents, *maxEventsPerStream)
+	go generateRandomEvents(ctx, store, totalEvents, *maxEventsPerStream, *eventType)
 
 	<-stop
 
@@ -68,11 +69,11 @@ func main() {
 	done()
 }
 
-func generateRandomEvents(ctx context.Context, store rangedb.Store, totalEvents int, maxEventsPerStream int) {
+func generateRandomEvents(ctx context.Context, store rangedb.Store, totalEvents int, maxEventsPerStream int, eventType string) {
 	total := 0
 	for i := 0; i < totalEvents; i++ {
 		eventsPerStream := rand.Intn(maxEventsPerStream) + 1
-		eventRecords := getNEvents(eventsPerStream, shortuuid.New().String())
+		eventRecords := getNEvents(eventsPerStream, shortuuid.New().String(), eventType)
 		err := store.Save(ctx, eventRecords...)
 		if err != nil {
 			log.Fatal(err)
@@ -82,15 +83,23 @@ func generateRandomEvents(ctx context.Context, store rangedb.Store, totalEvents 
 	}
 }
 
-func getNEvents(n int, aggregateID string) []*rangedb.EventRecord {
+func getNEvents(n int, aggregateID, eventType string) []*rangedb.EventRecord {
 	eventRecords := make([]*rangedb.EventRecord, n)
 
 	for i := 0; i < n; i++ {
-		eventRecords[i] = &rangedb.EventRecord{
-			Event: &rangedbtest.ThingWasDone{
+		var event rangedb.Event
+		if eventType == "ThatWasDone" {
+			event = &rangedbtest.ThatWasDone{
+				ID: aggregateID,
+			}
+		} else {
+			event = &rangedbtest.ThingWasDone{
 				ID:     aggregateID,
 				Number: rand.Intn(n),
-			},
+			}
+		}
+		eventRecords[i] = &rangedb.EventRecord{
+			Event:    event,
 			Metadata: nil,
 		}
 	}

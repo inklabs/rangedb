@@ -25,7 +25,7 @@ func Example_streamAggregateTypeEvents() {
 	inMemoryStore := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 	api, err := rangedbws.New(rangedbws.WithStore(inMemoryStore))
 	PrintError(err)
-	defer api.Stop()
+	defer Close(api)
 
 	server := httptest.NewServer(api)
 	defer server.Close()

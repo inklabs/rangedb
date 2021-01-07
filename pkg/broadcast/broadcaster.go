@@ -15,6 +15,16 @@ type RecordSubscriber interface {
 	Receiver() SendRecordChan
 }
 
+type Broadcaster interface {
+	Accept(record *rangedb.Record)
+	SubscribeAllEvents(subscribers ...RecordSubscriber)
+	UnsubscribeAllEvents(subscribers ...RecordSubscriber)
+	SubscribeAggregateTypes(subscriber RecordSubscriber, aggregateTypes ...string)
+	UnsubscribeAggregateTypes(subscriber RecordSubscriber, aggregateTypes ...string)
+	SetTimeout(duration time.Duration)
+	Close() error
+}
+
 type broadcaster struct {
 	subscribeAllEventsChan        chan SendRecordChan
 	unsubscribeAllEventsChan      chan SendRecordChan
@@ -115,6 +125,7 @@ func (b *broadcaster) broadcastRecord(record *rangedb.Record) {
 		timeout := time.After(b.timeout)
 		select {
 		case <-timeout:
+			// TODO: drop connection since the client missed a record
 			log.Printf("timeout after %s", b.timeout.String())
 		case subscriber <- record:
 		}
@@ -124,6 +135,7 @@ func (b *broadcaster) broadcastRecord(record *rangedb.Record) {
 		timeout := time.After(b.timeout)
 		select {
 		case <-timeout:
+			// TODO: drop connection since the client missed a record
 			log.Printf("timeout after %s", b.timeout.String())
 		case subscriber <- record:
 		}

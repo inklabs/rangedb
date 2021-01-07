@@ -20,11 +20,11 @@ func main() {
 	host := flag.String("host", "127.0.0.1:8080", "RangeDB host address")
 	flag.Parse()
 
-	if *aggregateTypesCSV == "" {
-		log.Fatalf("Error: must supply aggregate types!")
+	if *aggregateTypesCSV != "" {
+		fmt.Printf("Subscribing to: %s\n", *aggregateTypesCSV)
+	} else {
+		fmt.Println("Subscribing to all events")
 	}
-
-	fmt.Printf("Subscribing to: %s\n", *aggregateTypesCSV)
 
 	var uri string
 	if *aggregateTypesCSV == "" {
@@ -35,6 +35,7 @@ func main() {
 
 	url := fmt.Sprintf("ws://%s%s", *host, uri)
 	ctx, done := context.WithCancel(context.Background())
+	defer done()
 	socket, _, err := websocket.DefaultDialer.DialContext(ctx, url, nil)
 	if err != nil {
 		log.Fatalf("unable to dial (%s): %v", url, err)
@@ -44,21 +45,23 @@ func main() {
 	stop := make(chan os.Signal)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
-	go readEventsForever(socket)
+	go readEventsForever(socket, stop)
 
 	<-stop
 
 	fmt.Println("Shutting down")
-	done()
 	err = socket.WriteMessage(websocket.TextMessage, []byte("close"))
 	if err != nil {
-		log.Fatalf("unable to write close message")
+		log.Print("unable to write close message")
 	}
 }
 
-func readEventsForever(socket *websocket.Conn) {
+func readEventsForever(socket *websocket.Conn, stop chan os.Signal) {
 	for {
-		_, message, _ := socket.ReadMessage()
+		_, message, err := socket.ReadMessage()
+		if err != nil {
+			stop <- syscall.SIGQUIT
+		}
 		fmt.Println(string(message))
 	}
 }

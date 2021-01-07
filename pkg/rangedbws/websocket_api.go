@@ -9,12 +9,13 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 
 	"github.com/inklabs/rangedb"
+	"github.com/inklabs/rangedb/pkg/broadcast"
+	"github.com/inklabs/rangedb/pkg/recordsubscriber"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 )
 
@@ -28,13 +29,8 @@ type websocketAPI struct {
 	upgrader        *websocket.Upgrader
 	logger          *log.Logger
 	bufferedRecords chan *rangedb.Record
+	broadcaster     broadcast.Broadcaster
 	stopChan        chan void
-
-	sync                     sync.RWMutex
-	allEventConnections      map[*websocket.Conn]void
-	aggregateTypeConnections map[string]map[*websocket.Conn]void
-
-	broadcastMutex sync.Mutex
 }
 
 // Option defines functional option parameters for websocketAPI.
@@ -62,11 +58,10 @@ func New(options ...Option) (*websocketAPI, error) {
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 		},
-		logger:                   log.New(ioutil.Discard, "", 0),
-		bufferedRecords:          make(chan *rangedb.Record, recordBuffSize),
-		stopChan:                 make(chan void),
-		allEventConnections:      make(map[*websocket.Conn]void),
-		aggregateTypeConnections: make(map[string]map[*websocket.Conn]void),
+		logger:          log.New(ioutil.Discard, "", 0),
+		bufferedRecords: make(chan *rangedb.Record, recordBuffSize),
+		broadcaster:     broadcast.New(recordBuffSize),
+		stopChan:        make(chan void),
 	}
 
 	for _, option := range options {
@@ -78,7 +73,6 @@ func New(options ...Option) (*websocketAPI, error) {
 	if err != nil {
 		return nil, err
 	}
-	go api.startBroadcaster()
 
 	return api, nil
 }
@@ -93,28 +87,18 @@ func (a *websocketAPI) initRoutes() {
 func (a *websocketAPI) initProjections() error {
 	ctx := context.Background()
 	return a.store.Subscribe(ctx,
-		rangedb.RecordSubscriberFunc(a.accept),
+		rangedb.RecordSubscriberFunc(a.broadcaster.Accept),
 	)
 }
 
-func (a *websocketAPI) startBroadcaster() {
-	for {
-		select {
-		case <-a.stopChan:
-			return
-
-		default:
-			a.broadcastRecord(<-a.bufferedRecords)
-		}
+func (a *websocketAPI) Close() error {
+	err := a.broadcaster.Close()
+	if err != nil {
+		return err
 	}
-}
 
-func (a *websocketAPI) accept(record *rangedb.Record) {
-	a.bufferedRecords <- record
-}
-
-func (a *websocketAPI) Stop() {
 	close(a.stopChan)
+	return nil
 }
 
 func (a *websocketAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -129,47 +113,30 @@ func (a *websocketAPI) SubscribeToAllEvents(w http.ResponseWriter, r *http.Reque
 	}
 	defer ignoreClose(conn)
 
-	lastGlobalSequenceNumber, err := a.writeEventsToConnection(conn, a.store.EventsStartingWith(r.Context(), 0))
+	config := recordsubscriber.Config{
+		BufLen:   100,
+		DoneChan: r.Context().Done(),
+		Subscribe: func(subscriber broadcast.RecordSubscriber) {
+			a.broadcaster.SubscribeAllEvents(subscriber)
+		},
+		Unsubscribe: func(subscriber broadcast.RecordSubscriber) {
+			a.broadcaster.UnsubscribeAllEvents(subscriber)
+			_ = conn.Close()
+		},
+		GetRecords: func(globalSequenceNumber uint64) rangedb.RecordIterator {
+			return a.store.EventsStartingWith(r.Context(), globalSequenceNumber)
+		},
+		ConsumeRecord: func(record *rangedb.Record) error {
+			return a.broadcastRecord(conn, record)
+		},
+	}
+	subscriber := recordsubscriber.New(config)
+	err = subscriber.Start()
 	if err != nil {
 		return
 	}
-
-	a.broadcastMutex.Lock()
-	_, err = a.writeEventsToConnection(conn, a.store.EventsStartingWith(r.Context(), lastGlobalSequenceNumber+1))
-	if err != nil {
-		a.broadcastMutex.Unlock()
-		return
-	}
-	a.subscribeToAllEvents(conn)
-	a.broadcastMutex.Unlock()
 
 	_, _, _ = conn.ReadMessage()
-	a.unsubscribeFromAllEvents(conn)
-}
-
-func (a *websocketAPI) writeEventsToConnection(conn MessageWriter, recordIterator rangedb.RecordIterator) (uint64, error) {
-	var lastGlobalSequenceNumber uint64
-	for recordIterator.Next() {
-		if recordIterator.Err() != nil {
-			a.logger.Print(recordIterator.Err())
-			return lastGlobalSequenceNumber, recordIterator.Err()
-		}
-
-		jsonEvent, err := json.Marshal(recordIterator.Record())
-		if err != nil {
-			err := fmt.Errorf("unable to marshal record: %v", err)
-			a.logger.Print(err)
-			return lastGlobalSequenceNumber, err
-		}
-
-		err = a.sendMessage(conn, jsonEvent)
-		if err != nil {
-			return lastGlobalSequenceNumber, err
-		}
-		lastGlobalSequenceNumber = recordIterator.Record().GlobalSequenceNumber
-	}
-
-	return lastGlobalSequenceNumber, nil
 }
 
 func (a *websocketAPI) SubscribeToEventsByAggregateTypes(w http.ResponseWriter, r *http.Request) {
@@ -183,93 +150,46 @@ func (a *websocketAPI) SubscribeToEventsByAggregateTypes(w http.ResponseWriter, 
 	}
 	defer ignoreClose(conn)
 
-	lastGlobalSequenceNumber, err := a.writeEventsToConnection(conn, a.store.EventsByAggregateTypesStartingWith(r.Context(), 0, aggregateTypes...))
+	config := recordsubscriber.Config{
+		BufLen:   100,
+		DoneChan: r.Context().Done(),
+		Subscribe: func(subscriber broadcast.RecordSubscriber) {
+			a.broadcaster.SubscribeAggregateTypes(subscriber, aggregateTypes...)
+		},
+		Unsubscribe: func(subscriber broadcast.RecordSubscriber) {
+			a.broadcaster.UnsubscribeAggregateTypes(subscriber, aggregateTypes...)
+			_ = conn.Close()
+		},
+		GetRecords: func(globalSequenceNumber uint64) rangedb.RecordIterator {
+			return a.store.EventsByAggregateTypesStartingWith(r.Context(), globalSequenceNumber, aggregateTypes...)
+		},
+		ConsumeRecord: func(record *rangedb.Record) error {
+			return a.broadcastRecord(conn, record)
+		},
+	}
+	subscriber := recordsubscriber.New(config)
+	err = subscriber.Start()
 	if err != nil {
 		return
 	}
-
-	a.broadcastMutex.Lock()
-	_, err = a.writeEventsToConnection(conn, a.store.EventsByAggregateTypesStartingWith(r.Context(), lastGlobalSequenceNumber+1, aggregateTypes...))
-	if err != nil {
-		a.broadcastMutex.Unlock()
-		return
-	}
-	a.subscribeToAggregateTypes(conn, aggregateTypes)
-	a.broadcastMutex.Unlock()
 
 	_, _, _ = conn.ReadMessage()
-	a.unsubscribeFromAggregateTypes(conn, aggregateTypes)
 }
 
-func (a *websocketAPI) subscribeToAllEvents(conn *websocket.Conn) {
-	a.sync.Lock()
-	a.allEventConnections[conn] = void{}
-	a.sync.Unlock()
-}
-
-func (a *websocketAPI) unsubscribeFromAllEvents(conn *websocket.Conn) {
-	a.sync.Lock()
-
-	delete(a.allEventConnections, conn)
-	_ = conn.Close()
-
-	a.sync.Unlock()
-}
-
-func (a *websocketAPI) subscribeToAggregateTypes(conn *websocket.Conn, aggregateTypes []string) {
-	a.sync.Lock()
-
-	for _, aggregateType := range aggregateTypes {
-		if _, ok := a.aggregateTypeConnections[aggregateType]; !ok {
-			a.aggregateTypeConnections[aggregateType] = make(map[*websocket.Conn]void)
-		}
-
-		a.aggregateTypeConnections[aggregateType][conn] = void{}
-	}
-
-	a.sync.Unlock()
-}
-
-func (a *websocketAPI) unsubscribeFromAggregateTypes(conn *websocket.Conn, aggregateTypes []string) {
-	a.sync.Lock()
-
-	for _, aggregateType := range aggregateTypes {
-		delete(a.aggregateTypeConnections[aggregateType], conn)
-	}
-
-	_ = conn.Close()
-
-	a.sync.Unlock()
-}
-
-func (a *websocketAPI) broadcastRecord(record *rangedb.Record) {
-	a.broadcastMutex.Lock()
-	defer a.broadcastMutex.Unlock()
-
+func (a *websocketAPI) broadcastRecord(conn *websocket.Conn, record *rangedb.Record) error {
 	jsonEvent, err := json.Marshal(record)
 	if err != nil {
 		a.logger.Printf("unable to marshal record: %v", err)
-		return
+		return err
 	}
 
-	a.sync.RLock()
-	defer a.sync.RUnlock()
-
-	for connection := range a.allEventConnections {
-		err := a.sendMessage(connection, jsonEvent)
-		if err != nil {
-			log.Printf("unable to send record to WebSocket client: %v", err)
-		}
+	err = a.sendMessage(conn, jsonEvent)
+	if err != nil {
+		a.logger.Printf("unable to send record to WebSocket client: %v", err)
+		return err
 	}
 
-	if connections, ok := a.aggregateTypeConnections[record.AggregateType]; ok {
-		for connection := range connections {
-			err := a.sendMessage(connection, jsonEvent)
-			if err != nil {
-				log.Printf("unable to send record to WebSocket client: %v", err)
-			}
-		}
-	}
+	return nil
 }
 
 // MessageWriter is the interface for writing a message to a connection

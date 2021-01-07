@@ -25,7 +25,7 @@ func Example_streamAllEvents() {
 	inMemoryStore := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 	websocketApi, err := rangedbws.New(rangedbws.WithStore(inMemoryStore))
 	PrintError(err)
-	defer websocketApi.Stop()
+	defer Close(websocketApi)
 
 	server := httptest.NewServer(websocketApi)
 	defer server.Close()

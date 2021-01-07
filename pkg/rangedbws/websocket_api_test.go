@@ -1,6 +1,8 @@
 package rangedbws_test
 
 import (
+	"context"
+	"fmt"
 	"io"
 	"math/rand"
 	"net/http"
@@ -21,65 +23,174 @@ import (
 	"github.com/inklabs/rangedb/rangedbtest"
 )
 
-func Test_WebsocketApi_SubscribeToAllEvents_ReadsEventsOverWebsocket(t *testing.T) {
-	// Given
-	uuid.SetRand(rand.New(rand.NewSource(100)))
-	store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
-	event1 := &rangedbtest.ThingWasDone{ID: "6595a5c206c746c3a9d9006c7df5784e", Number: 1}
-	event2 := &rangedbtest.ThingWasDone{ID: "8cc839e1fd3545b7a0fe67808d84cbd4", Number: 2}
-	ctx := rangedbtest.TimeoutContext(t)
-	require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event1}))
-	require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event2}))
-	api, err := rangedbws.New(rangedbws.WithStore(store))
-	require.NoError(t, err)
-	t.Cleanup(api.Stop)
-	server := httptest.NewServer(api)
-	t.Cleanup(server.Close)
+func Test_WebsocketApi(t *testing.T) {
+	t.Run("all events", func(t *testing.T) {
+		t.Run("reads two events", func(t *testing.T) {
+			// Given
+			uuid.SetRand(rand.New(rand.NewSource(100)))
+			store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+			event1 := &rangedbtest.ThingWasDone{ID: "6595a5c206c746c3a9d9006c7df5784e", Number: 1}
+			event2 := &rangedbtest.ThingWasDone{ID: "8cc839e1fd3545b7a0fe67808d84cbd4", Number: 2}
+			ctx := rangedbtest.TimeoutContext(t)
+			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event1}))
+			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event2}))
+			api, err := rangedbws.New(rangedbws.WithStore(store))
+			require.NoError(t, err)
+			cleanup(t, api)
+			server := httptest.NewServer(api)
+			t.Cleanup(server.Close)
+			url := fmt.Sprintf("ws://%s/events", strings.TrimPrefix(server.URL, "http://"))
 
-	url := "ws" + strings.TrimPrefix(server.URL, "http") + "/events"
-	socket, response, err := websocket.DefaultDialer.Dial(url, nil)
-	require.NoError(t, err)
-	defer closeOrFail(t, socket)
-	defer closeOrFail(t, response.Body)
+			// When
+			socket, response, err := websocket.DefaultDialer.Dial(url, nil)
 
-	// When
-	_, actualBytes1, err := socket.ReadMessage()
-	require.NoError(t, err)
-	_, actualBytes2, err := socket.ReadMessage()
-	require.NoError(t, err)
+			// Then
+			require.NoError(t, err)
+			defer closeOrFail(t, socket)
+			defer closeOrFail(t, response.Body)
+			_, actualBytes1, err := socket.ReadMessage()
+			require.NoError(t, err)
+			_, actualBytes2, err := socket.ReadMessage()
+			require.NoError(t, err)
+			expectedEvent1 := `{
+				"aggregateType": "thing",
+				"aggregateID": "6595a5c206c746c3a9d9006c7df5784e",
+				"globalSequenceNumber":0,
+				"sequenceNumber":0,
+				"insertTimestamp":0,
+				"eventID": "d2ba8e70072943388203c438d4e94bf3",
+				"eventType": "ThingWasDone",
+				"data":{
+					"id": "6595a5c206c746c3a9d9006c7df5784e",
+					"number": 1
+				},
+				"metadata":null
+			}`
+			expectedEvent2 := `{
+				"aggregateType": "thing",
+				"aggregateID": "8cc839e1fd3545b7a0fe67808d84cbd4",
+				"globalSequenceNumber":1,
+				"sequenceNumber":0,
+				"insertTimestamp":1,
+				"eventID": "99cbd88bbcaf482ba1cc96ed12541707",
+				"eventType": "ThingWasDone",
+				"data":{
+					"id": "8cc839e1fd3545b7a0fe67808d84cbd4",
+					"number": 2
+				},
+				"metadata":null
+			}`
+			assert.Equal(t, http.StatusSwitchingProtocols, response.StatusCode)
+			assertJsonEqual(t, expectedEvent1, string(actualBytes1))
+			assertJsonEqual(t, expectedEvent2, string(actualBytes2))
+		})
 
-	// Then
-	expectedEvent1 := `{
-		"aggregateType": "thing",
-		"aggregateID": "6595a5c206c746c3a9d9006c7df5784e",
-		"globalSequenceNumber":0,
-		"sequenceNumber":0,
-		"insertTimestamp":0,
-		"eventID": "d2ba8e70072943388203c438d4e94bf3",
-		"eventType": "ThingWasDone",
-		"data":{
-			"id": "6595a5c206c746c3a9d9006c7df5784e",
-			"number": 1
-		},
-		"metadata":null
-	}`
-	expectedEvent2 := `{
-		"aggregateType": "thing",
-		"aggregateID": "8cc839e1fd3545b7a0fe67808d84cbd4",
-		"globalSequenceNumber":1,
-		"sequenceNumber":0,
-		"insertTimestamp":1,
-		"eventID": "99cbd88bbcaf482ba1cc96ed12541707",
-		"eventType": "ThingWasDone",
-		"data":{
-			"id": "8cc839e1fd3545b7a0fe67808d84cbd4",
-			"number": 2
-		},
-		"metadata":null
-	}`
-	assert.Equal(t, http.StatusSwitchingProtocols, response.StatusCode)
-	assertJsonEqual(t, expectedEvent1, string(actualBytes1))
-	assertJsonEqual(t, expectedEvent2, string(actualBytes2))
+		t.Run("unable to upgrade HTTP connection to the WebSocket protocol", func(t *testing.T) {
+			// Given
+			uuid.SetRand(rand.New(rand.NewSource(100)))
+			store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+			api, err := rangedbws.New(rangedbws.WithStore(store))
+			require.NoError(t, err)
+			cleanup(t, api)
+			server := httptest.NewServer(api)
+			t.Cleanup(server.Close)
+			request := httptest.NewRequest(http.MethodGet, "/events", nil)
+			response := httptest.NewRecorder()
+
+			// When
+			api.ServeHTTP(response, request)
+
+			// Then
+			require.Equal(t, http.StatusBadRequest, response.Code)
+			assert.Equal(t, "Bad Request\nunable to upgrade websocket connection\n", response.Body.String())
+		})
+
+		t.Run("unable to send first event from failing store", func(t *testing.T) {
+			// Given
+			uuid.SetRand(rand.New(rand.NewSource(100)))
+			failingStore := rangedbtest.NewFailingEventStore()
+			ctx := rangedbtest.TimeoutContext(t)
+			api, err := rangedbws.New(rangedbws.WithStore(failingStore))
+			require.NoError(t, err)
+			cleanup(t, api)
+			server := httptest.NewServer(api)
+			t.Cleanup(server.Close)
+			url := fmt.Sprintf("ws://%s/events", strings.TrimPrefix(server.URL, "http://"))
+			ctx, done := context.WithCancel(rangedbtest.TimeoutContext(t))
+
+			// When
+			socket, response, err := websocket.DefaultDialer.DialContext(ctx, url, nil)
+
+			// Then
+			require.NoError(t, err)
+			done()
+			require.NoError(t, socket.Close())
+			defer closeOrFail(t, response.Body)
+		})
+	})
+
+	t.Run("events by aggregate types", func(t *testing.T) {
+		t.Run("reads two events", func(t *testing.T) {
+			// Given
+			uuid.SetRand(rand.New(rand.NewSource(100)))
+			store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+			event1 := &rangedbtest.ThingWasDone{ID: "c0f61ffbe61a418383244277e9ee6084", Number: 1}
+			event2 := &rangedbtest.AnotherWasComplete{ID: "0ebd3f223484462185cf0e78da083696"}
+			event3 := &rangedbtest.ThatWasDone{ID: "14d50d2cbf8d4b2cbdac21308a4f8155"}
+			ctx := rangedbtest.TimeoutContext(t)
+			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event1}))
+			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event2}))
+			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event3}))
+			api, err := rangedbws.New(rangedbws.WithStore(store))
+			require.NoError(t, err)
+			cleanup(t, api)
+			server := httptest.NewServer(api)
+			t.Cleanup(server.Close)
+			url := fmt.Sprintf("ws://%s/events/thing,that", strings.TrimPrefix(server.URL, "http://"))
+
+			// When
+			socket, response, err := websocket.DefaultDialer.Dial(url, nil)
+
+			// Then
+			require.NoError(t, err)
+			defer closeOrFail(t, socket)
+			defer closeOrFail(t, response.Body)
+			_, actualBytes1, err := socket.ReadMessage()
+			require.NoError(t, err)
+			_, actualBytes2, err := socket.ReadMessage()
+			require.NoError(t, err)
+			expectedEvent1 := `{
+				"aggregateType": "thing",
+				"aggregateID": "c0f61ffbe61a418383244277e9ee6084",
+				"globalSequenceNumber":0,
+				"sequenceNumber":0,
+				"insertTimestamp":0,
+				"eventID": "d2ba8e70072943388203c438d4e94bf3",
+				"eventType": "ThingWasDone",
+				"data":{
+					"id": "c0f61ffbe61a418383244277e9ee6084",
+					"number": 1
+				},
+				"metadata":null
+			}`
+			expectedEvent2 := `{
+				"aggregateType": "that",
+				"aggregateID": "14d50d2cbf8d4b2cbdac21308a4f8155",
+				"globalSequenceNumber":2,
+				"sequenceNumber":0,
+				"insertTimestamp":2,
+				"eventID": "2e9e6918af10498cb7349c89a351fdb7",
+				"eventType": "ThatWasDone",
+				"data":{
+					"ID": "14d50d2cbf8d4b2cbdac21308a4f8155"
+				},
+				"metadata":null
+			}`
+			assert.Equal(t, http.StatusSwitchingProtocols, response.StatusCode)
+			assertJsonEqual(t, expectedEvent1, string(actualBytes1))
+			assertJsonEqual(t, expectedEvent2, string(actualBytes2))
+		})
+	})
 }
 
 func Test_WebsocketApi_Failures(t *testing.T) {
@@ -88,7 +199,7 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		store := inmemorystore.New()
 		api, err := rangedbws.New(rangedbws.WithStore(store))
 		require.NoError(t, err)
-		t.Cleanup(api.Stop)
+		cleanup(t, api)
 		request := httptest.NewRequest(http.MethodGet, "/events", nil)
 		response := httptest.NewRecorder()
 
@@ -105,7 +216,7 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		store := inmemorystore.New()
 		api, err := rangedbws.New(rangedbws.WithStore(store))
 		require.NoError(t, err)
-		t.Cleanup(api.Stop)
+		cleanup(t, api)
 		request := httptest.NewRequest(http.MethodGet, "/events/thing", nil)
 		response := httptest.NewRecorder()
 
@@ -127,7 +238,7 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		))
 		api, err := rangedbws.New(rangedbws.WithStore(store))
 		require.NoError(t, err)
-		t.Cleanup(api.Stop)
+		cleanup(t, api)
 		server := httptest.NewServer(api)
 		t.Cleanup(server.Close)
 
@@ -151,4 +262,10 @@ func closeOrFail(t *testing.T, c io.Closer) {
 func assertJsonEqual(t *testing.T, expectedJson, actualJson string) {
 	t.Helper()
 	assert.Equal(t, jsontools.PrettyJSONString(expectedJson), jsontools.PrettyJSONString(actualJson))
+}
+
+func cleanup(t *testing.T, closer io.Closer) {
+	t.Cleanup(func() {
+		require.NoError(t, closer.Close())
+	})
 }

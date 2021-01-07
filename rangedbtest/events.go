@@ -97,3 +97,22 @@ func NewEventThatWillFailUnmarshal(aggregateType, aggregateID string) rangedb.Ev
 		make(chan int),
 	)
 }
+
+// DummyRecord returns a dummy rangedb.Record
+func DummyRecord() *rangedb.Record {
+	event := ThingWasDone{
+		ID:     "016b9872688041adb82e1536327bf153",
+		Number: 100,
+	}
+	return &rangedb.Record{
+		AggregateType:        event.AggregateType(),
+		AggregateID:          event.AggregateID(),
+		GlobalSequenceNumber: 0,
+		StreamSequenceNumber: 0,
+		InsertTimestamp:      0,
+		EventID:              "231fdd0542bf48f1abc5d508c16ca66d",
+		EventType:            event.EventType(),
+		Data:                 event,
+		Metadata:             nil,
+	}
+}
