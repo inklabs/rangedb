@@ -25,7 +25,7 @@ func New(store rangedb.Store) (cqrs.CommandDispatcher, error) {
 	restrictedWordProcessor := newRestrictedWordProcessor(app, warnedUsers)
 
 	const bufferSize = 10
-	broadcaster := broadcast.New(bufferSize)
+	broadcaster := broadcast.New(bufferSize, broadcast.DefaultTimeout)
 	ctx := context.Background()
 	err := store.Subscribe(ctx,
 		rangedb.RecordSubscriberFunc(broadcaster.Accept),

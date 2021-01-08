@@ -12,13 +12,6 @@ func Close(c io.Closer) {
 	}
 }
 
-func Stop(c Stopper) {
-	err := c.Stop()
-	if err != nil {
-		fmt.Printf("failed stopping: %v", err)
-	}
-}
-
 func PrintError(errors ...error) {
 	for _, err := range errors {
 		if err != nil {

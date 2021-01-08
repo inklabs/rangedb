@@ -84,7 +84,7 @@ func New(options ...Option) (*api, error) {
 		msgpackRecordIoStream: msgpackrecordiostream.New(),
 		store:                 inmemorystore.New(),
 		logger:                log.New(ioutil.Discard, "", 0),
-		broadcaster:           broadcast.New(broadcastRecordBuffSize),
+		broadcaster:           broadcast.New(broadcastRecordBuffSize, broadcast.DefaultTimeout),
 		baseUri:               "http://127.0.0.1",
 	}
 

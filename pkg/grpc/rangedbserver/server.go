@@ -48,7 +48,7 @@ func WithStore(store rangedb.Store) Option {
 func New(options ...Option) (*rangeDBServer, error) {
 	server := &rangeDBServer{
 		store:       inmemorystore.New(),
-		broadcaster: broadcast.New(broadcastRecordBuffSize),
+		broadcaster: broadcast.New(broadcastRecordBuffSize, broadcast.DefaultTimeout),
 		stopChan:    make(chan void),
 	}
 
@@ -72,11 +72,7 @@ func (s *rangeDBServer) initProjections() error {
 }
 
 func (s *rangeDBServer) Stop() error {
-	err := s.broadcaster.Close()
-	if err != nil {
-		return err
-	}
-
+	s.broadcaster.Close()
 	close(s.stopChan)
 	return nil
 }

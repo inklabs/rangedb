@@ -2,7 +2,6 @@ package broadcast_test
 
 import (
 	"context"
-	"io"
 	"testing"
 	"time"
 
@@ -14,12 +13,14 @@ import (
 	"github.com/inklabs/rangedb/rangedbtest"
 )
 
+const timeout = 10 * time.Millisecond
+
 func TestBroadcast(t *testing.T) {
 	t.Run("subscribe to all events", func(t *testing.T) {
 		t.Run("broadcasts record to single subscriber", func(t *testing.T) {
 			// Given
-			broadcaster := broadcast.New(10)
-			cleanup(t, broadcaster)
+			broadcaster := broadcast.New(10, timeout)
+			t.Cleanup(broadcaster.Close)
 			spySubscriber := newSpySubscriber()
 			record := rangedbtest.DummyRecord()
 			broadcaster.SubscribeAllEvents(spySubscriber)
@@ -33,8 +34,8 @@ func TestBroadcast(t *testing.T) {
 
 		t.Run("broadcasts record to two subscribers", func(t *testing.T) {
 			// Given
-			broadcaster := broadcast.New(10)
-			cleanup(t, broadcaster)
+			broadcaster := broadcast.New(10, timeout)
+			t.Cleanup(broadcaster.Close)
 			spySubscriber1 := newSpySubscriber()
 			spySubscriber2 := newSpySubscriber()
 			record := rangedbtest.DummyRecord()
@@ -53,9 +54,8 @@ func TestBroadcast(t *testing.T) {
 
 		t.Run("times out with first subscriber, and broadcasts record to second subscriber", func(t *testing.T) {
 			// Given
-			broadcaster := broadcast.New(10)
-			cleanup(t, broadcaster)
-			broadcaster.SetTimeout(time.Millisecond)
+			broadcaster := broadcast.New(10, time.Nanosecond)
+			t.Cleanup(broadcaster.Close)
 			blockingSubscriber := newBlockingSubscriber()
 			spySubscriber := newSpySubscriber()
 			record := rangedbtest.DummyRecord()
@@ -68,13 +68,14 @@ func TestBroadcast(t *testing.T) {
 			broadcaster.Accept(record)
 
 			// Then
+			assert.True(t, <-blockingSubscriber.stopChan)
 			assertReceivedRecord(t, spySubscriber, record)
 		})
 
 		t.Run("unsubscribes without sending on closed channel", func(t *testing.T) {
 			// Given
-			broadcaster := broadcast.New(10)
-			cleanup(t, broadcaster)
+			broadcaster := broadcast.New(10, timeout)
+			t.Cleanup(broadcaster.Close)
 			spySubscriber := newSpySubscriber()
 			record := rangedbtest.DummyRecord()
 			broadcaster.SubscribeAllEvents(spySubscriber)
@@ -93,8 +94,8 @@ func TestBroadcast(t *testing.T) {
 	t.Run("subscribe to events by single aggregate type", func(t *testing.T) {
 		t.Run("broadcasts record to single subscriber", func(t *testing.T) {
 			// Given
-			broadcaster := broadcast.New(10)
-			cleanup(t, broadcaster)
+			broadcaster := broadcast.New(10, timeout)
+			t.Cleanup(broadcaster.Close)
 			spySubscriber := newSpySubscriber()
 			record := rangedbtest.DummyRecord()
 			broadcaster.SubscribeAggregateTypes(spySubscriber, record.AggregateType)
@@ -108,8 +109,8 @@ func TestBroadcast(t *testing.T) {
 
 		t.Run("unsubscribes without sending on closed channel", func(t *testing.T) {
 			// Given
-			broadcaster := broadcast.New(10)
-			cleanup(t, broadcaster)
+			broadcaster := broadcast.New(10, timeout)
+			t.Cleanup(broadcaster.Close)
 			spySubscriber := newSpySubscriber()
 			record := rangedbtest.DummyRecord()
 			broadcaster.SubscribeAggregateTypes(spySubscriber, record.AggregateType)
@@ -123,6 +124,24 @@ func TestBroadcast(t *testing.T) {
 			assert.Equal(t, context.DeadlineExceeded, err)
 			assert.Nil(t, actualRecord)
 		})
+
+		t.Run("times out with first subscriber, and broadcasts record to second subscriber", func(t *testing.T) {
+			// Given
+			broadcaster := broadcast.New(10, time.Nanosecond)
+			t.Cleanup(broadcaster.Close)
+			blockingSubscriber := newBlockingSubscriber()
+			spySubscriber := newSpySubscriber()
+			record := rangedbtest.DummyRecord()
+			broadcaster.SubscribeAggregateTypes(blockingSubscriber, record.AggregateType)
+			broadcaster.SubscribeAggregateTypes(spySubscriber, record.AggregateType)
+
+			// When
+			broadcaster.Accept(record)
+
+			// Then
+			assert.True(t, <-blockingSubscriber.stopChan)
+			assertReceivedRecord(t, spySubscriber, record)
+		})
 	})
 }
 
@@ -130,12 +149,6 @@ func assertReceivedRecord(t *testing.T, spySubscriber *spySubscriber, record *ra
 	actualRecord, err := spySubscriber.Read()
 	require.NoError(t, err)
 	assert.Equal(t, record, actualRecord)
-}
-
-func cleanup(t *testing.T, closer io.Closer) {
-	t.Cleanup(func() {
-		require.NoError(t, closer.Close())
-	})
 }
 
 type spySubscriber struct {
@@ -152,6 +165,10 @@ func (s *spySubscriber) Receiver() broadcast.SendRecordChan {
 	return s.bufferedRecords
 }
 
+func (s *spySubscriber) Stop() {
+	close(s.bufferedRecords)
+}
+
 func (s *spySubscriber) Read() (*rangedb.Record, error) {
 	select {
 	case <-time.After(100 * time.Millisecond):
@@ -163,14 +180,21 @@ func (s *spySubscriber) Read() (*rangedb.Record, error) {
 
 type blockingSubscriber struct {
 	UnbufferedRecords chan *rangedb.Record
+	stopChan          chan bool
 }
 
 func newBlockingSubscriber() *blockingSubscriber {
 	return &blockingSubscriber{
 		UnbufferedRecords: make(chan *rangedb.Record),
+		stopChan:          make(chan bool, 1),
 	}
 }
 
 func (s *blockingSubscriber) Receiver() broadcast.SendRecordChan {
 	return s.UnbufferedRecords
+}
+
+func (s *blockingSubscriber) Stop() {
+	close(s.UnbufferedRecords)
+	s.stopChan <- true
 }

@@ -25,9 +25,7 @@ func Test_Private_broadcastRecord(t *testing.T) {
 			WithLogger(logger),
 		)
 		require.NoError(t, err)
-		t.Cleanup(func() {
-			require.NoError(t, api.Stop())
-		})
+		t.Cleanup(api.Stop)
 		record := &rangedb.Record{
 			Data: math.Inf(1),
 		}
@@ -49,9 +47,7 @@ func Test_Private_broadcastRecord(t *testing.T) {
 			WithLogger(logger),
 		)
 		require.NoError(t, err)
-		t.Cleanup(func() {
-			require.NoError(t, api.Stop())
-		})
+		t.Cleanup(api.Stop)
 		record := rangedbtest.DummyRecord()
 		failingMessageWriter := newFailingMessageWriter()
 
@@ -70,6 +66,6 @@ func newFailingMessageWriter() *failingMessageWriter {
 	return &failingMessageWriter{}
 }
 
-func (f failingMessageWriter) WriteMessage(messageType int, data []byte) error {
+func (f failingMessageWriter) WriteMessage(_ int, _ []byte) error {
 	return fmt.Errorf("failingMessageWriter.WriteMessage")
 }

@@ -62,7 +62,7 @@ func New(options ...Option) (*websocketAPI, error) {
 			WriteBufferSize: 1024,
 		},
 		logger:      log.New(ioutil.Discard, "", 0),
-		broadcaster: broadcast.New(broadcastRecordBuffSize),
+		broadcaster: broadcast.New(broadcastRecordBuffSize, broadcast.DefaultTimeout),
 		stopChan:    make(chan void),
 	}
 
@@ -93,14 +93,9 @@ func (a *websocketAPI) initProjections() error {
 	)
 }
 
-func (a *websocketAPI) Stop() error {
-	err := a.broadcaster.Close()
-	if err != nil {
-		return err
-	}
-
+func (a *websocketAPI) Stop() {
+	a.broadcaster.Close()
 	close(a.stopChan)
-	return nil
 }
 
 func (a *websocketAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {

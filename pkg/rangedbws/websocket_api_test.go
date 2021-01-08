@@ -36,7 +36,7 @@ func Test_WebsocketApi(t *testing.T) {
 			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event2}))
 			api, err := rangedbws.New(rangedbws.WithStore(store))
 			require.NoError(t, err)
-			cleanup(t, api)
+			t.Cleanup(api.Stop)
 			server := httptest.NewServer(api)
 			t.Cleanup(server.Close)
 			url := fmt.Sprintf("ws://%s/events", strings.TrimPrefix(server.URL, "http://"))
@@ -98,7 +98,7 @@ func Test_WebsocketApi(t *testing.T) {
 			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event3}))
 			api, err := rangedbws.New(rangedbws.WithStore(store))
 			require.NoError(t, err)
-			cleanup(t, api)
+			t.Cleanup(api.Stop)
 			server := httptest.NewServer(api)
 			t.Cleanup(server.Close)
 			const globalSequenceNumber = 1
@@ -154,7 +154,7 @@ func Test_WebsocketApi(t *testing.T) {
 			store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 			api, err := rangedbws.New(rangedbws.WithStore(store))
 			require.NoError(t, err)
-			cleanup(t, api)
+			t.Cleanup(api.Stop)
 			server := httptest.NewServer(api)
 			t.Cleanup(server.Close)
 			url := fmt.Sprintf("ws://%s/events?global-sequence-number=invalid", strings.TrimPrefix(server.URL, "http://"))
@@ -175,7 +175,7 @@ func Test_WebsocketApi(t *testing.T) {
 			store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 			api, err := rangedbws.New(rangedbws.WithStore(store))
 			require.NoError(t, err)
-			cleanup(t, api)
+			t.Cleanup(api.Stop)
 			server := httptest.NewServer(api)
 			t.Cleanup(server.Close)
 			request := httptest.NewRequest(http.MethodGet, "/events", nil)
@@ -196,7 +196,7 @@ func Test_WebsocketApi(t *testing.T) {
 			ctx := rangedbtest.TimeoutContext(t)
 			api, err := rangedbws.New(rangedbws.WithStore(failingStore))
 			require.NoError(t, err)
-			cleanup(t, api)
+			t.Cleanup(api.Stop)
 			server := httptest.NewServer(api)
 			t.Cleanup(server.Close)
 			url := fmt.Sprintf("ws://%s/events", strings.TrimPrefix(server.URL, "http://"))
@@ -227,7 +227,7 @@ func Test_WebsocketApi(t *testing.T) {
 			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event3}))
 			api, err := rangedbws.New(rangedbws.WithStore(store))
 			require.NoError(t, err)
-			cleanup(t, api)
+			t.Cleanup(api.Stop)
 			server := httptest.NewServer(api)
 			t.Cleanup(server.Close)
 			url := fmt.Sprintf("ws://%s/events/thing,that", strings.TrimPrefix(server.URL, "http://"))
@@ -281,7 +281,7 @@ func Test_WebsocketApi(t *testing.T) {
 			store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 			api, err := rangedbws.New(rangedbws.WithStore(store))
 			require.NoError(t, err)
-			cleanup(t, api)
+			t.Cleanup(api.Stop)
 			server := httptest.NewServer(api)
 			t.Cleanup(server.Close)
 			url := fmt.Sprintf("ws://%s/events/thing,that?global-sequence-number=invalid", strings.TrimPrefix(server.URL, "http://"))
@@ -304,7 +304,7 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		store := inmemorystore.New()
 		api, err := rangedbws.New(rangedbws.WithStore(store))
 		require.NoError(t, err)
-		cleanup(t, api)
+		t.Cleanup(api.Stop)
 		request := httptest.NewRequest(http.MethodGet, "/events", nil)
 		response := httptest.NewRecorder()
 
@@ -321,7 +321,7 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		store := inmemorystore.New()
 		api, err := rangedbws.New(rangedbws.WithStore(store))
 		require.NoError(t, err)
-		cleanup(t, api)
+		t.Cleanup(api.Stop)
 		request := httptest.NewRequest(http.MethodGet, "/events/thing", nil)
 		response := httptest.NewRecorder()
 
@@ -343,7 +343,7 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		))
 		api, err := rangedbws.New(rangedbws.WithStore(store))
 		require.NoError(t, err)
-		cleanup(t, api)
+		t.Cleanup(api.Stop)
 		server := httptest.NewServer(api)
 		t.Cleanup(server.Close)
 
@@ -380,14 +380,4 @@ func closeOrFail(t *testing.T, c io.Closer) {
 func assertJsonEqual(t *testing.T, expectedJson, actualJson string) {
 	t.Helper()
 	assert.Equal(t, jsontools.PrettyJSONString(expectedJson), jsontools.PrettyJSONString(actualJson))
-}
-
-type Stopper interface {
-	Stop() error
-}
-
-func cleanup(t *testing.T, stopper Stopper) {
-	t.Cleanup(func() {
-		require.NoError(t, stopper.Stop())
-	})
 }
