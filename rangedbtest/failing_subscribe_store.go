@@ -16,15 +16,15 @@ func NewFailingSubscribeEventStore() *failingSubscribeEventStore {
 
 func (f failingSubscribeEventStore) Bind(_ ...rangedb.Event) {}
 
-func (f failingSubscribeEventStore) EventsStartingWith(_ context.Context, _ uint64) rangedb.RecordIterator {
+func (f failingSubscribeEventStore) Events(_ context.Context, _ uint64) rangedb.RecordIterator {
 	return getEmptyIterator()
 }
 
-func (f failingSubscribeEventStore) EventsByAggregateTypesStartingWith(_ context.Context, _ uint64, _ ...string) rangedb.RecordIterator {
+func (f failingSubscribeEventStore) EventsByAggregateTypes(_ context.Context, _ uint64, _ ...string) rangedb.RecordIterator {
 	return getEmptyIterator()
 }
 
-func (f failingSubscribeEventStore) EventsByStreamStartingWith(_ context.Context, _ uint64, _ string) rangedb.RecordIterator {
+func (f failingSubscribeEventStore) EventsByStream(_ context.Context, _ uint64, _ string) rangedb.RecordIterator {
 	return getEmptyIterator()
 }
 

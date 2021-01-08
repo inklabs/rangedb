@@ -16,16 +16,16 @@ func NewFailingEventStore() *failingEventStore {
 
 func (f failingEventStore) Bind(_ ...rangedb.Event) {}
 
-func (f failingEventStore) EventsStartingWith(_ context.Context, _ uint64) rangedb.RecordIterator {
-	return getFailingIterator("EventsStartingWith")
+func (f failingEventStore) Events(_ context.Context, _ uint64) rangedb.RecordIterator {
+	return getFailingIterator("Events")
 }
 
-func (f failingEventStore) EventsByAggregateTypesStartingWith(_ context.Context, _ uint64, _ ...string) rangedb.RecordIterator {
-	return getFailingIterator("EventsByAggregateTypesStartingWith")
+func (f failingEventStore) EventsByAggregateTypes(_ context.Context, _ uint64, _ ...string) rangedb.RecordIterator {
+	return getFailingIterator("EventsByAggregateTypes")
 }
 
-func (f failingEventStore) EventsByStreamStartingWith(_ context.Context, _ uint64, _ string) rangedb.RecordIterator {
-	return getFailingIterator("EventsByStreamStartingWith")
+func (f failingEventStore) EventsByStream(_ context.Context, _ uint64, _ string) rangedb.RecordIterator {
+	return getFailingIterator("EventsByStream")
 }
 
 func (f failingEventStore) OptimisticSave(_ context.Context, _ uint64, _ ...*rangedb.EventRecord) error {

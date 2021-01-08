@@ -27,7 +27,7 @@ func AllEventsConfig(ctx context.Context, store rangedb.Store, broadcaster broad
 			broadcaster.UnsubscribeAllEvents(subscriber)
 		},
 		GetRecords: func(globalSequenceNumber uint64) rangedb.RecordIterator {
-			return store.EventsStartingWith(ctx, globalSequenceNumber)
+			return store.Events(ctx, globalSequenceNumber)
 		},
 		ConsumeRecord: consumeRecord,
 	}
@@ -44,7 +44,7 @@ func AggregateTypesConfig(ctx context.Context, store rangedb.Store, broadcaster 
 			broadcaster.UnsubscribeAggregateTypes(subscriber, aggregateTypes...)
 		},
 		GetRecords: func(globalSequenceNumber uint64) rangedb.RecordIterator {
-			return store.EventsByAggregateTypesStartingWith(ctx, globalSequenceNumber, aggregateTypes...)
+			return store.EventsByAggregateTypes(ctx, globalSequenceNumber, aggregateTypes...)
 		},
 		ConsumeRecord: consumeRecord,
 	}

@@ -82,7 +82,7 @@ func (s *rangeDBServer) Stop() error {
 }
 
 func (s *rangeDBServer) Events(req *rangedbpb.EventsRequest, stream rangedbpb.RangeDB_EventsServer) error {
-	recordIterator := s.store.EventsStartingWith(stream.Context(), req.GlobalSequenceNumber)
+	recordIterator := s.store.Events(stream.Context(), req.GlobalSequenceNumber)
 	for recordIterator.Next() {
 		if recordIterator.Err() != nil {
 			return recordIterator.Err()
@@ -103,7 +103,7 @@ func (s *rangeDBServer) Events(req *rangedbpb.EventsRequest, stream rangedbpb.Ra
 }
 
 func (s *rangeDBServer) EventsByStream(req *rangedbpb.EventsByStreamRequest, stream rangedbpb.RangeDB_EventsByStreamServer) error {
-	recordIterator := s.store.EventsByStreamStartingWith(stream.Context(), req.StreamSequenceNumber, req.StreamName)
+	recordIterator := s.store.EventsByStream(stream.Context(), req.StreamSequenceNumber, req.StreamName)
 	for recordIterator.Next() {
 		if recordIterator.Err() != nil {
 			return recordIterator.Err()
@@ -124,7 +124,7 @@ func (s *rangeDBServer) EventsByStream(req *rangedbpb.EventsByStreamRequest, str
 }
 
 func (s *rangeDBServer) EventsByAggregateType(req *rangedbpb.EventsByAggregateTypeRequest, stream rangedbpb.RangeDB_EventsByAggregateTypeServer) error {
-	recordIterator := s.store.EventsByAggregateTypesStartingWith(stream.Context(), req.GlobalSequenceNumber, req.AggregateTypes...)
+	recordIterator := s.store.EventsByAggregateTypes(stream.Context(), req.GlobalSequenceNumber, req.AggregateTypes...)
 	for recordIterator.Next() {
 		if recordIterator.Err() != nil {
 			return recordIterator.Err()

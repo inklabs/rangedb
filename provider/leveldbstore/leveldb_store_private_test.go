@@ -38,7 +38,7 @@ func Test_Private_AllEvents_FailsWhenLookupRecordIsMissing(t *testing.T) {
 	require.NoError(t, err)
 
 	// When
-	recordIterator := store.EventsStartingWith(ctx, 0)
+	recordIterator := store.Events(ctx, 0)
 
 	// Then
 	assert.False(t, recordIterator.Next())
@@ -53,7 +53,7 @@ func Test_Private_AllEvents_FailsWhenLookupRecordIsCorrupt(t *testing.T) {
 	ctx := rangedbtest.TimeoutContext(t)
 
 	// When
-	recordIterator := store.EventsStartingWith(ctx, 0)
+	recordIterator := store.Events(ctx, 0)
 
 	// Then
 	assert.False(t, recordIterator.Next())

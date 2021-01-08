@@ -91,7 +91,7 @@ func (s *postgresStore) Bind(events ...rangedb.Event) {
 	s.serializer.Bind(events...)
 }
 
-func (s *postgresStore) EventsStartingWith(ctx context.Context, globalSequenceNumber uint64) rangedb.RecordIterator {
+func (s *postgresStore) Events(ctx context.Context, globalSequenceNumber uint64) rangedb.RecordIterator {
 	resultRecords := make(chan rangedb.ResultRecord)
 
 	go func() {
@@ -114,7 +114,7 @@ func ignoreClose(closer io.Closer) {
 	_ = closer.Close()
 }
 
-func (s *postgresStore) EventsByAggregateTypesStartingWith(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) rangedb.RecordIterator {
+func (s *postgresStore) EventsByAggregateTypes(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) rangedb.RecordIterator {
 	resultRecords := make(chan rangedb.ResultRecord)
 
 	go func() {
@@ -132,7 +132,7 @@ func (s *postgresStore) EventsByAggregateTypesStartingWith(ctx context.Context, 
 	return rangedb.NewRecordIterator(resultRecords)
 }
 
-func (s *postgresStore) EventsByStreamStartingWith(ctx context.Context, streamSequenceNumber uint64, streamName string) rangedb.RecordIterator {
+func (s *postgresStore) EventsByStream(ctx context.Context, streamSequenceNumber uint64, streamName string) rangedb.RecordIterator {
 	resultRecords := make(chan rangedb.ResultRecord)
 
 	go func() {

@@ -60,10 +60,10 @@ func StoreBenchmark(b *testing.B, newStore func(b *testing.B) rangedb.Store) {
 			require.NoError(b, err)
 		}
 
-		b.Run("EventsStartingWith", func(b *testing.B) {
+		b.Run("Events", func(b *testing.B) {
 			ctx := TimeoutContext(b)
 			for i := 0; i < b.N; i++ {
-				recordIterator := store.EventsStartingWith(ctx, startingGlobalSequenceNumber)
+				recordIterator := store.Events(ctx, startingGlobalSequenceNumber)
 				cnt := 0
 				for recordIterator.Next() {
 					cnt++
@@ -73,10 +73,10 @@ func StoreBenchmark(b *testing.B, newStore func(b *testing.B) rangedb.Store) {
 			}
 		})
 
-		b.Run("EventsByAggregateTypesStartingWith", func(b *testing.B) {
+		b.Run("EventsByAggregateTypes", func(b *testing.B) {
 			ctx := TimeoutContext(b)
 			for i := 0; i < b.N; i++ {
-				recordIterator := store.EventsByAggregateTypesStartingWith(ctx, startingGlobalSequenceNumber, ThingWasDone{}.AggregateType())
+				recordIterator := store.EventsByAggregateTypes(ctx, startingGlobalSequenceNumber, ThingWasDone{}.AggregateType())
 				cnt := 0
 				for recordIterator.Next() {
 					cnt++
@@ -86,11 +86,11 @@ func StoreBenchmark(b *testing.B, newStore func(b *testing.B) rangedb.Store) {
 			}
 		})
 
-		b.Run("EventsByStreamStartingWith", func(b *testing.B) {
+		b.Run("EventsByStream", func(b *testing.B) {
 			ctx := TimeoutContext(b)
 			stream := rangedb.GetStream(ThingWasDone{}.AggregateType(), aggregateID)
 			for i := 0; i < b.N; i++ {
-				recordIterator := store.EventsByStreamStartingWith(ctx, 0, stream)
+				recordIterator := store.EventsByStream(ctx, 0, stream)
 				cnt := 0
 				for recordIterator.Next() {
 					cnt++

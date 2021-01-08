@@ -79,7 +79,7 @@ func (c *cqrs) Dispatch(command Command) []rangedb.Event {
 
 	ctx := context.Background()
 	streamName := rangedb.GetEventStream(command)
-	eventStream := c.store.EventsByStreamStartingWith(ctx, 0, streamName)
+	eventStream := c.store.EventsByStream(ctx, 0, streamName)
 	commandHandler.Load(eventStream)
 	handlerEvents := commandHandler.Handle(command)
 

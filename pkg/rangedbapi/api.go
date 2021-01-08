@@ -174,7 +174,7 @@ func (a *api) healthCheck(w http.ResponseWriter, _ *http.Request) {
 func (a *api) allEvents(w http.ResponseWriter, r *http.Request) {
 	extension := mux.Vars(r)["extension"]
 
-	recordIterator := a.store.EventsStartingWith(r.Context(), 0)
+	recordIterator := a.store.Events(r.Context(), 0)
 	a.writeEvents(w, recordIterator, extension)
 }
 
@@ -184,7 +184,7 @@ func (a *api) eventsByStream(w http.ResponseWriter, r *http.Request) {
 	extension := mux.Vars(r)["extension"]
 
 	streamName := rangedb.GetStream(aggregateType, aggregateID)
-	events := a.store.EventsByStreamStartingWith(r.Context(), 0, streamName)
+	events := a.store.EventsByStream(r.Context(), 0, streamName)
 	a.writeEvents(w, events, extension)
 }
 
@@ -193,7 +193,7 @@ func (a *api) eventsByAggregateType(w http.ResponseWriter, r *http.Request) {
 	aggregateTypes := strings.Split(aggregateTypeInput, ",")
 	extension := mux.Vars(r)["extension"]
 
-	events := a.store.EventsByAggregateTypesStartingWith(r.Context(), 0, aggregateTypes...)
+	events := a.store.EventsByAggregateTypes(r.Context(), 0, aggregateTypes...)
 
 	a.writeEvents(w, events, extension)
 }

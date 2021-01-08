@@ -92,7 +92,7 @@ func Test_Failures(t *testing.T) {
 		})
 	})
 
-	t.Run("EventsStartingWith", func(t *testing.T) {
+	t.Run("Events", func(t *testing.T) {
 		t.Run("errors when db is closed prior to query", func(t *testing.T) {
 			// Given
 			store, err := postgresstore.New(config)
@@ -101,7 +101,7 @@ func Test_Failures(t *testing.T) {
 			ctx := rangedbtest.TimeoutContext(t)
 
 			// When
-			iter := store.EventsStartingWith(ctx, 0)
+			iter := store.Events(ctx, 0)
 
 			// Then
 			require.False(t, iter.Next())
@@ -121,7 +121,7 @@ func Test_Failures(t *testing.T) {
 			ctx := rangedbtest.TimeoutContext(t)
 
 			// When
-			iter := store.EventsStartingWith(ctx, 0)
+			iter := store.Events(ctx, 0)
 
 			// Then
 			require.False(t, iter.Next())
@@ -141,7 +141,7 @@ func Test_Failures(t *testing.T) {
 			ctx := rangedbtest.TimeoutContext(t)
 
 			// When
-			iter := store.EventsStartingWith(ctx, 0)
+			iter := store.Events(ctx, 0)
 
 			// Then
 			require.False(t, iter.Next())
@@ -161,7 +161,7 @@ func Test_Failures(t *testing.T) {
 			ctx := rangedbtest.TimeoutContext(t)
 
 			// When
-			iter := store.EventsStartingWith(ctx, 0)
+			iter := store.Events(ctx, 0)
 
 			// Then
 			require.False(t, iter.Next())

@@ -37,9 +37,9 @@ type EventBinder interface {
 // Store is the interface that stores and retrieves event records.
 type Store interface {
 	EventBinder
-	EventsStartingWith(ctx context.Context, globalSequenceNumber uint64) RecordIterator
-	EventsByAggregateTypesStartingWith(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) RecordIterator
-	EventsByStreamStartingWith(ctx context.Context, streamSequenceNumber uint64, streamName string) RecordIterator
+	Events(ctx context.Context, globalSequenceNumber uint64) RecordIterator
+	EventsByAggregateTypes(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) RecordIterator
+	EventsByStream(ctx context.Context, streamSequenceNumber uint64, streamName string) RecordIterator
 	OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*EventRecord) error
 	Save(ctx context.Context, eventRecords ...*EventRecord) error
 	Subscribe(ctx context.Context, subscribers ...RecordSubscriber) error

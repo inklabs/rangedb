@@ -93,11 +93,11 @@ func (s *levelDbStore) Bind(events ...rangedb.Event) {
 	s.serializer.Bind(events...)
 }
 
-func (s *levelDbStore) EventsStartingWith(ctx context.Context, globalSequenceNumber uint64) rangedb.RecordIterator {
+func (s *levelDbStore) Events(ctx context.Context, globalSequenceNumber uint64) rangedb.RecordIterator {
 	return s.getEventsByLookup(ctx, allEventsPrefix, globalSequenceNumber)
 }
 
-func (s *levelDbStore) EventsByAggregateTypesStartingWith(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) rangedb.RecordIterator {
+func (s *levelDbStore) EventsByAggregateTypes(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) rangedb.RecordIterator {
 	if len(aggregateTypes) == 1 {
 		return s.getEventsByLookup(ctx, getAggregateTypeKeyPrefix(aggregateTypes[0]), globalSequenceNumber)
 	}
@@ -110,8 +110,8 @@ func (s *levelDbStore) EventsByAggregateTypesStartingWith(ctx context.Context, g
 	return rangedb.MergeRecordIteratorsInOrder(recordIterators)
 }
 
-func (s *levelDbStore) EventsByStreamStartingWith(ctx context.Context, streamSequenceNumber uint64, stream string) rangedb.RecordIterator {
-	return s.getEventsByPrefixStartingWith(ctx, stream, streamSequenceNumber)
+func (s *levelDbStore) EventsByStream(ctx context.Context, streamSequenceNumber uint64, stream string) rangedb.RecordIterator {
+	return s.getEventsByPrefix(ctx, stream, streamSequenceNumber)
 }
 
 func (s *levelDbStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) error {
@@ -284,7 +284,7 @@ func (s *levelDbStore) notifySubscribers(record *rangedb.Record) {
 	}
 }
 
-func (s *levelDbStore) getEventsByPrefixStartingWith(ctx context.Context, prefix string, streamSequenceNumber uint64) rangedb.RecordIterator {
+func (s *levelDbStore) getEventsByPrefix(ctx context.Context, prefix string, streamSequenceNumber uint64) rangedb.RecordIterator {
 	resultRecords := make(chan rangedb.ResultRecord)
 	s.mux.RLock()
 

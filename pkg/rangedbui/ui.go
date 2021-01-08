@@ -101,7 +101,7 @@ func (a *webUI) aggregateType(w http.ResponseWriter, r *http.Request) {
 		uint64(pagination.ItemsPerPage),
 		func() (rangedb.RecordIterator, context.CancelFunc) {
 			ctx, done := context.WithCancel(r.Context())
-			return a.store.EventsByAggregateTypesStartingWith(ctx, globalSequenceNumber, aggregateTypeName), done
+			return a.store.EventsByAggregateTypes(ctx, globalSequenceNumber, aggregateTypeName), done
 		},
 	)
 
@@ -137,7 +137,7 @@ func (a *webUI) stream(w http.ResponseWriter, r *http.Request) {
 		uint64(pagination.ItemsPerPage),
 		func() (rangedb.RecordIterator, context.CancelFunc) {
 			ctx, done := context.WithCancel(r.Context())
-			return a.store.EventsByStreamStartingWith(ctx, streamSequenceNumber, streamName), done
+			return a.store.EventsByStream(ctx, streamSequenceNumber, streamName), done
 		},
 	)
 

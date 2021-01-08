@@ -55,7 +55,7 @@ func (s *remoteStore) Bind(events ...rangedb.Event) {
 	s.serializer.Bind(events...)
 }
 
-func (s *remoteStore) EventsStartingWith(ctx context.Context, globalSequenceNumber uint64) rangedb.RecordIterator {
+func (s *remoteStore) Events(ctx context.Context, globalSequenceNumber uint64) rangedb.RecordIterator {
 	request := &rangedbpb.EventsRequest{
 		GlobalSequenceNumber: globalSequenceNumber,
 	}
@@ -72,7 +72,7 @@ func (s *remoteStore) EventsStartingWith(ctx context.Context, globalSequenceNumb
 	return s.readRecords(ctx, events)
 }
 
-func (s *remoteStore) EventsByAggregateTypesStartingWith(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) rangedb.RecordIterator {
+func (s *remoteStore) EventsByAggregateTypes(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) rangedb.RecordIterator {
 	request := &rangedbpb.EventsByAggregateTypeRequest{
 		AggregateTypes:       aggregateTypes,
 		GlobalSequenceNumber: globalSequenceNumber,
@@ -91,7 +91,7 @@ func (s *remoteStore) EventsByAggregateTypesStartingWith(ctx context.Context, gl
 
 }
 
-func (s *remoteStore) EventsByStreamStartingWith(ctx context.Context, streamSequenceNumber uint64, streamName string) rangedb.RecordIterator {
+func (s *remoteStore) EventsByStream(ctx context.Context, streamSequenceNumber uint64, streamName string) rangedb.RecordIterator {
 	request := &rangedbpb.EventsByStreamRequest{
 		StreamName:           streamName,
 		StreamSequenceNumber: streamSequenceNumber,

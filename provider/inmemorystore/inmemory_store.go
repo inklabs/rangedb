@@ -75,23 +75,23 @@ func (s *inMemoryStore) Bind(events ...rangedb.Event) {
 	s.serializer.Bind(events...)
 }
 
-func (s *inMemoryStore) EventsStartingWith(ctx context.Context, globalSequenceNumber uint64) rangedb.RecordIterator {
+func (s *inMemoryStore) Events(ctx context.Context, globalSequenceNumber uint64) rangedb.RecordIterator {
 	s.mux.RLock()
-	return s.recordsStartingWith(ctx, s.allRecords, func(record *rangedb.Record) bool {
+	return s.recordsToIterator(ctx, s.allRecords, func(record *rangedb.Record) bool {
 		return record.GlobalSequenceNumber >= globalSequenceNumber
 	})
 }
 
-func (s *inMemoryStore) EventsByAggregateTypesStartingWith(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) rangedb.RecordIterator {
+func (s *inMemoryStore) EventsByAggregateTypes(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) rangedb.RecordIterator {
 	if len(aggregateTypes) == 1 {
 		s.mux.RLock()
-		return s.recordsStartingWith(ctx, s.recordsByAggregateType[aggregateTypes[0]], compareByGlobalSequenceNumber(globalSequenceNumber))
+		return s.recordsToIterator(ctx, s.recordsByAggregateType[aggregateTypes[0]], compareByGlobalSequenceNumber(globalSequenceNumber))
 	}
 
 	var recordIterators []rangedb.RecordIterator
 	for _, aggregateType := range aggregateTypes {
 		s.mux.RLock()
-		recordIterators = append(recordIterators, s.recordsStartingWith(ctx, s.recordsByAggregateType[aggregateType], compareByGlobalSequenceNumber(globalSequenceNumber)))
+		recordIterators = append(recordIterators, s.recordsToIterator(ctx, s.recordsByAggregateType[aggregateType], compareByGlobalSequenceNumber(globalSequenceNumber)))
 	}
 
 	return rangedb.MergeRecordIteratorsInOrder(recordIterators)
@@ -103,14 +103,14 @@ func compareByGlobalSequenceNumber(globalSequenceNumber uint64) func(record *ran
 	}
 }
 
-func (s *inMemoryStore) EventsByStreamStartingWith(ctx context.Context, streamSequenceNumber uint64, stream string) rangedb.RecordIterator {
+func (s *inMemoryStore) EventsByStream(ctx context.Context, streamSequenceNumber uint64, stream string) rangedb.RecordIterator {
 	s.mux.RLock()
-	return s.recordsStartingWith(ctx, s.recordsByStream[stream], func(record *rangedb.Record) bool {
+	return s.recordsToIterator(ctx, s.recordsByStream[stream], func(record *rangedb.Record) bool {
 		return record.StreamSequenceNumber >= streamSequenceNumber
 	})
 }
 
-func (s *inMemoryStore) recordsStartingWith(ctx context.Context, serializedRecords [][]byte, compare func(record *rangedb.Record) bool) rangedb.RecordIterator {
+func (s *inMemoryStore) recordsToIterator(ctx context.Context, serializedRecords [][]byte, compare func(record *rangedb.Record) bool) rangedb.RecordIterator {
 	resultRecords := make(chan rangedb.ResultRecord)
 
 	go func() {

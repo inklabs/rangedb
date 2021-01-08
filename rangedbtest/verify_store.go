@@ -23,7 +23,7 @@ import (
 func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) rangedb.Store) {
 	t.Helper()
 
-	t.Run("EventsByStreamStartingWith", func(t *testing.T) {
+	t.Run("EventsByStream", func(t *testing.T) {
 		t.Run("returns 2 events", func(t *testing.T) {
 			// Given
 			shortuuid.SetRand(100)
@@ -43,7 +43,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			))
 
 			// When
-			recordIterator := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(eventA1))
+			recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(eventA1))
 
 			// Then
 			expectedRecord1 := &rangedb.Record{
@@ -95,7 +95,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			))
 
 			// When
-			recordIterator := store.EventsByStreamStartingWith(ctx, 1, rangedb.GetEventStream(eventA1))
+			recordIterator := store.EventsByStream(ctx, 1, rangedb.GetEventStream(eventA1))
 
 			// Then
 			expectedRecord1 := &rangedb.Record{
@@ -144,7 +144,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			require.NoError(t, store.Save(ctx, eventRecords...))
 
 			// When
-			recordIterator := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(events[0]))
+			recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(events[0]))
 
 			// Then
 			for i, event := range events {
@@ -176,7 +176,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			))
 
 			// When
-			recordIterator := store.EventsByStreamStartingWith(ctx, 1, rangedb.GetEventStream(eventA1))
+			recordIterator := store.EventsByStream(ctx, 1, rangedb.GetEventStream(eventA1))
 
 			// Then
 			expectedRecord := &rangedb.Record{
@@ -217,7 +217,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				&rangedb.EventRecord{Event: eventB},
 			))
 			ctx, done := context.WithCancel(TimeoutContext(t))
-			recordIterator := store.EventsByStreamStartingWith(ctx, 1, rangedb.GetEventStream(eventA1))
+			recordIterator := store.EventsByStream(ctx, 1, rangedb.GetEventStream(eventA1))
 
 			// When
 			recordIterator.Next()
@@ -251,14 +251,14 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			done()
 
 			// When
-			recordIterator := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event))
+			recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event))
 
 			// Then
 			assertCanceledIterator(t, recordIterator)
 		})
 	})
 
-	t.Run("EventsStartingWith", func(t *testing.T) {
+	t.Run("Events", func(t *testing.T) {
 		t.Run("all events ordered by global sequence number", func(t *testing.T) {
 			// Given
 			shortuuid.SetRand(100)
@@ -277,7 +277,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: AnotherWasCompleteX0}))
 
 			// When
-			recordIterator := store.EventsStartingWith(ctx, 0)
+			recordIterator := store.Events(ctx, 0)
 
 			// Then
 			expectedRecord1 := &rangedb.Record{
@@ -346,7 +346,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			))
 
 			// When
-			recordIterator := store.EventsStartingWith(ctx, 1)
+			recordIterator := store.Events(ctx, 1)
 
 			// Then
 			expectedRecord := &rangedb.Record{
@@ -386,7 +386,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			))
 
 			// When
-			recordIterator := store.EventsStartingWith(ctx, 2)
+			recordIterator := store.Events(ctx, 2)
 
 			// Then
 			expectedRecord1 := &rangedb.Record{
@@ -429,7 +429,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			done()
 
 			// When
-			recordIterator := store.EventsStartingWith(ctx, 0)
+			recordIterator := store.Events(ctx, 0)
 
 			// Then
 			assertCanceledIterator(t, recordIterator)
@@ -451,7 +451,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				&rangedb.EventRecord{Event: event3},
 				&rangedb.EventRecord{Event: event4},
 			))
-			recordIterator := store.EventsStartingWith(ctx, 1)
+			recordIterator := store.Events(ctx, 1)
 
 			// When
 			recordIterator.Next()
@@ -474,7 +474,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		})
 	})
 
-	t.Run("EventsByAggregateTypesStartingWith", func(t *testing.T) {
+	t.Run("EventsByAggregateTypes", func(t *testing.T) {
 		t.Run("returns 3 events", func(t *testing.T) {
 			// Given
 			shortuuid.SetRand(100)
@@ -495,7 +495,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			))
 
 			// When
-			recordIterator := store.EventsByAggregateTypesStartingWith(ctx, 0, eventA1.AggregateType())
+			recordIterator := store.EventsByAggregateTypes(ctx, 0, eventA1.AggregateType())
 
 			// Then
 			expectedRecord1 := &rangedb.Record{
@@ -557,7 +557,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			))
 
 			// When
-			recordIterator := store.EventsByAggregateTypesStartingWith(
+			recordIterator := store.EventsByAggregateTypes(
 				ctx,
 				1,
 				eventA1.AggregateType(),
@@ -604,7 +604,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			done()
 
 			// When
-			recordIterator := store.EventsByAggregateTypesStartingWith(ctx, 0, event.AggregateType())
+			recordIterator := store.EventsByAggregateTypes(ctx, 0, event.AggregateType())
 
 			// Then
 			assertCanceledIterator(t, recordIterator)
@@ -629,7 +629,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 			// Then
 			require.NoError(t, err)
-			recordIterator := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event))
+			recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event))
 			expectedRecord := &rangedb.Record{
 				AggregateType:        event.AggregateType(),
 				AggregateID:          event.AggregateID(),
@@ -665,7 +665,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 			// Then
 			require.NoError(t, err)
-			recordIterator := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event2))
+			recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event2))
 			expectedRecord1 := &rangedb.Record{
 				AggregateType:        event1.AggregateType(),
 				AggregateID:          event1.AggregateID(),
@@ -719,7 +719,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 			// Then
 			require.NoError(t, err)
-			recordIterator := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event1))
+			recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event1))
 			expectedRecord1 := &rangedb.Record{
 				AggregateType:        event1.AggregateType(),
 				AggregateID:          event1.AggregateID(),
@@ -788,11 +788,11 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 			// Then
 			require.Error(t, err)
-			allRecordsIter := store.EventsStartingWith(ctx, 0)
+			allRecordsIter := store.Events(ctx, 0)
 			AssertNoMoreResultsInIterator(t, allRecordsIter)
-			streamRecordsIter := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event1))
+			streamRecordsIter := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event1))
 			AssertNoMoreResultsInIterator(t, streamRecordsIter)
-			aggregateTypeRecordsIter := store.EventsByAggregateTypesStartingWith(ctx, 0, event1.AggregateType())
+			aggregateTypeRecordsIter := store.EventsByAggregateTypes(ctx, 0, event1.AggregateType())
 			AssertNoMoreResultsInIterator(t, aggregateTypeRecordsIter)
 		})
 
@@ -828,11 +828,11 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				Data:                 event1,
 				Metadata:             nil,
 			}
-			allEventsIter := store.EventsStartingWith(ctx, 0)
+			allEventsIter := store.Events(ctx, 0)
 			AssertRecordsInIterator(t, allEventsIter, expectedRecord)
-			streamEventsIter := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event1))
+			streamEventsIter := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event1))
 			AssertRecordsInIterator(t, streamEventsIter, expectedRecord)
-			aggregateTypeEventsIter := store.EventsByAggregateTypesStartingWith(ctx, 0, event1.AggregateType())
+			aggregateTypeEventsIter := store.EventsByAggregateTypes(ctx, 0, event1.AggregateType())
 			AssertRecordsInIterator(t, aggregateTypeEventsIter, expectedRecord)
 		})
 
@@ -926,7 +926,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 			// Then
 			require.NoError(t, err)
-			recordIterator := store.EventsByStreamStartingWith(ctx, 0, rangedb.GetEventStream(event))
+			recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event))
 			expectedRecord := &rangedb.Record{
 				AggregateType:        event.AggregateType(),
 				AggregateID:          event.AggregateID(),
@@ -1088,7 +1088,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		// Then
 		<-triggerProcessManager.ReceivedRecords
-		recordIterator := store.EventsStartingWith(TimeoutContext(t), 0)
+		recordIterator := store.Events(TimeoutContext(t), 0)
 		expectedRecord1 := &rangedb.Record{
 			AggregateType:        event.AggregateType(),
 			AggregateID:          event.AggregateID(),
@@ -1130,7 +1130,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		require.NoError(t, store.Save(ctx, &rangedb.EventRecord{Event: event}))
 
 		// When
-		recordIterator := store.EventsStartingWith(ctx, 0)
+		recordIterator := store.Events(ctx, 0)
 
 		// Then
 		expectedRecord := &rangedb.Record{

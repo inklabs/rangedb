@@ -398,7 +398,7 @@ func TestRangeDBServer_Save(t *testing.T) {
 
 		// Then
 		assert.Equal(t, uint32(2), response.EventsSaved)
-		recordIterator := store.EventsStartingWith(ctx, 0)
+		recordIterator := store.Events(ctx, 0)
 		expectedRecord1 := &rangedb.Record{
 			AggregateType:        "thing",
 			AggregateID:          "b5ef2296339d4ad1887f1deb486f7821",
@@ -565,7 +565,7 @@ func TestRangeDBServer_OptimisticSave(t *testing.T) {
 
 		// Then
 		assert.Equal(t, uint32(2), response.EventsSaved)
-		recordIterator := store.EventsStartingWith(ctx, 0)
+		recordIterator := store.Events(ctx, 0)
 		expectedRecord1 := &rangedb.Record{
 			AggregateType:        "thing",
 			AggregateID:          "b5ef2296339d4ad1887f1deb486f7821",

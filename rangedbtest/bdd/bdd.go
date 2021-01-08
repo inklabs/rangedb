@@ -65,7 +65,7 @@ func (c *TestCase) Then(expectedEvents ...rangedb.Event) func(*testing.T) {
 		c.dispatch(c.command)
 
 		if len(expectedEvents) == 0 {
-			allEvents, err := recordIteratorToSlice(c.store.EventsStartingWith(context.Background(), 0))
+			allEvents, err := recordIteratorToSlice(c.store.Events(context.Background(), 0))
 			require.NoError(t, err)
 
 			totalRaisedEvents := len(allEvents) - len(c.previousEvents)
@@ -82,7 +82,7 @@ func (c *TestCase) Then(expectedEvents ...rangedb.Event) func(*testing.T) {
 
 		for stream, expectedEventsInStream := range streamExpectedEvents {
 			streamSequenceNumber := streamPreviousEventCounts[stream]
-			actualEvents, err := recordIteratorToSlice(c.store.EventsByStreamStartingWith(ctx, streamSequenceNumber, stream))
+			actualEvents, err := recordIteratorToSlice(c.store.EventsByStream(ctx, streamSequenceNumber, stream))
 			assert.NoError(t, err)
 
 			assert.Equal(t, expectedEventsInStream, actualEvents, "stream: %s", stream)
@@ -107,7 +107,7 @@ func (c *TestCase) ThenInspectEvents(f func(t *testing.T, events []rangedb.Event
 		var events []rangedb.Event
 		for _, stream := range getStreamsFromStore(c.store) {
 			streamSequenceNumber := streamPreviousEventCounts[stream]
-			actualEvents, err := recordIteratorToSlice(c.store.EventsByStreamStartingWith(ctx, streamSequenceNumber, stream))
+			actualEvents, err := recordIteratorToSlice(c.store.EventsByStream(ctx, streamSequenceNumber, stream))
 			require.NoError(t, err)
 
 			events = append(events, actualEvents...)
@@ -119,7 +119,7 @@ func (c *TestCase) ThenInspectEvents(f func(t *testing.T, events []rangedb.Event
 
 func getStreamsFromStore(store rangedb.Store) []string {
 	streams := make(map[string]struct{})
-	recordIterator := store.EventsStartingWith(context.Background(), 0)
+	recordIterator := store.Events(context.Background(), 0)
 	for recordIterator.Next() {
 		if recordIterator.Err() != nil {
 			break
