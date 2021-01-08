@@ -24,7 +24,7 @@ import (
 func main() {
 	fmt.Println("Random Event Generator")
 
-	eventType := flag.String("eventType", "", "event type: ThingWasDone, ThatWasDone, etc.")
+	eventType := flag.String("eventType", "", "event type: ThingWasDone, ThatWasDone, AnotherWasComplete, etc.")
 	totalEventsInput := flag.String("total", "", "total number of random events to generate")
 	maxEventsPerStream := flag.Int("maxPerStream", 10, "max events per stream")
 	host := flag.String("host", "127.0.0.1:8081", "RangeDB gRPC host address")
@@ -88,11 +88,20 @@ func getNEvents(n int, aggregateID, eventType string) []*rangedb.EventRecord {
 
 	for i := 0; i < n; i++ {
 		var event rangedb.Event
-		if eventType == "ThatWasDone" {
+		switch eventType {
+		case "AnotherWasComplete":
+			event = &rangedbtest.AnotherWasComplete{
+				ID: aggregateID,
+			}
+
+		case "ThatWasDone":
 			event = &rangedbtest.ThatWasDone{
 				ID: aggregateID,
 			}
-		} else {
+
+		case "ThingWasDone":
+			fallthrough
+		default:
 			event = &rangedbtest.ThingWasDone{
 				ID:     aggregateID,
 				Number: rand.Intn(n),
