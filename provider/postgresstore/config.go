@@ -26,7 +26,7 @@ func NewConfigFromEnvironment() (*Config, error) {
 	pgPassword := os.Getenv("PG_PASSWORD")
 	pgDBName := os.Getenv("PG_DBNAME")
 
-	if pgHost == "" || pgUser == "" || pgPassword == "" || pgDBName == "" {
+	if pgHost == "" || pgUser == "" || pgDBName == "" {
 		return nil, fmt.Errorf("postgreSQL DB has not been configured via environment variables")
 	}
 
