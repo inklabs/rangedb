@@ -1,6 +1,8 @@
 package recordsubscriber
 
 import (
+	"sync"
+
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/broadcast"
 )
@@ -12,7 +14,6 @@ type ConsumeRecordFunc func(record *rangedb.Record) error
 type SubscribeFunc func(subscriber broadcast.RecordSubscriber)
 
 type recordSubscriber struct {
-	stopChan                 chan struct{}
 	bufferedRecords          chan *rangedb.Record
 	getRecords               GetRecordsIteratorFunc
 	consumeRecord            ConsumeRecordFunc
@@ -21,6 +22,9 @@ type recordSubscriber struct {
 	doneChan                 <-chan struct{}
 	lastGlobalSequenceNumber uint64
 	totalEventsSent          uint64 // TODO: Remove and refactor zero based sequence numbers to begin with 1
+
+	closeOnce sync.Once
+	stopChan  chan struct{}
 }
 
 func New(config Config) *recordSubscriber {
@@ -90,7 +94,9 @@ func (s *recordSubscriber) work() {
 }
 
 func (s *recordSubscriber) Stop() {
-	close(s.stopChan)
+	s.closeOnce.Do(func() {
+		close(s.stopChan)
+	})
 }
 
 func (s *recordSubscriber) writeRecords(globalSequenceNumber uint64) error {
