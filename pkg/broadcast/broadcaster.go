@@ -37,13 +37,13 @@ type broadcaster struct {
 	timeout                       time.Duration
 }
 
-func New(bufferLength int) *broadcaster {
+func New(bufferSize int) *broadcaster {
 	broadcaster := &broadcaster{
 		subscribeAllEventsChan:        make(chan SendRecordChan),
 		unsubscribeAllEventsChan:      make(chan SendRecordChan),
 		subscribeAggregateTypesChan:   make(chan AggregateTypeSubscription),
 		unsubscribeAggregateTypesChan: make(chan AggregateTypeSubscription),
-		bufferedRecords:               make(chan *rangedb.Record, bufferLength),
+		bufferedRecords:               make(chan *rangedb.Record, bufferSize),
 		stopChan:                      make(chan struct{}),
 		allEventsSubscribers:          make(map[SendRecordChan]struct{}),
 		aggregateTypeSubscribers:      make(map[string]map[SendRecordChan]struct{}),
@@ -122,9 +122,8 @@ func (b *broadcaster) start() {
 
 func (b *broadcaster) broadcastRecord(record *rangedb.Record) {
 	for subscriber := range b.allEventsSubscribers {
-		timeout := time.After(b.timeout)
 		select {
-		case <-timeout:
+		case <-time.After(b.timeout):
 			// TODO: drop connection since the client missed a record
 			log.Printf("timeout after %s", b.timeout.String())
 		case subscriber <- record:
@@ -132,9 +131,8 @@ func (b *broadcaster) broadcastRecord(record *rangedb.Record) {
 	}
 
 	for subscriber := range b.aggregateTypeSubscribers[record.AggregateType] {
-		timeout := time.After(b.timeout)
 		select {
-		case <-timeout:
+		case <-time.After(b.timeout):
 			// TODO: drop connection since the client missed a record
 			log.Printf("timeout after %s", b.timeout.String())
 		case subscriber <- record:

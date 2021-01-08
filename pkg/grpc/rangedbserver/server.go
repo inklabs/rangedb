@@ -16,7 +16,10 @@ import (
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 )
 
-const recordBuffSize = 100
+const (
+	broadcastRecordBuffSize  = 100
+	subscriberRecordBuffSize = 20
+)
 
 type void struct{}
 
@@ -26,10 +29,9 @@ type streamSender interface {
 
 type rangeDBServer struct {
 	rangedbpb.UnimplementedRangeDBServer
-	store           rangedb.Store
-	bufferedRecords chan *rangedb.Record
-	broadcaster     broadcast.Broadcaster
-	stopChan        chan void
+	store       rangedb.Store
+	broadcaster broadcast.Broadcaster
+	stopChan    chan void
 }
 
 // Option defines functional option parameters for rangeDBServer.
@@ -45,10 +47,9 @@ func WithStore(store rangedb.Store) Option {
 // New constructs a new rangeDBServer.
 func New(options ...Option) (*rangeDBServer, error) {
 	server := &rangeDBServer{
-		store:           inmemorystore.New(),
-		bufferedRecords: make(chan *rangedb.Record, recordBuffSize),
-		broadcaster:     broadcast.New(recordBuffSize),
-		stopChan:        make(chan void),
+		store:       inmemorystore.New(),
+		broadcaster: broadcast.New(broadcastRecordBuffSize),
+		stopChan:    make(chan void),
 	}
 
 	for _, option := range options {
@@ -244,20 +245,14 @@ func (s *rangeDBServer) Save(ctx context.Context, req *rangedbpb.SaveRequest) (*
 }
 
 func (s *rangeDBServer) SubscribeToLiveEvents(_ *rangedbpb.SubscribeToLiveEventsRequest, stream rangedbpb.RangeDB_SubscribeToLiveEventsServer) error {
-	config := recordsubscriber.Config{
-		BufLen:   100,
-		DoneChan: stream.Context().Done(),
-		Subscribe: func(subscriber broadcast.RecordSubscriber) {
-			s.broadcaster.SubscribeAllEvents(subscriber)
-		},
-		Unsubscribe: func(subscriber broadcast.RecordSubscriber) {
-			s.broadcaster.UnsubscribeAllEvents(subscriber)
-		},
-		GetRecords: nil,
-		ConsumeRecord: func(record *rangedb.Record) error {
+	config := recordsubscriber.AllEventsConfig(stream.Context(),
+		s.store,
+		s.broadcaster,
+		subscriberRecordBuffSize,
+		func(record *rangedb.Record) error {
 			return s.broadcastRecord(stream, record)
 		},
-	}
+	)
 	subscriber := recordsubscriber.New(config)
 	err := subscriber.Start()
 	if err != nil {
@@ -270,22 +265,15 @@ func (s *rangeDBServer) SubscribeToLiveEvents(_ *rangedbpb.SubscribeToLiveEvents
 }
 
 func (s *rangeDBServer) SubscribeToEvents(req *rangedbpb.SubscribeToEventsRequest, stream rangedbpb.RangeDB_SubscribeToEventsServer) error {
-	config := recordsubscriber.Config{
-		BufLen:   100,
-		DoneChan: stream.Context().Done(),
-		Subscribe: func(subscriber broadcast.RecordSubscriber) {
-			s.broadcaster.SubscribeAllEvents(subscriber)
-		},
-		Unsubscribe: func(subscriber broadcast.RecordSubscriber) {
-			s.broadcaster.UnsubscribeAllEvents(subscriber)
-		},
-		GetRecords: func(globalSequenceNumber uint64) rangedb.RecordIterator {
-			return s.store.EventsStartingWith(stream.Context(), globalSequenceNumber)
-		},
-		ConsumeRecord: func(record *rangedb.Record) error {
+	config := recordsubscriber.AllEventsConfig(
+		stream.Context(),
+		s.store,
+		s.broadcaster,
+		subscriberRecordBuffSize,
+		func(record *rangedb.Record) error {
 			return s.broadcastRecord(stream, record)
 		},
-	}
+	)
 	subscriber := recordsubscriber.New(config)
 	err := subscriber.StartFrom(req.GlobalSequenceNumber)
 	if err != nil {
@@ -298,22 +286,16 @@ func (s *rangeDBServer) SubscribeToEvents(req *rangedbpb.SubscribeToEventsReques
 }
 
 func (s *rangeDBServer) SubscribeToEventsByAggregateType(req *rangedbpb.SubscribeToEventsByAggregateTypeRequest, stream rangedbpb.RangeDB_SubscribeToEventsByAggregateTypeServer) error {
-	config := recordsubscriber.Config{
-		BufLen:   100,
-		DoneChan: stream.Context().Done(),
-		Subscribe: func(subscriber broadcast.RecordSubscriber) {
-			s.broadcaster.SubscribeAggregateTypes(subscriber, req.AggregateTypes...)
-		},
-		Unsubscribe: func(subscriber broadcast.RecordSubscriber) {
-			s.broadcaster.UnsubscribeAggregateTypes(subscriber, req.AggregateTypes...)
-		},
-		GetRecords: func(globalSequenceNumber uint64) rangedb.RecordIterator {
-			return s.store.EventsByAggregateTypesStartingWith(stream.Context(), globalSequenceNumber, req.AggregateTypes...)
-		},
-		ConsumeRecord: func(record *rangedb.Record) error {
+	config := recordsubscriber.AggregateTypesConfig(
+		stream.Context(),
+		s.store,
+		s.broadcaster,
+		subscriberRecordBuffSize,
+		req.AggregateTypes,
+		func(record *rangedb.Record) error {
 			return s.broadcastRecord(stream, record)
 		},
-	}
+	)
 	subscriber := recordsubscriber.New(config)
 	err := subscriber.StartFrom(req.GlobalSequenceNumber)
 	if err != nil {

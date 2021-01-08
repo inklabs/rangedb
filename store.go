@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"strings"
 )
 
@@ -44,7 +43,6 @@ type Store interface {
 	OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*EventRecord) error
 	Save(ctx context.Context, eventRecords ...*EventRecord) error
 	Subscribe(ctx context.Context, subscribers ...RecordSubscriber) error
-	SubscribeStartingWith(ctx context.Context, globalSequenceNumber uint64, subscribers ...RecordSubscriber) error
 	TotalEventsInStream(ctx context.Context, streamName string) (uint64, error)
 }
 
@@ -103,27 +101,6 @@ func GetStream(aggregateType, aggregateID string) string {
 func ParseStream(streamName string) (aggregateType, aggregateID string) {
 	pieces := strings.Split(streamName, "!")
 	return pieces[0], pieces[1]
-}
-
-// ReplayEvents applies all events to each subscriber.
-func ReplayEvents(ctx context.Context, store Store, globalSequenceNumber uint64, subscribers ...RecordSubscriber) {
-	recordIterator := store.EventsStartingWith(ctx, globalSequenceNumber)
-	for recordIterator.Next() {
-		if recordIterator.Err() != nil {
-			log.Printf("unable to apply event to subscriber: %v", recordIterator.Err())
-			break
-		}
-
-		for _, subscriber := range subscribers {
-			select {
-			case <-ctx.Done():
-				return
-
-			default:
-				subscriber.Accept(recordIterator.Record())
-			}
-		}
-	}
 }
 
 // ReadNRecords reads up to N records from the channel returned by f into a slice

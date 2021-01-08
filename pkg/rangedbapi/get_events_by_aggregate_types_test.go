@@ -23,7 +23,8 @@ func Example_getEventsByAggregateTypes() {
 	inMemoryStore := inmemorystore.New(
 		inmemorystore.WithClock(sequentialclock.New()),
 	)
-	api := rangedbapi.New(rangedbapi.WithStore(inMemoryStore))
+	api, err := rangedbapi.New(rangedbapi.WithStore(inMemoryStore))
+	PrintError(err)
 
 	server := httptest.NewServer(api)
 	defer server.Close()

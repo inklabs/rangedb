@@ -249,11 +249,6 @@ func (s *levelDbStore) saveEvent(ctx context.Context, transaction *leveldb.Trans
 	return data, nil
 }
 
-func (s *levelDbStore) SubscribeStartingWith(ctx context.Context, globalSequenceNumber uint64, subscribers ...rangedb.RecordSubscriber) error {
-	rangedb.ReplayEvents(ctx, s, globalSequenceNumber, subscribers...)
-	return s.Subscribe(ctx, subscribers...)
-}
-
 func (s *levelDbStore) Subscribe(ctx context.Context, subscribers ...rangedb.RecordSubscriber) error {
 	select {
 	case <-ctx.Done():

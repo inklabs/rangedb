@@ -30,7 +30,8 @@ import (
 
 func TestApi_HealthCheck(t *testing.T) {
 	// Given
-	api := rangedbapi.New()
+	api, err := rangedbapi.New()
+	require.NoError(t, err)
 	request := httptest.NewRequest(http.MethodGet, "/health-check", nil)
 
 	t.Run("regular response", func(t *testing.T) {
@@ -79,7 +80,8 @@ func TestApi_SaveEvents(t *testing.T) {
 		// Given
 		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
 		const aggregateType = "thing"
-		api := rangedbapi.New()
+		api, err := rangedbapi.New()
+		require.NoError(t, err)
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
 		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(singleJsonEvent))
 		request.Header.Set("Content-Type", "application/json")
@@ -109,7 +111,8 @@ func TestApi_SaveEvents(t *testing.T) {
 
 		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
 		const aggregateType = "thing"
-		api := rangedbapi.New()
+		api, err := rangedbapi.New()
+		require.NoError(t, err)
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
 		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(jsonEvent))
 		request.Header.Set("Content-Type", "application/json")
@@ -148,7 +151,8 @@ func TestApi_SaveEvents(t *testing.T) {
 
 		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
 		const aggregateType = "thing"
-		api := rangedbapi.New()
+		api, err := rangedbapi.New()
+		require.NoError(t, err)
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
 		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(jsonEvent))
 		request.Header.Set("Content-Type", "application/json")
@@ -179,7 +183,8 @@ func TestApi_SaveEvents(t *testing.T) {
 
 		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
 		const aggregateType = "thing"
-		api := rangedbapi.New()
+		api, err := rangedbapi.New()
+		require.NoError(t, err)
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
 		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(jsonEvent))
 		request.Header.Set("Content-Type", "application/json")
@@ -199,7 +204,8 @@ func TestApi_SaveEvents(t *testing.T) {
 		// Given
 		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
 		const aggregateType = "thing"
-		api := rangedbapi.New()
+		api, err := rangedbapi.New()
+		require.NoError(t, err)
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
 		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(singleJsonEvent))
 		response := httptest.NewRecorder()
@@ -216,7 +222,8 @@ func TestApi_SaveEvents(t *testing.T) {
 		// Given
 		const aggregateID = "cbba5f386b2d4924ac34d1b9e9217d67"
 		const aggregateType = "thing"
-		api := rangedbapi.New(rangedbapi.WithStore(rangedbtest.NewFailingEventStore()))
+		api, err := rangedbapi.New(rangedbapi.WithStore(rangedbtest.NewFailingEventStore()))
+		require.NoError(t, err)
 		jsonBody := `[
 		{
 			"eventType": "ThingWasDone",
@@ -245,7 +252,8 @@ func TestApi_SaveEvents(t *testing.T) {
 		// Given
 		const aggregateID = "cbba5f386b2d4924ac34d1b9e9217d67"
 		const aggregateType = "thing"
-		api := rangedbapi.New(rangedbapi.WithStore(rangedbtest.NewFailingEventStore()))
+		api, err := rangedbapi.New(rangedbapi.WithStore(rangedbtest.NewFailingEventStore()))
+		require.NoError(t, err)
 		invalidJson := `x`
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
 		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(invalidJson))
@@ -265,7 +273,8 @@ func TestApi_SaveEvents(t *testing.T) {
 		// Given
 		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
 		const aggregateType = "thing"
-		api := rangedbapi.New()
+		api, err := rangedbapi.New()
+		require.NoError(t, err)
 		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
 		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(singleJsonEvent))
 		request.Header.Set("Content-Type", "application/json")
@@ -285,7 +294,8 @@ func TestApi_SaveEvents(t *testing.T) {
 func TestApi_WithFourEventsSaved(t *testing.T) {
 	// Given
 	store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
-	api := rangedbapi.New(rangedbapi.WithStore(store))
+	api, err := rangedbapi.New(rangedbapi.WithStore(store))
+	require.NoError(t, err)
 	const aggregateID1 = "f187760f4d8c4d1c9d9cf17b66766abd"
 	const aggregateID2 = "5b36ae984b724685917b69ae47968be1"
 	const aggregateID3 = "9bc181144cef4fd19da1f32a17363997"
@@ -632,10 +642,11 @@ func TestApi_ListAggregates(t *testing.T) {
 	require.NoError(t, store.Save(ctx,
 		&rangedb.EventRecord{Event: event3},
 	))
-	api := rangedbapi.New(
+	api, err := rangedbapi.New(
 		rangedbapi.WithStore(store),
 		rangedbapi.WithBaseUri("http://0.0.0.0:8080"),
 	)
+	require.NoError(t, err)
 	request := httptest.NewRequest(http.MethodGet, "/list-aggregate-types", nil)
 	response := httptest.NewRecorder()
 
@@ -674,7 +685,8 @@ func TestApi_ListAggregates(t *testing.T) {
 func TestApi_AggregateTypeStatsProjection(t *testing.T) {
 	t.Run("contains projection", func(t *testing.T) {
 		// Given
-		api := rangedbapi.New()
+		api, err := rangedbapi.New()
+		require.NoError(t, err)
 
 		// When
 		aggregateTypeStats := api.AggregateTypeStatsProjection()
@@ -687,10 +699,11 @@ func TestApi_AggregateTypeStatsProjection(t *testing.T) {
 		// Given
 		var logBuffer bytes.Buffer
 		logger := log.New(&logBuffer, "", 0)
-		api := rangedbapi.New(
+		api, err := rangedbapi.New(
 			rangedbapi.WithSnapshotStore(newFailingSnapshotStore()),
 			rangedbapi.WithLogger(logger),
 		)
+		require.NoError(t, err)
 
 		// When
 		stats := api.AggregateTypeStatsProjection()
@@ -706,9 +719,10 @@ func TestApi_AggregateTypeStatsProjection(t *testing.T) {
 		aggregateTypeStats.Accept(rangedbtest.DummyRecord())
 		inMemorySnapshotStore := newInmemorySnapshotStore()
 		require.NoError(t, inMemorySnapshotStore.Save(aggregateTypeStats))
-		api := rangedbapi.New(
+		api, err := rangedbapi.New(
 			rangedbapi.WithSnapshotStore(inMemorySnapshotStore),
 		)
+		require.NoError(t, err)
 
 		// When
 		stats := api.AggregateTypeStatsProjection()

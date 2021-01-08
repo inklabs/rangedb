@@ -19,7 +19,7 @@ func TestRecordSubscriber(t *testing.T) {
 		doneChan := make(chan struct{})
 		totalRecords := 0
 		config := recordsubscriber.Config{
-			BufLen:     10,
+			BufferSize: 10,
 			GetRecords: returnNRecordsIterator(1),
 			ConsumeRecord: func(record *rangedb.Record) error {
 				totalRecords++
@@ -45,7 +45,7 @@ func TestRecordSubscriber(t *testing.T) {
 		doneChan := make(chan struct{})
 		totalRecords := 0
 		config := recordsubscriber.Config{
-			BufLen:     10,
+			BufferSize: 10,
 			GetRecords: returnNRecordsIterator(0, 1),
 			ConsumeRecord: func(record *rangedb.Record) error {
 				totalRecords++
@@ -74,7 +74,7 @@ func TestRecordSubscriber(t *testing.T) {
 		doneChan := make(chan struct{})
 		totalRecords := 0
 		config := recordsubscriber.Config{
-			BufLen:     10,
+			BufferSize: 10,
 			GetRecords: returnNRecordsIterator(0, 1),
 			ConsumeRecord: func(record *rangedb.Record) error {
 				totalRecords++
@@ -104,7 +104,7 @@ func TestRecordSubscriber(t *testing.T) {
 		receivedRecords := make(chan *rangedb.Record, 1)
 		defer close(receivedRecords)
 		config := recordsubscriber.Config{
-			BufLen:     10,
+			BufferSize: 10,
 			GetRecords: returnNRecordsIterator(0),
 			ConsumeRecord: func(record *rangedb.Record) error {
 				receivedRecords <- record
@@ -132,7 +132,7 @@ func TestRecordSubscriber(t *testing.T) {
 		doneChan := make(chan struct{})
 		unsubscribed := make(chan bool)
 		config := recordsubscriber.Config{
-			BufLen:     10,
+			BufferSize: 10,
 			GetRecords: returnNRecordsIterator(0),
 			ConsumeRecord: func(record *rangedb.Record) error {
 				return fmt.Errorf("consume record error")
@@ -160,7 +160,7 @@ func TestRecordSubscriber(t *testing.T) {
 		// Given
 		doneChan := make(chan struct{})
 		config := recordsubscriber.Config{
-			BufLen:     10,
+			BufferSize: 10,
 			GetRecords: returnNRecordsIterator(1),
 			ConsumeRecord: func(record *rangedb.Record) error {
 				return fmt.Errorf("consume record error")
@@ -184,7 +184,7 @@ func TestRecordSubscriber(t *testing.T) {
 		doneChan := make(chan struct{})
 		calls := 0
 		config := recordsubscriber.Config{
-			BufLen:     10,
+			BufferSize: 10,
 			GetRecords: returnNRecordsIterator(1, 1),
 			ConsumeRecord: func(record *rangedb.Record) error {
 				if calls > 0 {
@@ -211,7 +211,7 @@ func TestRecordSubscriber(t *testing.T) {
 		// Given
 		doneChan := make(chan struct{})
 		config := recordsubscriber.Config{
-			BufLen: 10,
+			BufferSize: 10,
 			GetRecords: func(globalSequenceNumber uint64) rangedb.RecordIterator {
 				recordResults := make(chan rangedb.ResultRecord, 1)
 				recordResults <- rangedb.ResultRecord{
@@ -244,7 +244,7 @@ func TestRecordSubscriber(t *testing.T) {
 		close(doneChan)
 		unsubscribed := make(chan bool)
 		config := recordsubscriber.Config{
-			BufLen: 10,
+			BufferSize: 10,
 			GetRecords: func(globalSequenceNumber uint64) rangedb.RecordIterator {
 				recordResults := make(chan rangedb.ResultRecord)
 				close(recordResults)

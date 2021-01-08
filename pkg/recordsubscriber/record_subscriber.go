@@ -5,15 +5,6 @@ import (
 	"github.com/inklabs/rangedb/pkg/broadcast"
 )
 
-type Config struct {
-	BufLen        int
-	GetRecords    GetRecordsIteratorFunc
-	ConsumeRecord ConsumeRecordFunc
-	Subscribe     SubscribeFunc
-	Unsubscribe   SubscribeFunc
-	DoneChan      <-chan struct{}
-}
-
 type GetRecordsIteratorFunc func(globalSequenceNumber uint64) rangedb.RecordIterator
 
 type ConsumeRecordFunc func(record *rangedb.Record) error
@@ -35,7 +26,7 @@ type recordSubscriber struct {
 func New(config Config) *recordSubscriber {
 	return &recordSubscriber{
 		stopChan:        make(chan struct{}),
-		bufferedRecords: make(chan *rangedb.Record, config.BufLen),
+		bufferedRecords: make(chan *rangedb.Record, config.BufferSize),
 		getRecords:      config.GetRecords,
 		consumeRecord:   config.ConsumeRecord,
 		subscribe:       config.Subscribe,

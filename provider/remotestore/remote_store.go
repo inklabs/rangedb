@@ -224,11 +224,6 @@ func (s *remoteStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRe
 	return nil
 }
 
-func (s *remoteStore) SubscribeStartingWith(ctx context.Context, globalSequenceNumber uint64, subscribers ...rangedb.RecordSubscriber) error {
-	rangedb.ReplayEvents(ctx, s, globalSequenceNumber, subscribers...)
-	return s.Subscribe(ctx, subscribers...)
-}
-
 func (s *remoteStore) Subscribe(ctx context.Context, subscribers ...rangedb.RecordSubscriber) error {
 	select {
 	case <-ctx.Done():

@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/inklabs/rangedb"
-	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/rangedbtest"
 )
 
@@ -48,74 +47,6 @@ func Test_GetEventStream_ReturnsStreamFromMessage(t *testing.T) {
 
 	// Then
 	assert.Equal(t, "thing!e2c2b4fa64344d17984fc53631f3c462", stream)
-}
-
-func Test_ReplayEvents(t *testing.T) {
-	t.Run("replays from the first event", func(t *testing.T) {
-		// Given
-		inMemoryStore := inmemorystore.New()
-		const aggregateID = "4a4c36de56f94ae29f0b89497f2ba72f"
-		event1 := rangedbtest.ThingWasDone{ID: aggregateID, Number: 1}
-		event2 := rangedbtest.ThingWasDone{ID: aggregateID, Number: 2}
-		ctx := rangedbtest.TimeoutContext(t)
-		require.NoError(t, inMemoryStore.Save(ctx,
-			&rangedb.EventRecord{Event: event1},
-			&rangedb.EventRecord{Event: event2},
-		))
-		subscriber := rangedbtest.NewTotalEventsSubscriber()
-
-		// When
-		rangedb.ReplayEvents(ctx, inMemoryStore, 0, subscriber)
-
-		// Then
-		assert.Equal(t, 2, subscriber.TotalEvents())
-	})
-
-	t.Run("replays from the second event", func(t *testing.T) {
-		// Given
-		inMemoryStore := inmemorystore.New()
-		const aggregateID = "67db313520884005b2657dfebfac74ae"
-		event1 := rangedbtest.ThingWasDone{ID: aggregateID, Number: 1}
-		event2 := rangedbtest.ThingWasDone{ID: aggregateID, Number: 2}
-		ctx := rangedbtest.TimeoutContext(t)
-		require.NoError(t, inMemoryStore.Save(ctx,
-			&rangedb.EventRecord{Event: event1},
-			&rangedb.EventRecord{Event: event2},
-		))
-		subscriber := rangedbtest.NewTotalEventsSubscriber()
-
-		// When
-		rangedb.ReplayEvents(ctx, inMemoryStore, 1, subscriber)
-
-		// Then
-		assert.Equal(t, 1, subscriber.TotalEvents())
-	})
-
-	t.Run("stops from context.Done", func(t *testing.T) {
-		// Given
-		inMemoryStore := inmemorystore.New()
-		const aggregateID = "67db313520884005b2657dfebfac74ae"
-		event1 := rangedbtest.ThingWasDone{ID: aggregateID, Number: 1}
-		event2 := rangedbtest.ThingWasDone{ID: aggregateID, Number: 2}
-		saveCtx := rangedbtest.TimeoutContext(t)
-		require.NoError(t, inMemoryStore.Save(saveCtx,
-			&rangedb.EventRecord{Event: event1},
-			&rangedb.EventRecord{Event: event2},
-		))
-		subscriber := rangedbtest.NewTotalEventsSubscriber()
-		ctx, done := context.WithCancel(rangedbtest.TimeoutContext(t))
-		done()
-
-		// When
-		rangedb.ReplayEvents(ctx, inMemoryStore, 1, subscriber)
-
-		// Then
-		assert.Equal(t, 0, subscriber.TotalEvents())
-	})
-
-	t.Run("stops after first record from context.Done", func(t *testing.T) {
-		// TODO
-	})
 }
 
 func TestReadNRecords(t *testing.T) {

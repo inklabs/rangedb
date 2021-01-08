@@ -4,11 +4,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
-	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/examples/chat"
-	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/rangedbtest"
 )
 
@@ -26,17 +23,9 @@ func TestWarnedUsersProjection(t *testing.T) {
 
 	t.Run("returns 1 for single warning for userID", func(t *testing.T) {
 		// Given
-		store := inmemorystore.New()
-		chat.BindEvents(store)
-		ctx := rangedbtest.TimeoutContext(t)
-		require.NoError(t, store.Save(ctx,
-			&rangedb.EventRecord{Event: chat.UserWasWarned{
-				UserID: userID,
-				Reason: "language",
-			}},
-		))
 		warnedUsers := chat.NewWarnedUsersProjection()
-		store.SubscribeStartingWith(ctx, 0, warnedUsers)
+		record := rangedbtest.DummyRecordFromEvent(&chat.UserWasWarned{UserID: userID, Reason: "language"})
+		warnedUsers.Accept(record)
 
 		// When
 		totalWarnings := warnedUsers.TotalWarnings(userID)

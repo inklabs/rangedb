@@ -263,11 +263,6 @@ func rTrimFromByteSlice(slice [][]byte, total int) [][]byte {
 	return slice[:len(slice)-total]
 }
 
-func (s *inMemoryStore) SubscribeStartingWith(ctx context.Context, globalSequenceNumber uint64, subscribers ...rangedb.RecordSubscriber) error {
-	rangedb.ReplayEvents(ctx, s, globalSequenceNumber, subscribers...)
-	return s.Subscribe(ctx, subscribers...)
-}
-
 func (s *inMemoryStore) Subscribe(ctx context.Context, subscribers ...rangedb.RecordSubscriber) error {
 	select {
 	case <-ctx.Done():

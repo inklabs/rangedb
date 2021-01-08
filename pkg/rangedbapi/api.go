@@ -15,12 +15,19 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/inklabs/rangedb"
+	"github.com/inklabs/rangedb/pkg/broadcast"
 	"github.com/inklabs/rangedb/pkg/projection"
 	"github.com/inklabs/rangedb/pkg/rangedberror"
+	"github.com/inklabs/rangedb/pkg/recordsubscriber"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/provider/jsonrecordiostream"
 	"github.com/inklabs/rangedb/provider/msgpackrecordiostream"
 	"github.com/inklabs/rangedb/provider/ndjsonrecordiostream"
+)
+
+const (
+	broadcastRecordBuffSize  = 100
+	subscriberRecordBuffSize = 20
 )
 
 type api struct {
@@ -31,6 +38,7 @@ type api struct {
 	snapshotStore         projection.SnapshotStore
 	handler               http.Handler
 	logger                *log.Logger
+	broadcaster           broadcast.Broadcaster
 	baseUri               string
 	projections           struct {
 		aggregateTypeStats *projection.AggregateTypeStats
@@ -69,13 +77,14 @@ func WithStore(store rangedb.Store) Option {
 }
 
 // New constructs an api.
-func New(options ...Option) *api {
+func New(options ...Option) (*api, error) {
 	api := &api{
 		jsonRecordIoStream:    jsonrecordiostream.New(),
 		ndJSONRecordIoStream:  ndjsonrecordiostream.New(),
 		msgpackRecordIoStream: msgpackrecordiostream.New(),
 		store:                 inmemorystore.New(),
 		logger:                log.New(ioutil.Discard, "", 0),
+		broadcaster:           broadcast.New(broadcastRecordBuffSize),
 		baseUri:               "http://127.0.0.1",
 	}
 
@@ -84,9 +93,12 @@ func New(options ...Option) *api {
 	}
 
 	api.initRoutes()
-	api.initProjections()
+	err := api.initProjections()
+	if err != nil {
+		return nil, err
+	}
 
-	return api
+	return api, nil
 }
 
 func (a *api) initRoutes() {
@@ -102,7 +114,7 @@ func (a *api) initRoutes() {
 	a.handler = handlers.CompressHandler(router)
 }
 
-func (a *api) initProjections() {
+func (a *api) initProjections() error {
 	a.projections.aggregateTypeStats = projection.NewAggregateTypeStats()
 	globalSequenceNumber := uint64(0)
 
@@ -117,13 +129,27 @@ func (a *api) initProjections() {
 		}
 	}
 
-	err := a.store.SubscribeStartingWith(
-		context.Background(),
-		globalSequenceNumber,
-		a.projections.aggregateTypeStats,
+	ctx := context.Background()
+	err := a.store.Subscribe(ctx,
+		rangedb.RecordSubscriberFunc(a.broadcaster.Accept),
 	)
 	if err != nil {
-		a.logger.Print(err)
+		return err
+	}
+
+	config := recordsubscriber.AllEventsConfig(ctx,
+		a.store,
+		a.broadcaster,
+		subscriberRecordBuffSize,
+		func(record *rangedb.Record) error {
+			a.projections.aggregateTypeStats.Accept(record)
+			return nil
+		},
+	)
+	subscriber := recordsubscriber.New(config)
+	err = subscriber.StartFrom(globalSequenceNumber)
+	if err != nil {
+		return err
 	}
 
 	if a.snapshotStore != nil {
@@ -132,6 +158,8 @@ func (a *api) initProjections() {
 			a.logger.Print(err)
 		}
 	}
+
+	return nil
 }
 
 func (a *api) ServeHTTP(w http.ResponseWriter, r *http.Request) {

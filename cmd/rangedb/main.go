@@ -49,12 +49,15 @@ func main() {
 	logger := log.New(os.Stderr, "", 0)
 	store, snapshotName, closeStore, err := getStore(*dbPath, logger)
 
-	api := rangedbapi.New(
+	api, err := rangedbapi.New(
 		rangedbapi.WithStore(store),
 		rangedbapi.WithBaseUri(*baseURI+"/api"),
 		rangedbapi.WithSnapshotStore(projection.NewDiskSnapshotStore(snapshotBasePath(snapshotName))),
 		rangedbapi.WithLogger(logger),
 	)
+	if err != nil {
+		log.Fatalf("unable to create API: %v", err)
+	}
 
 	websocketAPI, err := rangedbws.New(
 		rangedbws.WithStore(store),

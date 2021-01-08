@@ -3,6 +3,7 @@ package chat_test
 import (
 	"log"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -299,18 +300,6 @@ func Test_SendPrivateMessageToRoom(t *testing.T) {
 }
 
 func TestNew_Failures(t *testing.T) {
-	t.Run("unable to subscribe starting with", func(t *testing.T) {
-		// Given
-		failingStore := rangedbtest.NewFailingEventStore()
-
-		// When
-		app, err := chat.New(failingStore)
-
-		// Then
-		require.EqualError(t, err, "failingEventStore.SubscribeStartingWith")
-		assert.Nil(t, app)
-	})
-
 	t.Run("unable to subscribe", func(t *testing.T) {
 		// Given
 		failingStore := rangedbtest.NewFailingSubscribeEventStore()
@@ -334,5 +323,10 @@ func newTestCase() *bdd.TestCase {
 
 	return bdd.New(store, func(command bdd.Command) {
 		app.Dispatch(command)
+		waitForProjections()
 	})
+}
+
+func waitForProjections() {
+	time.Sleep(10 * time.Millisecond)
 }

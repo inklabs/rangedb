@@ -20,18 +20,20 @@ import (
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 )
 
-const recordBuffSize = 100
+const (
+	broadcastRecordBuffSize  = 100
+	subscriberRecordBuffSize = 20
+)
 
 type void struct{}
 
 type websocketAPI struct {
-	store           rangedb.Store
-	handler         http.Handler
-	upgrader        *websocket.Upgrader
-	logger          *log.Logger
-	bufferedRecords chan *rangedb.Record
-	broadcaster     broadcast.Broadcaster
-	stopChan        chan void
+	store       rangedb.Store
+	handler     http.Handler
+	upgrader    *websocket.Upgrader
+	logger      *log.Logger
+	broadcaster broadcast.Broadcaster
+	stopChan    chan void
 }
 
 // Option defines functional option parameters for websocketAPI.
@@ -59,10 +61,9 @@ func New(options ...Option) (*websocketAPI, error) {
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 		},
-		logger:          log.New(ioutil.Discard, "", 0),
-		bufferedRecords: make(chan *rangedb.Record, recordBuffSize),
-		broadcaster:     broadcast.New(recordBuffSize),
-		stopChan:        make(chan void),
+		logger:      log.New(ioutil.Discard, "", 0),
+		broadcaster: broadcast.New(broadcastRecordBuffSize),
+		stopChan:    make(chan void),
 	}
 
 	for _, option := range options {
@@ -120,22 +121,17 @@ func (a *websocketAPI) SubscribeToAllEvents(w http.ResponseWriter, r *http.Reque
 	}
 	defer ignoreClose(conn)
 
-	config := recordsubscriber.Config{
-		BufLen:   100,
-		DoneChan: r.Context().Done(),
-		Subscribe: func(subscriber broadcast.RecordSubscriber) {
-			a.broadcaster.SubscribeAllEvents(subscriber)
-		},
-		Unsubscribe: func(subscriber broadcast.RecordSubscriber) {
-			a.broadcaster.UnsubscribeAllEvents(subscriber)
-			_ = conn.Close()
-		},
-		GetRecords: func(globalSequenceNumber uint64) rangedb.RecordIterator {
-			return a.store.EventsStartingWith(r.Context(), globalSequenceNumber)
-		},
-		ConsumeRecord: func(record *rangedb.Record) error {
+	config := recordsubscriber.AllEventsConfig(r.Context(),
+		a.store,
+		a.broadcaster,
+		subscriberRecordBuffSize,
+		func(record *rangedb.Record) error {
 			return a.broadcastRecord(conn, record)
 		},
+	)
+	config.Unsubscribe = func(subscriber broadcast.RecordSubscriber) {
+		a.broadcaster.UnsubscribeAllEvents(subscriber)
+		_ = conn.Close()
 	}
 	subscriber := recordsubscriber.New(config)
 	err = subscriber.StartFrom(globalSequenceNumber)
@@ -177,22 +173,19 @@ func (a *websocketAPI) SubscribeToEventsByAggregateTypes(w http.ResponseWriter, 
 	}
 	defer ignoreClose(conn)
 
-	config := recordsubscriber.Config{
-		BufLen:   100,
-		DoneChan: r.Context().Done(),
-		Subscribe: func(subscriber broadcast.RecordSubscriber) {
-			a.broadcaster.SubscribeAggregateTypes(subscriber, aggregateTypes...)
-		},
-		Unsubscribe: func(subscriber broadcast.RecordSubscriber) {
-			a.broadcaster.UnsubscribeAggregateTypes(subscriber, aggregateTypes...)
-			_ = conn.Close()
-		},
-		GetRecords: func(globalSequenceNumber uint64) rangedb.RecordIterator {
-			return a.store.EventsByAggregateTypesStartingWith(r.Context(), globalSequenceNumber, aggregateTypes...)
-		},
-		ConsumeRecord: func(record *rangedb.Record) error {
+	config := recordsubscriber.AggregateTypesConfig(
+		r.Context(),
+		a.store,
+		a.broadcaster,
+		subscriberRecordBuffSize,
+		aggregateTypes,
+		func(record *rangedb.Record) error {
 			return a.broadcastRecord(conn, record)
 		},
+	)
+	config.Unsubscribe = func(subscriber broadcast.RecordSubscriber) {
+		a.broadcaster.UnsubscribeAggregateTypes(subscriber, aggregateTypes...)
+		_ = conn.Close()
 	}
 	subscriber := recordsubscriber.New(config)
 	err = subscriber.StartFrom(globalSequenceNumber)

@@ -204,11 +204,6 @@ func (s *postgresStore) saveEvents(ctx context.Context, expectedStreamSequenceNu
 	return s.batchNotifySubscribers(batchEvents, globalSequenceNumbers)
 }
 
-func (s *postgresStore) SubscribeStartingWith(ctx context.Context, globalSequenceNumber uint64, subscribers ...rangedb.RecordSubscriber) error {
-	rangedb.ReplayEvents(ctx, s, globalSequenceNumber, subscribers...)
-	return s.Subscribe(ctx, subscribers...)
-}
-
 func (s *postgresStore) Subscribe(ctx context.Context, subscribers ...rangedb.RecordSubscriber) error {
 	select {
 	case <-ctx.Done():
@@ -218,6 +213,7 @@ func (s *postgresStore) Subscribe(ctx context.Context, subscribers ...rangedb.Re
 	}
 
 	s.subscriberMux.Lock()
+	// TODO: Remove multiple subscribers. Preferring broadcaster
 	s.subscribers = append(s.subscribers, subscribers...)
 	s.subscriberMux.Unlock()
 
