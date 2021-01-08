@@ -58,9 +58,17 @@ func main() {
 
 func readEventsForever(socket *websocket.Conn, stop chan os.Signal) {
 	for {
+		select {
+		case <-stop:
+			return
+		default:
+		}
+
 		_, message, err := socket.ReadMessage()
 		if err != nil {
+			log.Printf("error received: %v", err)
 			stop <- syscall.SIGQUIT
+			return
 		}
 		fmt.Println(string(message))
 	}

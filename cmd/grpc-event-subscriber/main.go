@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -24,12 +23,11 @@ func main() {
 	host := flag.String("host", "127.0.0.1:8081", "RangeDB gRPC host address")
 	flag.Parse()
 
-	aggregateTypes := strings.Split(*aggregateTypesCSV, ",")
-	if *aggregateTypesCSV == "" || len(aggregateTypes) < 1 {
-		log.Fatalf("Error: must supply aggregate types!")
+	if *aggregateTypesCSV != "" {
+		fmt.Printf("Subscribing to: %s\n", *aggregateTypesCSV)
+	} else {
+		fmt.Println("Subscribing to all events")
 	}
-
-	fmt.Printf("Subscribing to: %s\n", *aggregateTypesCSV)
 
 	ctx, connectDone := context.WithTimeout(context.Background(), time.Second*5)
 	conn, err := grpc.DialContext(ctx, *host, grpc.WithInsecure(), grpc.WithBlock())
@@ -46,13 +44,24 @@ func main() {
 	}()
 
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
-	request := &rangedbpb.SubscribeToEventsByAggregateTypeRequest{
-		GlobalSequenceNumber: 0,
-		AggregateTypes:       aggregateTypes,
-	}
-
 	subscribeCtx, subscribeDone := context.WithCancel(context.Background())
-	events, err := rangeDBClient.SubscribeToEventsByAggregateType(subscribeCtx, request)
+	var events RecordReceiver
+
+	if *aggregateTypesCSV == "" {
+		request := &rangedbpb.SubscribeToEventsRequest{
+			GlobalSequenceNumber: 0,
+		}
+
+		events, err = rangeDBClient.SubscribeToEvents(subscribeCtx, request)
+	} else {
+		aggregateTypes := strings.Split(*aggregateTypesCSV, ",")
+		request := &rangedbpb.SubscribeToEventsByAggregateTypeRequest{
+			GlobalSequenceNumber: 0,
+			AggregateTypes:       aggregateTypes,
+		}
+
+		events, err = rangeDBClient.SubscribeToEventsByAggregateType(subscribeCtx, request)
+	}
 	if err != nil {
 		log.Fatalf("unable to get events: %v", err)
 	}
@@ -60,7 +69,7 @@ func main() {
 	stop := make(chan os.Signal)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
-	go readEventsForever(events)
+	go readEventsForever(events, stop)
 
 	<-stop
 
@@ -68,16 +77,24 @@ func main() {
 	subscribeDone()
 }
 
-func readEventsForever(events rangedbpb.RangeDB_SubscribeToEventsByAggregateTypeClient) {
+type RecordReceiver interface {
+	Recv() (*rangedbpb.Record, error)
+}
+
+func readEventsForever(events RecordReceiver, stop chan os.Signal) {
 	for {
-		record, err := events.Recv()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Fatalf("error receiving event: %v", err)
+		select {
+		case <-stop:
+			return
+		default:
 		}
 
+		record, err := events.Recv()
+		if err != nil {
+			log.Printf("error received: %v", err)
+			stop <- syscall.SIGQUIT
+			return
+		}
 		fmt.Println(record)
 	}
 }
