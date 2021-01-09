@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
@@ -42,10 +41,11 @@ func Test_Failures(t *testing.T) {
 		ctx := rangedbtest.TimeoutContext(t)
 
 		// When
-		err := store.Save(ctx, &rangedb.EventRecord{Event: rangedbtest.ThingWasDone{}})
+		lastStreamSequenceNumber, err := store.Save(ctx, &rangedb.EventRecord{Event: rangedbtest.ThingWasDone{}})
 
 		// Then
 		assert.EqualError(t, err, "failingSerializer.Serialize")
+		assert.Equal(t, uint64(0), lastStreamSequenceNumber)
 	})
 
 	t.Run("EventsByStream errors when deserialize fails", func(t *testing.T) {
@@ -58,8 +58,7 @@ func Test_Failures(t *testing.T) {
 		)
 		event := rangedbtest.ThingWasDone{}
 		ctx := rangedbtest.TimeoutContext(t)
-		err := store.Save(ctx, &rangedb.EventRecord{Event: event})
-		require.NoError(t, err)
+		rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event})
 
 		// When
 		recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event))

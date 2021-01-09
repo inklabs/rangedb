@@ -30,13 +30,13 @@ func ExampleRangeDBServer_Events() {
 	rangedbtest.BindEvents(inMemoryStore)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	PrintError(inMemoryStore.Save(ctx,
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "605f20348fb940e386c171d51c877bf1", Number: 100}},
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "605f20348fb940e386c171d51c877bf1", Number: 200}},
-	))
-	PrintError(inMemoryStore.Save(ctx,
+	)))
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a095086e52bc4617a1763a62398cd645"}},
-	))
+	)))
 
 	// Setup gRPC server
 	bufListener := bufconn.Listen(7)

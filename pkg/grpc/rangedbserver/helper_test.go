@@ -19,3 +19,7 @@ func PrintError(errors ...error) {
 		}
 	}
 }
+
+func IgnoreFirstNumber(_ uint64, err error) error {
+	return err
+}

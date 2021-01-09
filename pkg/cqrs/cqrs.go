@@ -90,7 +90,7 @@ func (c *cqrs) Dispatch(command Command) []rangedb.Event {
 func (c *cqrs) saveEvents(ctx context.Context, events []rangedb.Event) []rangedb.Event {
 	var savedEvents []rangedb.Event
 	for _, event := range events {
-		err := c.store.Save(ctx, &rangedb.EventRecord{Event: event})
+		_, err := c.store.Save(ctx, &rangedb.EventRecord{Event: event})
 		if err != nil {
 			c.logger.Printf("unable to save event: %v", err)
 			continue

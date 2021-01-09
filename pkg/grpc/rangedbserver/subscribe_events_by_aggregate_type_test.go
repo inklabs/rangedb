@@ -30,9 +30,9 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 	rangedbtest.BindEvents(inMemoryStore)
 	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
 	defer done()
-	PrintError(inMemoryStore.Save(ctx,
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "9f5b723b51fe4703883bde0d6d6f3fa9", Number: 1}},
-	))
+	)))
 
 	// Setup gRPC server
 	bufListener := bufconn.Listen(7)
@@ -81,15 +81,15 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 		wg.Done()
 	}()
 
-	PrintError(inMemoryStore.Save(ctx,
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "52e247a7c0a54a65906e006dac9be108", Number: 2}},
-	))
-	PrintError(inMemoryStore.Save(ctx,
+	)))
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.ThatWasDone{ID: "de33dd02222f443b86861a9fb4574ce9"}},
-	))
-	PrintError(inMemoryStore.Save(ctx,
+	)))
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a3d9faa7614a46b388c6dce9984b6620"}},
-	))
+	)))
 
 	wg.Wait()
 

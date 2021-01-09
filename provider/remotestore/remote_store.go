@@ -109,9 +109,9 @@ func (s *remoteStore) EventsByStream(ctx context.Context, streamSequenceNumber u
 	return s.readRecords(ctx, events)
 }
 
-func (s *remoteStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) error {
+func (s *remoteStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	if len(eventRecords) < 1 {
-		return fmt.Errorf("missing events")
+		return 0, fmt.Errorf("missing events")
 	}
 
 	var aggregateType, aggregateID string
@@ -119,11 +119,11 @@ func (s *remoteStore) OptimisticSave(ctx context.Context, expectedStreamSequence
 	var events []*rangedbpb.Event
 	for _, eventRecord := range eventRecords {
 		if aggregateType != "" && aggregateType != eventRecord.Event.AggregateType() {
-			return fmt.Errorf("unmatched aggregate type")
+			return 0, fmt.Errorf("unmatched aggregate type")
 		}
 
 		if aggregateID != "" && aggregateID != eventRecord.Event.AggregateID() {
-			return fmt.Errorf("unmatched aggregate ID")
+			return 0, fmt.Errorf("unmatched aggregate ID")
 		}
 
 		aggregateType = eventRecord.Event.AggregateType()
@@ -131,12 +131,12 @@ func (s *remoteStore) OptimisticSave(ctx context.Context, expectedStreamSequence
 
 		jsonData, err := json.Marshal(eventRecord.Event)
 		if err != nil {
-			return err
+			return 0, err
 		}
 
 		jsonMetadata, err := json.Marshal(eventRecord.Metadata)
 		if err != nil {
-			return err
+			return 0, err
 		}
 
 		events = append(events, &rangedbpb.Event{
@@ -153,25 +153,25 @@ func (s *remoteStore) OptimisticSave(ctx context.Context, expectedStreamSequence
 		ExpectedStreamSequenceNumber: expectedStreamSequenceNumber,
 	}
 
-	_, err := s.client.OptimisticSave(ctx, request)
+	response, err := s.client.OptimisticSave(ctx, request)
 	if err != nil {
 		if strings.Contains(err.Error(), rpcErrContextCanceled) {
-			return context.Canceled
+			return 0, context.Canceled
 		}
 
 		if strings.Contains(err.Error(), rpcErrUnexpectedSequenceNumber) {
-			return rangedberror.NewUnexpectedSequenceNumberFromString(err.Error())
+			return 0, rangedberror.NewUnexpectedSequenceNumberFromString(err.Error())
 		}
 
-		return err
+		return 0, err
 	}
 
-	return nil
+	return response.LastStreamSequenceNumber, nil
 }
 
-func (s *remoteStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRecord) error {
+func (s *remoteStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	if len(eventRecords) < 1 {
-		return fmt.Errorf("missing events")
+		return 0, fmt.Errorf("missing events")
 	}
 
 	var aggregateType, aggregateID string
@@ -179,11 +179,11 @@ func (s *remoteStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRe
 	var events []*rangedbpb.Event
 	for _, eventRecord := range eventRecords {
 		if aggregateType != "" && aggregateType != eventRecord.Event.AggregateType() {
-			return fmt.Errorf("unmatched aggregate type")
+			return 0, fmt.Errorf("unmatched aggregate type")
 		}
 
 		if aggregateID != "" && aggregateID != eventRecord.Event.AggregateID() {
-			return fmt.Errorf("unmatched aggregate ID")
+			return 0, fmt.Errorf("unmatched aggregate ID")
 		}
 
 		aggregateType = eventRecord.Event.AggregateType()
@@ -191,12 +191,12 @@ func (s *remoteStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRe
 
 		jsonData, err := json.Marshal(eventRecord.Event)
 		if err != nil {
-			return err
+			return 0, err
 		}
 
 		jsonMetadata, err := json.Marshal(eventRecord.Metadata)
 		if err != nil {
-			return err
+			return 0, err
 		}
 
 		events = append(events, &rangedbpb.Event{
@@ -212,16 +212,16 @@ func (s *remoteStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRe
 		Events:        events,
 	}
 
-	_, err := s.client.Save(ctx, request)
+	response, err := s.client.Save(ctx, request)
 	if err != nil {
 		if strings.Contains(err.Error(), rpcErrContextCanceled) {
-			return context.Canceled
+			return 0, context.Canceled
 		}
 
-		return err
+		return 0, err
 	}
 
-	return nil
+	return response.LastStreamSequenceNumber, nil
 }
 
 func (s *remoteStore) Subscribe(ctx context.Context, subscribers ...rangedb.RecordSubscriber) error {

@@ -151,23 +151,23 @@ func (s *postgresStore) EventsByStream(ctx context.Context, streamSequenceNumber
 	return rangedb.NewRecordIterator(resultRecords)
 }
 
-func (s *postgresStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) error {
+func (s *postgresStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	return s.saveEvents(ctx, &expectedStreamSequenceNumber, eventRecords...)
 }
 
-func (s *postgresStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRecord) error {
+func (s *postgresStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	return s.saveEvents(ctx, nil, eventRecords...)
 }
 
 // saveEvents persists one or more events inside a locked mutex, and notifies subscribers.
-func (s *postgresStore) saveEvents(ctx context.Context, expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) error {
+func (s *postgresStore) saveEvents(ctx context.Context, expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	if len(eventRecords) < 1 {
-		return fmt.Errorf("missing events")
+		return 0, fmt.Errorf("missing events")
 	}
 
 	transaction, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	aggregateType := eventRecords[0].Event.AggregateType()
@@ -175,33 +175,33 @@ func (s *postgresStore) saveEvents(ctx context.Context, expectedStreamSequenceNu
 
 	err = s.lockStream(ctx, transaction, aggregateID)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	nextStreamSequenceNumber, err := s.validateNextStreamSequenceNumber(ctx, transaction, expectedStreamSequenceNumber, aggregateType, aggregateID)
 	if err != nil {
 		_ = transaction.Rollback()
-		return err
+		return 0, err
 	}
 
 	batchEvents, err := s.eventRecordsToBatchEvents(eventRecords, nextStreamSequenceNumber)
 	if err != nil {
 		_ = transaction.Rollback()
-		return err
+		return 0, err
 	}
 
-	globalSequenceNumbers, err := s.batchInsert(ctx, transaction, batchEvents)
+	globalSequenceNumbers, lastStreamSequenceNumber, err := s.batchInsert(ctx, transaction, batchEvents)
 	if err != nil {
 		_ = transaction.Rollback()
-		return err
+		return 0, err
 	}
 
 	err = transaction.Commit()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	return s.batchNotifySubscribers(batchEvents, globalSequenceNumbers)
+	return lastStreamSequenceNumber, s.batchNotifySubscribers(batchEvents, globalSequenceNumbers)
 }
 
 func (s *postgresStore) Subscribe(ctx context.Context, subscribers ...rangedb.RecordSubscriber) error {
@@ -324,9 +324,10 @@ func (s *postgresStore) eventRecordsToBatchEvents(eventRecords []*rangedb.EventR
 	return batchEvents, nil
 }
 
-func (s *postgresStore) batchInsert(ctx context.Context, transaction DBQueryable, batchEvents []*batchEvent) ([]uint64, error) {
+func (s *postgresStore) batchInsert(ctx context.Context, transaction DBQueryable, batchEvents []*batchEvent) ([]uint64, uint64, error) {
 	valueStrings := make([]string, 0, len(batchEvents))
 	valueArgs := make([]interface{}, 0, len(batchEvents)*8)
+	var lastStreamSequenceNumber uint64
 
 	i := 0
 	for _, batchEvent := range batchEvents {
@@ -342,6 +343,8 @@ func (s *postgresStore) batchInsert(ctx context.Context, transaction DBQueryable
 			batchEvent.Metadata,
 		)
 		i++
+
+		lastStreamSequenceNumber = batchEvent.StreamSequenceNumber
 	}
 
 	sqlStatement := fmt.Sprintf(
@@ -350,7 +353,7 @@ func (s *postgresStore) batchInsert(ctx context.Context, transaction DBQueryable
 
 	rows, err := transaction.QueryContext(ctx, sqlStatement, valueArgs...)
 	if err != nil {
-		return nil, fmt.Errorf("unable to insert: %v", err)
+		return nil, 0, fmt.Errorf("unable to insert: %v", err)
 	}
 
 	globalSequenceNumbers := make([]uint64, 0)
@@ -358,13 +361,13 @@ func (s *postgresStore) batchInsert(ctx context.Context, transaction DBQueryable
 		var globalSequenceNumber uint64
 		err := rows.Scan(&globalSequenceNumber)
 		if err != nil {
-			return nil, fmt.Errorf("unable to get global sequence number: %v", err)
+			return nil, 0, fmt.Errorf("unable to get global sequence number: %v", err)
 		}
 
 		globalSequenceNumbers = append(globalSequenceNumbers, globalSequenceNumber)
 	}
 
-	return globalSequenceNumbers, nil
+	return globalSequenceNumbers, lastStreamSequenceNumber, nil
 }
 
 func (s *postgresStore) lockStream(ctx context.Context, transaction DBExecAble, aggregateID string) error {

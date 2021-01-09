@@ -212,6 +212,7 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var lastStreamSequenceNumber uint64
 	var saveErr error
 	expectedStreamSequenceNumberInput := r.Header.Get("ExpectedStreamSequenceNumber")
 	if expectedStreamSequenceNumberInput != "" {
@@ -220,9 +221,9 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 			writeBadRequest(w, "invalid ExpectedStreamSequenceNumber")
 			return
 		}
-		saveErr = a.store.OptimisticSave(r.Context(), expectedStreamSequenceNumber, eventRecords...)
+		lastStreamSequenceNumber, saveErr = a.store.OptimisticSave(r.Context(), expectedStreamSequenceNumber, eventRecords...)
 	} else {
-		saveErr = a.store.Save(r.Context(), eventRecords...)
+		lastStreamSequenceNumber, saveErr = a.store.Save(r.Context(), eventRecords...)
 	}
 
 	if saveErr != nil {
@@ -237,7 +238,7 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	_, _ = fmt.Fprintf(w, `{"status":"OK"}`)
+	_, _ = fmt.Fprintf(w, `{"status":"OK","lastStreamSequenceNumber":%d}`, lastStreamSequenceNumber)
 }
 
 func writeBadRequest(w http.ResponseWriter, message string) {

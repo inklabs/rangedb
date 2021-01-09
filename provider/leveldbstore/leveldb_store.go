@@ -114,47 +114,50 @@ func (s *levelDbStore) EventsByStream(ctx context.Context, streamSequenceNumber 
 	return s.getEventsByPrefix(ctx, stream, streamSequenceNumber)
 }
 
-func (s *levelDbStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) error {
+func (s *levelDbStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	return s.saveEvents(ctx, &expectedStreamSequenceNumber, eventRecords...)
 }
 
-func (s *levelDbStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRecord) error {
+func (s *levelDbStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	return s.saveEvents(ctx, nil, eventRecords...)
 }
 
-func (s *levelDbStore) saveEvents(ctx context.Context, expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) error {
+func (s *levelDbStore) saveEvents(ctx context.Context, expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	if len(eventRecords) < 1 {
-		return fmt.Errorf("missing events")
+		return 0, fmt.Errorf("missing events")
 	}
 
 	nextExpectedStreamSequenceNumber := expectedStreamSequenceNumber
 
 	var pendingEventsData [][]byte
 	var aggregateType, aggregateID string
+	var lastStreamSequenceNumber uint64
 
 	s.mux.Lock()
 	transaction, err := s.db.OpenTransaction()
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	for _, eventRecord := range eventRecords {
 		if aggregateType != "" && aggregateType != eventRecord.Event.AggregateType() {
 			transaction.Discard()
 			s.mux.Unlock()
-			return fmt.Errorf("unmatched aggregate type")
+			return 0, fmt.Errorf("unmatched aggregate type")
 		}
 
 		if aggregateID != "" && aggregateID != eventRecord.Event.AggregateID() {
 			transaction.Discard()
 			s.mux.Unlock()
-			return fmt.Errorf("unmatched aggregate ID")
+			return 0, fmt.Errorf("unmatched aggregate ID")
 		}
 
 		aggregateType = eventRecord.Event.AggregateType()
 		aggregateID = eventRecord.Event.AggregateID()
 
-		data, err := s.saveEvent(
+		var data []byte
+		var err error
+		data, lastStreamSequenceNumber, err = s.saveEvent(
 			ctx,
 			transaction,
 			aggregateType,
@@ -168,7 +171,7 @@ func (s *levelDbStore) saveEvents(ctx context.Context, expectedStreamSequenceNum
 		if err != nil {
 			transaction.Discard()
 			s.mux.Unlock()
-			return err
+			return 0, err
 		}
 
 		pendingEventsData = append(pendingEventsData, data)
@@ -179,7 +182,7 @@ func (s *levelDbStore) saveEvents(ctx context.Context, expectedStreamSequenceNum
 	}
 	err = transaction.Commit()
 	if err != nil {
-		return err
+		return 0, err
 	}
 	s.mux.Unlock()
 
@@ -188,18 +191,18 @@ func (s *levelDbStore) saveEvents(ctx context.Context, expectedStreamSequenceNum
 		s.notifySubscribers(deSerializedRecord)
 	}
 
-	return nil
+	return lastStreamSequenceNumber, nil
 }
 
 // saveEvent persists a single event without locking the mutex, or notifying subscribers.
 func (s *levelDbStore) saveEvent(ctx context.Context, transaction *leveldb.Transaction,
 	aggregateType, aggregateID, eventType, eventID string,
 	expectedStreamSequenceNumber *uint64,
-	event, metadata interface{}) ([]byte, error) {
+	event, metadata interface{}) ([]byte, uint64, error) {
 
 	select {
 	case <-ctx.Done():
-		return nil, context.Canceled
+		return nil, 0, context.Canceled
 
 	default:
 	}
@@ -208,7 +211,7 @@ func (s *levelDbStore) saveEvent(ctx context.Context, transaction *leveldb.Trans
 	nextSequenceNumber := s.getNextStreamSequenceNumber(transaction, stream)
 
 	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber != nextSequenceNumber {
-		return nil, &rangedberror.UnexpectedSequenceNumber{
+		return nil, 0, &rangedberror.UnexpectedSequenceNumber{
 			Expected:           *expectedStreamSequenceNumber,
 			NextSequenceNumber: nextSequenceNumber,
 		}
@@ -229,7 +232,7 @@ func (s *levelDbStore) saveEvent(ctx context.Context, transaction *leveldb.Trans
 	batch := new(leveldb.Batch)
 	data, err := s.serializer.Serialize(record)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	streamKey := getKeyWithNumber(stream+separator, record.StreamSequenceNumber)
@@ -243,10 +246,10 @@ func (s *levelDbStore) saveEvent(ctx context.Context, transaction *leveldb.Trans
 
 	err = transaction.Write(batch, nil)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	return data, nil
+	return data, record.StreamSequenceNumber, nil
 }
 
 func (s *levelDbStore) Subscribe(ctx context.Context, subscribers ...rangedb.RecordSubscriber) error {

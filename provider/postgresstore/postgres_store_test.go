@@ -72,10 +72,11 @@ func Test_Failures(t *testing.T) {
 			ctx := rangedbtest.TimeoutContext(t)
 
 			// When
-			err = store.Save(ctx, &rangedb.EventRecord{Event: rangedbtest.FloatWasDone{Number: math.Inf(1)}})
+			lastStreamSequenceNumber, err := store.Save(ctx, &rangedb.EventRecord{Event: rangedbtest.FloatWasDone{Number: math.Inf(1)}})
 
 			// Then
 			assert.EqualError(t, err, "json: unsupported value: +Inf")
+			assert.Equal(t, uint64(0), lastStreamSequenceNumber)
 		})
 
 		t.Run("errors when metadata serialize errors", func(t *testing.T) {
@@ -85,10 +86,11 @@ func Test_Failures(t *testing.T) {
 			ctx := rangedbtest.TimeoutContext(t)
 
 			// When
-			err = store.Save(ctx, &rangedb.EventRecord{Event: rangedbtest.ThingWasDone{}, Metadata: math.Inf(-1)})
+			lastStreamSequenceNumber, err := store.Save(ctx, &rangedb.EventRecord{Event: rangedbtest.ThingWasDone{}, Metadata: math.Inf(-1)})
 
 			// Then
 			assert.EqualError(t, err, "json: unsupported value: -Inf")
+			assert.Equal(t, uint64(0), lastStreamSequenceNumber)
 		})
 	})
 

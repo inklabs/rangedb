@@ -31,21 +31,20 @@ func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 	const aggregateID2 = "5b36ae984b724685917b69ae47968be1"
 	const aggregateID3 = "9bc181144cef4fd19da1f32a17363997"
 
-	ctx := rangedbtest.TimeoutContext(t)
 	event1 := rangedbtest.ThingWasDone{ID: aggregateID1, Number: 100}
 	event2 := rangedbtest.ThingWasDone{ID: aggregateID1, Number: 200}
 	event3 := rangedbtest.ThingWasDone{ID: aggregateID2, Number: 300}
 	event4 := rangedbtest.AnotherWasComplete{ID: aggregateID3}
-	require.NoError(t, store.Save(ctx,
+	rangedbtest.SaveEvents(t, store,
 		&rangedb.EventRecord{Event: event1},
 		&rangedb.EventRecord{Event: event2},
-	))
-	require.NoError(t, store.Save(ctx,
+	)
+	rangedbtest.SaveEvents(t, store,
 		&rangedb.EventRecord{Event: event3},
-	))
-	require.NoError(t, store.Save(ctx,
+	)
+	rangedbtest.SaveEvents(t, store,
 		&rangedb.EventRecord{Event: event4},
-	))
+	)
 
 	t.Run("get all events", func(t *testing.T) {
 		// Given
@@ -144,10 +143,10 @@ func TestRangeDBServer_SubscribeToLiveEvents(t *testing.T) {
 		const aggregateID2 = "5b36ae984b724685917b69ae47968be1"
 		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 		ctx := rangedbtest.TimeoutContext(t)
-		require.NoError(t, store.Save(ctx,
+		rangedbtest.SaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 100}},
 			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 200}},
-		))
+		)
 		rangeDBClient := getClient(t, store)
 		request := &rangedbpb.SubscribeToLiveEventsRequest{}
 
@@ -159,12 +158,12 @@ func TestRangeDBServer_SubscribeToLiveEvents(t *testing.T) {
 		time.Sleep(time.Millisecond * 5)
 		actualRecords := make(chan *rangedbpb.Record, 10)
 
-		require.NoError(t, store.Save(ctx,
+		rangedbtest.SaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 300}},
-		))
-		require.NoError(t, store.Save(ctx,
+		)
+		rangedbtest.SaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: aggregateID2}},
-		))
+		)
 
 		for i := 0; i < 2; i++ {
 			record, err := events.Recv()
@@ -209,10 +208,10 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 		const aggregateID2 = "5b36ae984b724685917b69ae47968be1"
 		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 		ctx := rangedbtest.TimeoutContext(t)
-		require.NoError(t, store.Save(ctx,
+		rangedbtest.SaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 100}},
 			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 200}},
-		))
+		)
 		rangeDBClient := getClient(t, store)
 		request := &rangedbpb.SubscribeToEventsRequest{
 			GlobalSequenceNumber: 1,
@@ -229,12 +228,12 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 		require.NoError(t, err)
 		actualRecords <- record
 
-		require.NoError(t, store.Save(ctx,
+		rangedbtest.SaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 300}},
-		))
-		require.NoError(t, store.Save(ctx,
+		)
+		rangedbtest.SaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: aggregateID2}},
-		))
+		)
 
 		for i := 0; i < 2; i++ {
 			record, err := events.Recv()
@@ -291,10 +290,10 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 		const aggregateID2 = "5b36ae984b724685917b69ae47968be1"
 		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 		ctx := rangedbtest.TimeoutContext(t)
-		require.NoError(t, store.Save(ctx,
+		rangedbtest.SaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 100}},
 			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 200}},
-		))
+		)
 		rangeDBClient := getClient(t, store)
 		request := &rangedbpb.SubscribeToEventsByAggregateTypeRequest{
 			GlobalSequenceNumber: 1,
@@ -312,15 +311,15 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 		require.NoError(t, err)
 		actualRecords <- record
 
-		require.NoError(t, store.Save(ctx,
+		rangedbtest.SaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 300}},
-		))
-		require.NoError(t, store.Save(ctx,
+		)
+		rangedbtest.SaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.ThatWasDone{ID: "54d8ee5ba84d45a09b3186d9617c4f86"}},
-		))
-		require.NoError(t, store.Save(ctx,
+		)
+		rangedbtest.SaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: aggregateID2}},
-		))
+		)
 
 		for i := 0; i < 2; i++ {
 			record, err := events.Recv()
@@ -398,6 +397,7 @@ func TestRangeDBServer_Save(t *testing.T) {
 
 		// Then
 		assert.Equal(t, uint32(2), response.EventsSaved)
+		assert.Equal(t, uint64(1), response.LastStreamSequenceNumber)
 		recordIterator := store.Events(ctx, 0)
 		expectedRecord1 := &rangedb.Record{
 			AggregateType:        "thing",

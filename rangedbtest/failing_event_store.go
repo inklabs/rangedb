@@ -28,12 +28,12 @@ func (f failingEventStore) EventsByStream(_ context.Context, _ uint64, _ string)
 	return getFailingIterator("EventsByStream")
 }
 
-func (f failingEventStore) OptimisticSave(_ context.Context, _ uint64, _ ...*rangedb.EventRecord) error {
-	return fmt.Errorf("failingEventStore.OptimisticSave")
+func (f failingEventStore) OptimisticSave(_ context.Context, _ uint64, _ ...*rangedb.EventRecord) (uint64, error) {
+	return 0, fmt.Errorf("failingEventStore.OptimisticSave")
 }
 
-func (f failingEventStore) Save(_ context.Context, _ ...*rangedb.EventRecord) error {
-	return fmt.Errorf("failingEventStore.Save")
+func (f failingEventStore) Save(_ context.Context, _ ...*rangedb.EventRecord) (uint64, error) {
+	return 0, fmt.Errorf("failingEventStore.Save")
 }
 
 func (f failingEventStore) Subscribe(_ context.Context, _ ...rangedb.RecordSubscriber) error {

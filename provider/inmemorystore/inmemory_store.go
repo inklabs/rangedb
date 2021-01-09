@@ -137,18 +137,18 @@ func (s *inMemoryStore) recordsToIterator(ctx context.Context, serializedRecords
 	return rangedb.NewRecordIterator(resultRecords)
 }
 
-func (s *inMemoryStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) error {
+func (s *inMemoryStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	return s.saveEvents(ctx, &expectedStreamSequenceNumber, eventRecords...)
 }
 
-func (s *inMemoryStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRecord) error {
+func (s *inMemoryStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	return s.saveEvents(ctx, nil, eventRecords...)
 }
 
 // saveEvents persists one or more events inside a locked mutex, and notifies subscribers.
-func (s *inMemoryStore) saveEvents(ctx context.Context, expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) error {
+func (s *inMemoryStore) saveEvents(ctx context.Context, expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	if len(eventRecords) < 1 {
-		return fmt.Errorf("missing events")
+		return 0, fmt.Errorf("missing events")
 	}
 
 	nextExpectedStreamSequenceNumber := expectedStreamSequenceNumber
@@ -156,17 +156,18 @@ func (s *inMemoryStore) saveEvents(ctx context.Context, expectedStreamSequenceNu
 	var pendingEventsData [][]byte
 	var totalSavedEvents int
 	var aggregateType, aggregateID string
+	var lastStreamSequenceNumber uint64
 
 	s.mux.Lock()
 	for _, eventRecord := range eventRecords {
 		if aggregateType != "" && aggregateType != eventRecord.Event.AggregateType() {
 			s.mux.Unlock()
-			return fmt.Errorf("unmatched aggregate type")
+			return 0, fmt.Errorf("unmatched aggregate type")
 		}
 
 		if aggregateID != "" && aggregateID != eventRecord.Event.AggregateID() {
 			s.mux.Unlock()
-			return fmt.Errorf("unmatched aggregate ID")
+			return 0, fmt.Errorf("unmatched aggregate ID")
 		}
 
 		aggregateType = eventRecord.Event.AggregateType()
@@ -175,12 +176,14 @@ func (s *inMemoryStore) saveEvents(ctx context.Context, expectedStreamSequenceNu
 		select {
 		case <-ctx.Done():
 			s.mux.Unlock()
-			return context.Canceled
+			return 0, context.Canceled
 
 		default:
 		}
 
-		data, err := s.saveEvent(
+		var data []byte
+		var err error
+		data, lastStreamSequenceNumber, err = s.saveEvent(
 			aggregateType,
 			aggregateID,
 			eventRecord.Event.EventType(),
@@ -192,7 +195,7 @@ func (s *inMemoryStore) saveEvents(ctx context.Context, expectedStreamSequenceNu
 		if err != nil {
 			s.removeEvents(totalSavedEvents, eventRecord.Event.AggregateType(), eventRecord.Event.AggregateID())
 			s.mux.Unlock()
-			return err
+			return 0, err
 		}
 
 		totalSavedEvents++
@@ -209,20 +212,20 @@ func (s *inMemoryStore) saveEvents(ctx context.Context, expectedStreamSequenceNu
 		s.notifySubscribers(deSerializedRecord)
 	}
 
-	return nil
+	return lastStreamSequenceNumber, nil
 }
 
 // saveEvent persists a single event without locking the mutex, or notifying subscribers.
 func (s *inMemoryStore) saveEvent(
 	aggregateType, aggregateID, eventType, eventID string,
 	expectedStreamSequenceNumber *uint64,
-	event interface{}, metadata interface{}) ([]byte, error) {
+	event interface{}, metadata interface{}) ([]byte, uint64, error) {
 
 	stream := rangedb.GetStream(aggregateType, aggregateID)
 	nextSequenceNumber := s.getNextStreamSequenceNumber(stream)
 
 	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber != nextSequenceNumber {
-		return nil, &rangedberror.UnexpectedSequenceNumber{
+		return nil, 0, &rangedberror.UnexpectedSequenceNumber{
 			Expected:           *expectedStreamSequenceNumber,
 			NextSequenceNumber: nextSequenceNumber,
 		}
@@ -242,14 +245,14 @@ func (s *inMemoryStore) saveEvent(
 
 	data, err := s.serializer.Serialize(record)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	s.allRecords = append(s.allRecords, data)
 	s.recordsByStream[stream] = append(s.recordsByStream[stream], data)
 	s.recordsByAggregateType[aggregateType] = append(s.recordsByAggregateType[aggregateType], data)
 
-	return data, nil
+	return data, record.StreamSequenceNumber, nil
 }
 
 func (s *inMemoryStore) removeEvents(total int, aggregateType, aggregateID string) {

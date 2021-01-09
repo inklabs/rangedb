@@ -74,7 +74,7 @@ func generateRandomEvents(ctx context.Context, store rangedb.Store, totalEvents 
 	for i := 0; i < totalEvents; i++ {
 		eventsPerStream := rand.Intn(maxEventsPerStream) + 1
 		eventRecords := getNEvents(eventsPerStream, shortuuid.New().String(), eventType)
-		err := store.Save(ctx, eventRecords...)
+		_, err := store.Save(ctx, eventRecords...)
 		if err != nil {
 			log.Fatal(err)
 		}

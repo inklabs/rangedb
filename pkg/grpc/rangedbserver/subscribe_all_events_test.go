@@ -76,12 +76,12 @@ func ExampleRangeDBServer_SubscribeToEvents() {
 		wg.Done()
 	}()
 
-	PrintError(inMemoryStore.Save(ctx,
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "52e247a7c0a54a65906e006dac9be108", Number: 100}},
-	))
-	PrintError(inMemoryStore.Save(ctx,
+	)))
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a3d9faa7614a46b388c6dce9984b6620"}},
-	))
+	)))
 
 	wg.Wait()
 

@@ -93,7 +93,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		// Then
 		assert.Equal(t, http.StatusCreated, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		assert.Equal(t, `{"status":"OK"}`, response.Body.String())
+		assert.Equal(t, `{"status":"OK","lastStreamSequenceNumber":0}`, response.Body.String())
 	})
 
 	t.Run("saves from json with expected stream sequence number", func(t *testing.T) {
@@ -125,7 +125,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		// Then
 		assert.Equal(t, http.StatusCreated, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		assert.Equal(t, `{"status":"OK"}`, response.Body.String())
+		assert.Equal(t, `{"status":"OK","lastStreamSequenceNumber":0}`, response.Body.String())
 	})
 
 	t.Run("saves 2 events from json with expected stream sequence number", func(t *testing.T) {
@@ -165,7 +165,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		// Then
 		assert.Equal(t, http.StatusCreated, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		assert.Equal(t, `{"status":"OK"}`, response.Body.String())
+		assert.Equal(t, `{"status":"OK","lastStreamSequenceNumber":1}`, response.Body.String())
 	})
 
 	t.Run("errors to save from json with wrong expected stream sequence number", func(t *testing.T) {
@@ -634,14 +634,13 @@ func TestApi_ListAggregates(t *testing.T) {
 	event1 := rangedbtest.ThingWasDone{ID: "A", Number: 1}
 	event2 := rangedbtest.ThingWasDone{ID: "A", Number: 2}
 	event3 := rangedbtest.AnotherWasComplete{ID: "B"}
-	ctx := rangedbtest.TimeoutContext(t)
-	require.NoError(t, store.Save(ctx,
+	rangedbtest.SaveEvents(t, store,
 		&rangedb.EventRecord{Event: event1},
 		&rangedb.EventRecord{Event: event2},
-	))
-	require.NoError(t, store.Save(ctx,
+	)
+	rangedbtest.SaveEvents(t, store,
 		&rangedb.EventRecord{Event: event3},
-	))
+	)
 	api, err := rangedbapi.New(
 		rangedbapi.WithStore(store),
 		rangedbapi.WithBaseUri("http://0.0.0.0:8080"),

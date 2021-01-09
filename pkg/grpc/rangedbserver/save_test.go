@@ -79,6 +79,7 @@ func ExampleRangeDBServer_Save() {
 
 	// Output:
 	// {
-	//   "EventsSaved": 2
+	//   "EventsSaved": 2,
+	//   "LastStreamSequenceNumber": 1
 	// }
 }

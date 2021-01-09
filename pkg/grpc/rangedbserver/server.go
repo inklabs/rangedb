@@ -174,7 +174,7 @@ func (s *rangeDBServer) OptimisticSave(ctx context.Context, req *rangedbpb.Optim
 		})
 	}
 
-	saveErr := s.store.OptimisticSave(ctx, req.ExpectedStreamSequenceNumber, eventRecords...)
+	lastStreamSequenceNumber, saveErr := s.store.OptimisticSave(ctx, req.ExpectedStreamSequenceNumber, eventRecords...)
 
 	if saveErr != nil {
 		message := fmt.Sprintf("unable to save to store: %v", saveErr)
@@ -186,7 +186,8 @@ func (s *rangeDBServer) OptimisticSave(ctx context.Context, req *rangedbpb.Optim
 	}
 
 	return &rangedbpb.SaveResponse{
-		EventsSaved: uint32(len(eventRecords)),
+		EventsSaved:              uint32(len(eventRecords)),
+		LastStreamSequenceNumber: lastStreamSequenceNumber,
 	}, nil
 }
 
@@ -224,7 +225,7 @@ func (s *rangeDBServer) Save(ctx context.Context, req *rangedbpb.SaveRequest) (*
 		})
 	}
 
-	saveErr := s.store.Save(ctx, eventRecords...)
+	lastStreamSequenceNumber, saveErr := s.store.Save(ctx, eventRecords...)
 
 	if saveErr != nil {
 		message := fmt.Sprintf("unable to save to store: %v", saveErr)
@@ -236,7 +237,8 @@ func (s *rangeDBServer) Save(ctx context.Context, req *rangedbpb.SaveRequest) (*
 	}
 
 	return &rangedbpb.SaveResponse{
-		EventsSaved: uint32(len(eventRecords)),
+		EventsSaved:              uint32(len(eventRecords)),
+		LastStreamSequenceNumber: lastStreamSequenceNumber,
 	}, nil
 }
 

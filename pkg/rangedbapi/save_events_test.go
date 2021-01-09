@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/inklabs/rangedb/pkg/clock/provider/sequentialclock"
+	"github.com/inklabs/rangedb/pkg/jsontools"
 	"github.com/inklabs/rangedb/pkg/rangedbapi"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 )
@@ -50,8 +51,11 @@ func Example_saveEvent() {
 
 	body, err := ioutil.ReadAll(response.Body)
 	PrintError(err)
-	fmt.Println(string(body))
+	fmt.Println(jsontools.PrettyJSON(body))
 
 	// Output:
-	// {"status":"OK"}
+	// {
+	//   "status": "OK",
+	//   "lastStreamSequenceNumber": 1
+	// }
 }

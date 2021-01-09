@@ -37,11 +37,12 @@ func TestPrivate(t *testing.T) {
 		ctx := rangedbtest.TimeoutContext(t)
 
 		// When
-		ints, err := store.batchInsert(ctx, failingDB, nil)
+		ints, lastStreamSequenceNumber, err := store.batchInsert(ctx, failingDB, nil)
 
 		// Then
 		assert.EqualError(t, err, "unable to insert: failingDBQueryable.QueryContext")
 		assert.Empty(t, ints)
+		assert.Equal(t, uint64(0), lastStreamSequenceNumber)
 	})
 
 }

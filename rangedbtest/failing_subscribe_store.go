@@ -28,12 +28,12 @@ func (f failingSubscribeEventStore) EventsByStream(_ context.Context, _ uint64, 
 	return getEmptyIterator()
 }
 
-func (f failingSubscribeEventStore) OptimisticSave(_ context.Context, _ uint64, _ ...*rangedb.EventRecord) error {
-	return nil
+func (f failingSubscribeEventStore) OptimisticSave(_ context.Context, _ uint64, _ ...*rangedb.EventRecord) (uint64, error) {
+	return 0, nil
 }
 
-func (f failingSubscribeEventStore) Save(_ context.Context, _ ...*rangedb.EventRecord) error {
-	return nil
+func (f failingSubscribeEventStore) Save(_ context.Context, _ ...*rangedb.EventRecord) (uint64, error) {
+	return 0, nil
 }
 
 func (f failingSubscribeEventStore) Subscribe(_ context.Context, _ ...rangedb.RecordSubscriber) error {
