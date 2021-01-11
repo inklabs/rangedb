@@ -43,7 +43,7 @@ func Test_LoadAndSave_ValidJson(t *testing.T) {
 			// Given
 			var writer bytes.Buffer
 			stream := jsonrecordiostream.New()
-			expectedJson := fmt.Sprintf(`[{"aggregateType":"scalar","aggregateID":"1","globalSequenceNumber":10,"sequenceNumber":2,"insertTimestamp":123,"eventID":"1ccd9eeb3a8e42dfb12cee36b908c212","eventType":"Thing","data":%s,"metadata":null}]`, tt.json)
+			expectedJson := fmt.Sprintf(`[{"aggregateType":"scalar","aggregateID":"1","globalSequenceNumber":10,"streamSequenceNumber":2,"insertTimestamp":123,"eventID":"1ccd9eeb3a8e42dfb12cee36b908c212","eventType":"Thing","data":%s,"metadata":null}]`, tt.json)
 			reader := strings.NewReader(expectedJson)
 			recordIterator := stream.Read(reader)
 

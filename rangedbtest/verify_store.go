@@ -1039,9 +1039,9 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			require.NoError(t, err)
 			_, err = store.Save(ctx, &rangedb.EventRecord{Event: event2})
 			require.NoError(t, err)
-			<-countSubscriber1.AcceptRecordChan
-			<-countSubscriber2.AcceptRecordChan
-			assert.Equal(t, 1, countSubscriber1.TotalEvents())
+			readRecord(t, countSubscriber1.AcceptRecordChan)
+			readRecord(t, countSubscriber2.AcceptRecordChan)
+			require.Equal(t, 1, countSubscriber1.TotalEvents())
 			assert.Equal(t, 3, countSubscriber1.TotalThingWasDoneNumber())
 			assert.Equal(t, 1, countSubscriber2.TotalEvents())
 			assert.Equal(t, 3, countSubscriber2.TotalThingWasDoneNumber())
@@ -1095,7 +1095,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		require.NoError(t, err)
 
 		// Then
-		<-triggerProcessManager.ReceivedRecords
+		readRecord(t, triggerProcessManager.ReceivedRecords)
 		recordIterator := store.Events(TimeoutContext(t), 0)
 		expectedRecord1 := &rangedb.Record{
 			AggregateType:        event.AggregateType(),
@@ -1202,6 +1202,18 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		})
 
 	})
+}
+
+func readRecord(t *testing.T, recordChan chan *rangedb.Record) *rangedb.Record {
+	select {
+	case <-time.After(100 * time.Millisecond):
+		require.Fail(t, "timout reading record")
+
+	case record := <-recordChan:
+		return record
+	}
+
+	return nil
 }
 
 func assertCanceledIterator(t *testing.T, iter rangedb.RecordIterator) {

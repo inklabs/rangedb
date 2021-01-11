@@ -34,6 +34,27 @@ func Test_Postgres_VerifyStoreInterface(t *testing.T) {
 	})
 }
 
+func Test_Postgres_WithPgNotify_VerifyStoreInterface(t *testing.T) {
+	config := configFromEnvironment(t)
+
+	rangedbtest.VerifyStore(t, func(t *testing.T, clock clock.Clock) rangedb.Store {
+		store, err := postgresstore.New(
+			config,
+			postgresstore.WithClock(clock),
+			postgresstore.WithPgNotify(),
+		)
+		require.NoError(t, err)
+		rangedbtest.BindEvents(store)
+
+		t.Cleanup(func() {
+			truncateRecords(t, config)
+			require.NoError(t, store.CloseDB())
+		})
+
+		return store
+	})
+}
+
 func BenchmarkPostgresStore(b *testing.B) {
 	config := configFromEnvironment(b)
 
@@ -54,10 +75,16 @@ func BenchmarkPostgresStore(b *testing.B) {
 func truncateRecords(t require.TestingT, config *postgresstore.Config) {
 	db, err := sql.Open("postgres", config.DataSourceName())
 	require.NoError(t, err)
-	_, err = db.Exec(`TRUNCATE record;`)
-	require.NoError(t, err)
-	_, err = db.Exec(`ALTER SEQUENCE global_sequence_number RESTART WITH 0;`)
-	require.NoError(t, err)
+
+	sqlStatements := []string{
+		`TRUNCATE record;`,
+		`ALTER SEQUENCE global_sequence_number RESTART WITH 0;`,
+	}
+	for _, statement := range sqlStatements {
+		_, err = db.Exec(statement)
+		require.NoError(t, err)
+	}
+
 	require.NoError(t, db.Close())
 }
 

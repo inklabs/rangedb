@@ -15,7 +15,7 @@ type Record struct {
 	AggregateType        string      `msgpack:"a" json:"aggregateType"`
 	AggregateID          string      `msgpack:"i" json:"aggregateID"`
 	GlobalSequenceNumber uint64      `msgpack:"g" json:"globalSequenceNumber"`
-	StreamSequenceNumber uint64      `msgpack:"s" json:"sequenceNumber"`
+	StreamSequenceNumber uint64      `msgpack:"s" json:"streamSequenceNumber"`
 	InsertTimestamp      uint64      `msgpack:"u" json:"insertTimestamp"`
 	EventID              string      `msgpack:"e" json:"eventID"`
 	EventType            string      `msgpack:"t" json:"eventType"`
