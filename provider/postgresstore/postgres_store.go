@@ -462,15 +462,20 @@ func (s *postgresStore) initDB() error {
 		`CREATE INDEX IF NOT EXISTS record_idx_aggregate_id ON record USING HASH (
 			AggregateID
 		);`,
-		`CREATE OR REPLACE FUNCTION rangedb_notify_record() RETURNS TRIGGER AS
+	}
+
+	if s.pgNotifyIsEnabled {
+		sqlStatements = append(sqlStatements,
+			`CREATE OR REPLACE FUNCTION rangedb_notify_record() RETURNS TRIGGER AS
 		$$
 			BEGIN
 				PERFORM pg_notify('records', row_to_json(NEW)::text); 
 				RETURN NULL; 
 			END;
 		$$ LANGUAGE plpgsql;`,
-		`DROP TRIGGER IF EXISTS rangedb_trigger_notify_record ON record;`,
-		`CREATE TRIGGER rangedb_trigger_notify_record AFTER INSERT ON record FOR EACH ROW EXECUTE PROCEDURE rangedb_notify_record();`,
+			`DROP TRIGGER IF EXISTS rangedb_trigger_notify_record ON record;`,
+			`CREATE TRIGGER rangedb_trigger_notify_record AFTER INSERT ON record FOR EACH ROW EXECUTE PROCEDURE rangedb_notify_record();`,
+		)
 	}
 
 	for _, statement := range sqlStatements {
