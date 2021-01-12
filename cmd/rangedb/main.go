@@ -141,7 +141,10 @@ func main() {
 func getStore(levelDBPath string, logger *log.Logger) (rangedb.Store, string, func() error, error) {
 	postgreSQLConfig, err := postgresstore.NewConfigFromEnvironment()
 	if err == nil {
-		postgresStore, err := postgresstore.New(postgreSQLConfig)
+		postgresStore, err := postgresstore.New(
+			postgreSQLConfig,
+			postgresstore.WithPgNotify(),
+		)
 		if err != nil {
 			log.Fatal(err)
 		}
