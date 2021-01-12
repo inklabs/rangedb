@@ -20,6 +20,7 @@ func (c Config) DataSourceName() string {
 		c.Host, c.Port, c.User, c.Password, c.DBName)
 }
 
+// NewConfigFromEnvironment loads a Postgres config from environment variables.
 func NewConfigFromEnvironment() (*Config, error) {
 	pgHost := os.Getenv("PG_HOST")
 	pgUser := os.Getenv("PG_USER")

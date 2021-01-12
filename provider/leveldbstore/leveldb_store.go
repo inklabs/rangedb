@@ -16,25 +16,26 @@ import (
 	"github.com/syndtr/goleveldb/leveldb/util"
 
 	"github.com/inklabs/rangedb"
+	"github.com/inklabs/rangedb/pkg/broadcast"
 	"github.com/inklabs/rangedb/pkg/clock"
 	"github.com/inklabs/rangedb/pkg/clock/provider/systemclock"
 	"github.com/inklabs/rangedb/pkg/rangedberror"
+	"github.com/inklabs/rangedb/pkg/recordsubscriber"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
 
 const (
-	separator       = "!"
-	allEventsPrefix = "$all$" + separator
+	broadcastRecordBuffSize = 100
+	separator               = "!"
+	allEventsPrefix         = "$all$" + separator
 )
 
 type levelDbStore struct {
-	clock      clock.Clock
-	serializer rangedb.RecordSerializer
-	logger     *log.Logger
-
-	subscriberMux sync.RWMutex
-	subscribers   []rangedb.RecordSubscriber
+	clock       clock.Clock
+	serializer  rangedb.RecordSerializer
+	broadcaster broadcast.Broadcaster
+	logger      *log.Logger
 
 	mux sync.RWMutex
 	db  *leveldb.DB
@@ -72,10 +73,11 @@ func New(dbFilePath string, options ...Option) (*levelDbStore, error) {
 	}
 
 	s := &levelDbStore{
-		clock:      systemclock.New(),
-		serializer: jsonrecordserializer.New(),
-		logger:     log.New(ioutil.Discard, "", 0),
-		db:         db,
+		clock:       systemclock.New(),
+		serializer:  jsonrecordserializer.New(),
+		logger:      log.New(ioutil.Discard, "", 0),
+		broadcaster: broadcast.New(broadcastRecordBuffSize, broadcast.DefaultTimeout),
+		db:          db,
 	}
 
 	for _, option := range options {
@@ -187,8 +189,12 @@ func (s *levelDbStore) saveEvents(ctx context.Context, expectedStreamSequenceNum
 	s.mux.Unlock()
 
 	for _, data := range pendingEventsData {
-		deSerializedRecord, _ := s.serializer.Deserialize(data)
-		s.notifySubscribers(deSerializedRecord)
+		deSerializedRecord, err := s.serializer.Deserialize(data)
+		if err == nil {
+			s.broadcaster.Accept(deSerializedRecord)
+		} else {
+			s.logger.Print(err)
+		}
 	}
 
 	return lastStreamSequenceNumber, nil
@@ -252,19 +258,25 @@ func (s *levelDbStore) saveEvent(ctx context.Context, transaction *leveldb.Trans
 	return data, record.StreamSequenceNumber, nil
 }
 
-func (s *levelDbStore) Subscribe(ctx context.Context, subscribers ...rangedb.RecordSubscriber) error {
-	select {
-	case <-ctx.Done():
-		return context.Canceled
+func (s *levelDbStore) AllEventsSubscription(ctx context.Context, bufferSize int, subscriber rangedb.RecordSubscriber) rangedb.RecordSubscription {
+	return recordsubscriber.New(
+		recordsubscriber.AllEventsConfig(ctx, s, s.broadcaster, bufferSize,
+			func(record *rangedb.Record) error {
+				subscriber.Accept(record)
+				return nil
+			},
+		))
+}
 
-	default:
-	}
-
-	s.subscriberMux.Lock()
-	s.subscribers = append(s.subscribers, subscribers...)
-	s.subscriberMux.Unlock()
-
-	return nil
+func (s *levelDbStore) AggregateTypesSubscription(ctx context.Context, bufferSize int, subscriber rangedb.RecordSubscriber, aggregateTypes ...string) rangedb.RecordSubscription {
+	return recordsubscriber.New(
+		recordsubscriber.AggregateTypesConfig(ctx, s, s.broadcaster, bufferSize,
+			aggregateTypes,
+			func(record *rangedb.Record) error {
+				subscriber.Accept(record)
+				return nil
+			},
+		))
 }
 
 func (s *levelDbStore) TotalEventsInStream(ctx context.Context, streamName string) (uint64, error) {
@@ -276,15 +288,6 @@ func (s *levelDbStore) TotalEventsInStream(ctx context.Context, streamName strin
 	}
 
 	return s.getNextStreamSequenceNumber(s.db, streamName), nil
-}
-
-func (s *levelDbStore) notifySubscribers(record *rangedb.Record) {
-	s.subscriberMux.RLock()
-	defer s.subscriberMux.RUnlock()
-
-	for _, subscriber := range s.subscribers {
-		subscriber.Accept(record)
-	}
 }
 
 func (s *levelDbStore) getEventsByPrefix(ctx context.Context, prefix string, streamSequenceNumber uint64) rangedb.RecordIterator {

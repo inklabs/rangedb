@@ -4,9 +4,7 @@ import (
 	"context"
 
 	"github.com/inklabs/rangedb"
-	"github.com/inklabs/rangedb/pkg/broadcast"
 	"github.com/inklabs/rangedb/pkg/cqrs"
-	"github.com/inklabs/rangedb/pkg/recordsubscriber"
 )
 
 //go:generate go run ../../gen/eventbinder/main.go -package chat -files room_events.go,user_events.go
@@ -24,42 +22,14 @@ func New(store rangedb.Store) (cqrs.CommandDispatcher, error) {
 	warnedUsers := NewWarnedUsersProjection()
 	restrictedWordProcessor := newRestrictedWordProcessor(app, warnedUsers)
 
-	const bufferSize = 10
-	broadcaster := broadcast.New(bufferSize, broadcast.DefaultTimeout)
 	ctx := context.Background()
-	err := store.Subscribe(ctx,
-		rangedb.RecordSubscriberFunc(broadcaster.Accept),
-	)
+	const bufferSize = 10
+	err := store.AllEventsSubscription(ctx, bufferSize, warnedUsers).StartFrom(0)
 	if err != nil {
 		return nil, err
 	}
 
-	allEventsSubscriber := recordsubscriber.New(
-		recordsubscriber.AllEventsConfig(ctx,
-			store,
-			broadcaster,
-			bufferSize,
-			func(record *rangedb.Record) error {
-				warnedUsers.Accept(record)
-				return nil
-			},
-		))
-	err = allEventsSubscriber.StartFrom(0)
-	if err != nil {
-		return nil, err
-	}
-
-	realtimeEventsSubscriber := recordsubscriber.New(
-		recordsubscriber.AllEventsConfig(ctx,
-			store,
-			broadcaster,
-			bufferSize,
-			func(record *rangedb.Record) error {
-				restrictedWordProcessor.Accept(record)
-				return nil
-			},
-		))
-	err = realtimeEventsSubscriber.Start()
+	err = store.AllEventsSubscription(ctx, bufferSize, restrictedWordProcessor).Start()
 	if err != nil {
 		return nil, err
 	}

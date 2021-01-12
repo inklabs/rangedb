@@ -56,7 +56,7 @@ func New(options ...Option) (*rangeDBServer, error) {
 		option(server)
 	}
 
-	err := server.initProjections()
+	err := server.initBroadcaster()
 	if err != nil {
 		return nil, err
 	}
@@ -64,11 +64,13 @@ func New(options ...Option) (*rangeDBServer, error) {
 	return server, nil
 }
 
-func (s *rangeDBServer) initProjections() error {
+func (s *rangeDBServer) initBroadcaster() error {
 	ctx := context.Background()
-	return s.store.Subscribe(ctx,
-		rangedb.RecordSubscriberFunc(s.broadcaster.Accept),
+	subscription := s.store.AllEventsSubscription(ctx,
+		subscriberRecordBuffSize,
+		s.broadcaster,
 	)
+	return subscription.Start()
 }
 
 func (s *rangeDBServer) Stop() error {

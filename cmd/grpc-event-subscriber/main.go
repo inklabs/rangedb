@@ -45,7 +45,7 @@ func main() {
 
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
 	subscribeCtx, subscribeDone := context.WithCancel(context.Background())
-	var events RecordReceiver
+	var events recordReceiver
 
 	if *aggregateTypesCSV == "" {
 		request := &rangedbpb.SubscribeToEventsRequest{
@@ -77,11 +77,11 @@ func main() {
 	subscribeDone()
 }
 
-type RecordReceiver interface {
+type recordReceiver interface {
 	Recv() (*rangedbpb.Record, error)
 }
 
-func readEventsForever(events RecordReceiver, stop chan os.Signal) {
+func readEventsForever(events recordReceiver, stop chan os.Signal) {
 	for {
 		select {
 		case <-stop:

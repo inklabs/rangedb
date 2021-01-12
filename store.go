@@ -8,7 +8,7 @@ import (
 )
 
 // Version for RangeDB.
-const Version = "0.6.1-dev"
+const Version = "0.7.0-dev"
 
 // Record contains event data and metadata.
 type Record struct {
@@ -42,8 +42,16 @@ type Store interface {
 	EventsByStream(ctx context.Context, streamSequenceNumber uint64, streamName string) RecordIterator
 	OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*EventRecord) (uint64, error)
 	Save(ctx context.Context, eventRecords ...*EventRecord) (uint64, error)
-	Subscribe(ctx context.Context, subscribers ...RecordSubscriber) error
+	AllEventsSubscription(ctx context.Context, bufferSize int, subscriber RecordSubscriber) RecordSubscription
+	AggregateTypesSubscription(ctx context.Context, bufferSize int, subscriber RecordSubscriber, aggregateTypes ...string) RecordSubscription
 	TotalEventsInStream(ctx context.Context, streamName string) (uint64, error)
+}
+
+// RecordSubscription defines how a subscription starts and stops.
+type RecordSubscription interface {
+	Start() error
+	StartFrom(globalSequenceNumber uint64) error
+	Stop()
 }
 
 // ResultRecord combines Record and error as a result struct for event queries.

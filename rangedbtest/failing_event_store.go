@@ -36,8 +36,12 @@ func (f failingEventStore) Save(_ context.Context, _ ...*rangedb.EventRecord) (u
 	return 0, fmt.Errorf("failingEventStore.Save")
 }
 
-func (f failingEventStore) Subscribe(_ context.Context, _ ...rangedb.RecordSubscriber) error {
-	return nil
+func (f failingEventStore) AllEventsSubscription(_ context.Context, _ int, _ rangedb.RecordSubscriber) rangedb.RecordSubscription {
+	return &dummyRecordSubscription{}
+}
+
+func (f failingEventStore) AggregateTypesSubscription(_ context.Context, _ int, _ rangedb.RecordSubscriber, _ ...string) rangedb.RecordSubscription {
+	return &dummyRecordSubscription{}
 }
 
 func (f failingEventStore) TotalEventsInStream(_ context.Context, _ string) (uint64, error) {

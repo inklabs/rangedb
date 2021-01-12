@@ -1,19 +1,26 @@
 package recordsubscriber
 
 import (
+	"context"
 	"sync"
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/broadcast"
 )
 
+// GetRecordsIteratorFunc defines a function to get events from a rangedb.Store.
+// Typically from store.Events or store.Events store.EventsByAggregateTypes.
 type GetRecordsIteratorFunc func(globalSequenceNumber uint64) rangedb.RecordIterator
 
+// ConsumeRecordFunc defines a function to receiver a rangedb.Record
 type ConsumeRecordFunc func(record *rangedb.Record) error
 
+// SubscribeFunc defines a function to receive a record subscriber
 type SubscribeFunc func(subscriber broadcast.RecordSubscriber)
 
 type recordSubscriber struct {
+	stopChan                 chan struct{}
+	finishChan               chan struct{}
 	bufferedRecords          chan *rangedb.Record
 	getRecords               GetRecordsIteratorFunc
 	consumeRecord            ConsumeRecordFunc
@@ -21,15 +28,15 @@ type recordSubscriber struct {
 	unsubscribe              SubscribeFunc
 	doneChan                 <-chan struct{}
 	lastGlobalSequenceNumber uint64
-	totalEventsSent          uint64 // TODO: Remove and refactor zero based sequence numbers to begin with 1
-
-	closeOnce sync.Once
-	stopChan  chan struct{}
+	totalRecordsSent         uint64 // TODO: Remove and refactor zero based sequence numbers to begin with 1
+	closeOnce                sync.Once
 }
 
+// New constructs a record subscriber.
 func New(config Config) *recordSubscriber {
 	return &recordSubscriber{
 		stopChan:        make(chan struct{}),
+		finishChan:      make(chan struct{}),
 		bufferedRecords: make(chan *rangedb.Record, config.BufferSize),
 		getRecords:      config.GetRecords,
 		consumeRecord:   config.ConsumeRecord,
@@ -37,6 +44,10 @@ func New(config Config) *recordSubscriber {
 		unsubscribe:     config.Unsubscribe,
 		doneChan:        config.DoneChan,
 	}
+}
+
+func (s *recordSubscriber) Done() <-chan struct{} {
+	return s.finishChan
 }
 
 func (s *recordSubscriber) Receiver() broadcast.SendRecordChan {
@@ -63,6 +74,13 @@ func (s *recordSubscriber) StartFrom(globalSequenceNumber uint64) error {
 }
 
 func (s *recordSubscriber) Start() error {
+	select {
+	case <-s.doneChan:
+		return context.Canceled
+
+	default:
+	}
+
 	s.subscribe(s)
 	go s.work()
 	return nil
@@ -73,14 +91,16 @@ func (s *recordSubscriber) work() {
 		select {
 		case <-s.stopChan:
 			s.unsubscribe(s)
+			close(s.finishChan)
 			return
 
 		case <-s.doneChan:
 			s.unsubscribe(s)
+			close(s.finishChan)
 			return
 
 		case record := <-s.bufferedRecords:
-			if record.GlobalSequenceNumber <= s.lastGlobalSequenceNumber && s.totalEventsSent > 0 {
+			if s.recordHasAlreadyBeenSent(record) {
 				continue
 			}
 
@@ -91,6 +111,10 @@ func (s *recordSubscriber) work() {
 			}
 		}
 	}
+}
+
+func (s *recordSubscriber) recordHasAlreadyBeenSent(record *rangedb.Record) bool {
+	return s.totalRecordsSent > 0 && record.GlobalSequenceNumber <= s.lastGlobalSequenceNumber
 }
 
 func (s *recordSubscriber) Stop() {
@@ -117,6 +141,6 @@ func (s *recordSubscriber) writeRecords(globalSequenceNumber uint64) error {
 
 func (s *recordSubscriber) writeRecord(record *rangedb.Record) error {
 	s.lastGlobalSequenceNumber = record.GlobalSequenceNumber
-	s.totalEventsSent++
+	s.totalRecordsSent++
 	return s.consumeRecord(record)
 }

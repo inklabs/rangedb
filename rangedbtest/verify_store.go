@@ -1019,32 +1019,29 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		})
 	})
 
-	t.Run("Subscribe", func(t *testing.T) {
-		t.Run("Save sends new events to subscribers on save", func(t *testing.T) {
+	t.Run("AllEventsSubscription", func(t *testing.T) {
+		t.Run("Save sends new events to subscriber on save", func(t *testing.T) {
 			// Given
 			shortuuid.SetRand(100)
 			const aggregateID = "fe7a973d57bb4693a997bb445776da6a"
 			store := newStore(t, sequentialclock.New())
 			event1 := &ThingWasDone{ID: aggregateID, Number: 2}
 			event2 := &ThingWasDone{ID: aggregateID, Number: 3}
+			countSubscriber := NewCountSubscriber()
 			ctx := TimeoutContext(t)
-			SaveEvents(t, store, &rangedb.EventRecord{Event: event1})
-			countSubscriber1 := NewCountSubscriber()
-			countSubscriber2 := NewCountSubscriber()
+			BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event1})
+			subscription := store.AllEventsSubscription(ctx, 10, countSubscriber)
 
 			// When
-			err := store.Subscribe(ctx, countSubscriber1, countSubscriber2)
+			err := subscription.Start()
 
 			// Then
 			require.NoError(t, err)
 			_, err = store.Save(ctx, &rangedb.EventRecord{Event: event2})
 			require.NoError(t, err)
-			readRecord(t, countSubscriber1.AcceptRecordChan)
-			readRecord(t, countSubscriber2.AcceptRecordChan)
-			require.Equal(t, 1, countSubscriber1.TotalEvents())
-			assert.Equal(t, 3, countSubscriber1.TotalThingWasDoneNumber())
-			assert.Equal(t, 1, countSubscriber2.TotalEvents())
-			assert.Equal(t, 3, countSubscriber2.TotalThingWasDoneNumber())
+			ReadRecord(t, countSubscriber.AcceptRecordChan)
+			require.Equal(t, 1, countSubscriber.TotalEvents())
+			assert.Equal(t, 3, countSubscriber.TotalThingWasDoneNumber())
 			expectedRecord := &rangedb.Record{
 				AggregateType:        event2.AggregateType(),
 				AggregateID:          event2.AggregateID(),
@@ -1056,10 +1053,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				Data:                 event2,
 				Metadata:             nil,
 			}
-			require.Equal(t, 1, len(countSubscriber1.AcceptedRecords))
-			require.Equal(t, 1, len(countSubscriber2.AcceptedRecords))
-			assert.Equal(t, expectedRecord, countSubscriber1.AcceptedRecords[0])
-			assert.Equal(t, expectedRecord, countSubscriber2.AcceptedRecords[0])
+			require.Equal(t, 1, len(countSubscriber.AcceptedRecords))
+			assert.Equal(t, expectedRecord, countSubscriber.AcceptedRecords[0])
 		})
 
 		t.Run("stops before subscribing with context.Done", func(t *testing.T) {
@@ -1067,13 +1062,71 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			shortuuid.SetRand(100)
 			store := newStore(t, sequentialclock.New())
 			ctx := TimeoutContext(t)
-			countSubscriber1 := NewCountSubscriber()
-			countSubscriber2 := NewCountSubscriber()
+			countSubscriber := NewCountSubscriber()
 			ctx, done := context.WithCancel(TimeoutContext(t))
 			done()
+			subscription := store.AllEventsSubscription(ctx, 10, countSubscriber)
 
 			// When
-			err := store.Subscribe(ctx, countSubscriber1, countSubscriber2)
+			err := subscription.Start()
+
+			// Then
+			assert.Equal(t, context.Canceled, err)
+		})
+	})
+
+	t.Run("AggregateTypesSubscription", func(t *testing.T) {
+		t.Run("Save sends new events by aggregate type to subscriber on save", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			const aggregateID1 = "db353641085f462ca2d18b0baa9b0e66"
+			const aggregateID2 = "b14ae3514a5d4a28b5be23567faa3c67"
+			store := newStore(t, sequentialclock.New())
+			event1 := &ThingWasDone{ID: aggregateID1, Number: 2}
+			event2 := &AnotherWasComplete{ID: aggregateID2}
+			event3 := &ThingWasDone{ID: aggregateID1, Number: 3}
+			ctx := TimeoutContext(t)
+			BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event1})
+			countSubscriber := NewCountSubscriber()
+			subscription := store.AggregateTypesSubscription(ctx, 10, countSubscriber, event1.AggregateType())
+
+			// When
+			err := subscription.Start()
+
+			// Then
+			require.NoError(t, err)
+			SaveEvents(t, store, &rangedb.EventRecord{Event: event2})
+			SaveEvents(t, store, &rangedb.EventRecord{Event: event3})
+			ReadRecord(t, countSubscriber.AcceptRecordChan)
+			require.Equal(t, 1, countSubscriber.TotalEvents())
+			assert.Equal(t, 3, countSubscriber.TotalThingWasDoneNumber())
+			expectedRecord := &rangedb.Record{
+				AggregateType:        event3.AggregateType(),
+				AggregateID:          event3.AggregateID(),
+				GlobalSequenceNumber: 2,
+				StreamSequenceNumber: 1,
+				EventType:            event3.EventType(),
+				EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+				InsertTimestamp:      2,
+				Data:                 event3,
+				Metadata:             nil,
+			}
+			require.Equal(t, 1, len(countSubscriber.AcceptedRecords))
+			assert.Equal(t, expectedRecord, countSubscriber.AcceptedRecords[0])
+		})
+
+		t.Run("stops before subscribing with context.Done", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			store := newStore(t, sequentialclock.New())
+			ctx := TimeoutContext(t)
+			countSubscriber := NewCountSubscriber()
+			ctx, done := context.WithCancel(TimeoutContext(t))
+			done()
+			subscription := store.AggregateTypesSubscription(ctx, 10, countSubscriber, ThingWasDone{}.AggregateType())
+
+			// When
+			err := subscription.Start()
 
 			// Then
 			assert.Equal(t, context.Canceled, err)
@@ -1088,14 +1141,15 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		event := ThingWasDone{ID: aggregateID, Number: 2}
 		triggerProcessManager := newTriggerProcessManager(store.Save)
 		ctx := TimeoutContext(t)
-		require.NoError(t, store.Subscribe(ctx, triggerProcessManager))
+		subscription := store.AllEventsSubscription(ctx, 10, triggerProcessManager)
+		require.NoError(t, subscription.Start())
 
 		// When
 		_, err := store.Save(ctx, &rangedb.EventRecord{Event: event})
 		require.NoError(t, err)
 
 		// Then
-		readRecord(t, triggerProcessManager.ReceivedRecords)
+		ReadRecord(t, triggerProcessManager.ReceivedRecords)
 		recordIterator := store.Events(TimeoutContext(t), 0)
 		expectedRecord1 := &rangedb.Record{
 			AggregateType:        event.AggregateType(),
@@ -1204,7 +1258,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 	})
 }
 
-func readRecord(t *testing.T, recordChan chan *rangedb.Record) *rangedb.Record {
+// ReadRecord helper to read a record or timeout.
+func ReadRecord(t *testing.T, recordChan chan *rangedb.Record) *rangedb.Record {
 	select {
 	case <-time.After(100 * time.Millisecond):
 		require.Fail(t, "timout reading record")
@@ -1336,6 +1391,17 @@ func LoadIterator(records ...*rangedb.Record) rangedb.RecordIterator {
 	return rangedb.NewRecordIterator(resultRecords)
 }
 
+// BlockingSaveEvents helper to save events, ensuring the broadcaster has processed every record.
+func BlockingSaveEvents(t *testing.T, store rangedb.Store, records ...*rangedb.EventRecord) {
+	ctx := TimeoutContext(t)
+	blockingSubscriber := NewBlockingSubscriber(nil)
+	require.NoError(t, store.AllEventsSubscription(ctx, 10, blockingSubscriber).Start())
+	_, err := store.Save(ctx, records...)
+	require.NoError(t, err)
+	ReadRecord(t, blockingSubscriber.Records)
+}
+
+// SaveEvents helper to save events with a timeout.
 func SaveEvents(t *testing.T, store rangedb.Store, records ...*rangedb.EventRecord) {
 	ctx := TimeoutContext(t)
 	_, err := store.Save(ctx, records...)

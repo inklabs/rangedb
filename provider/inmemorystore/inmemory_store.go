@@ -9,20 +9,22 @@ import (
 	"time"
 
 	"github.com/inklabs/rangedb"
+	"github.com/inklabs/rangedb/pkg/broadcast"
 	"github.com/inklabs/rangedb/pkg/clock"
 	"github.com/inklabs/rangedb/pkg/clock/provider/systemclock"
 	"github.com/inklabs/rangedb/pkg/rangedberror"
+	"github.com/inklabs/rangedb/pkg/recordsubscriber"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
 
-type inMemoryStore struct {
-	clock      clock.Clock
-	serializer rangedb.RecordSerializer
-	logger     *log.Logger
+const broadcastRecordBuffSize = 100
 
-	subscriberMux sync.RWMutex
-	subscribers   []rangedb.RecordSubscriber
+type inMemoryStore struct {
+	clock       clock.Clock
+	serializer  rangedb.RecordSerializer
+	logger      *log.Logger
+	broadcaster broadcast.Broadcaster
 
 	mux                    sync.RWMutex
 	allRecords             [][]byte
@@ -60,6 +62,7 @@ func New(options ...Option) *inMemoryStore {
 		clock:                  systemclock.New(),
 		serializer:             jsonrecordserializer.New(),
 		logger:                 log.New(ioutil.Discard, "", 0),
+		broadcaster:            broadcast.New(broadcastRecordBuffSize, broadcast.DefaultTimeout),
 		recordsByStream:        make(map[string][][]byte),
 		recordsByAggregateType: make(map[string][][]byte),
 	}
@@ -208,8 +211,12 @@ func (s *inMemoryStore) saveEvents(ctx context.Context, expectedStreamSequenceNu
 	s.mux.Unlock()
 
 	for _, data := range pendingEventsData {
-		deSerializedRecord, _ := s.serializer.Deserialize(data)
-		s.notifySubscribers(deSerializedRecord)
+		deSerializedRecord, err := s.serializer.Deserialize(data)
+		if err == nil {
+			s.broadcaster.Accept(deSerializedRecord)
+		} else {
+			s.logger.Print(err)
+		}
 	}
 
 	return lastStreamSequenceNumber, nil
@@ -266,19 +273,25 @@ func rTrimFromByteSlice(slice [][]byte, total int) [][]byte {
 	return slice[:len(slice)-total]
 }
 
-func (s *inMemoryStore) Subscribe(ctx context.Context, subscribers ...rangedb.RecordSubscriber) error {
-	select {
-	case <-ctx.Done():
-		return context.Canceled
+func (s *inMemoryStore) AllEventsSubscription(ctx context.Context, bufferSize int, subscriber rangedb.RecordSubscriber) rangedb.RecordSubscription {
+	return recordsubscriber.New(
+		recordsubscriber.AllEventsConfig(ctx, s, s.broadcaster, bufferSize,
+			func(record *rangedb.Record) error {
+				subscriber.Accept(record)
+				return nil
+			},
+		))
+}
 
-	default:
-	}
-
-	s.subscriberMux.Lock()
-	s.subscribers = append(s.subscribers, subscribers...)
-	s.subscriberMux.Unlock()
-
-	return nil
+func (s *inMemoryStore) AggregateTypesSubscription(ctx context.Context, bufferSize int, subscriber rangedb.RecordSubscriber, aggregateTypes ...string) rangedb.RecordSubscription {
+	return recordsubscriber.New(
+		recordsubscriber.AggregateTypesConfig(ctx, s, s.broadcaster, bufferSize,
+			aggregateTypes,
+			func(record *rangedb.Record) error {
+				subscriber.Accept(record)
+				return nil
+			},
+		))
 }
 
 func (s *inMemoryStore) TotalEventsInStream(ctx context.Context, streamName string) (uint64, error) {
@@ -300,14 +313,4 @@ func (s *inMemoryStore) getNextStreamSequenceNumber(stream string) uint64 {
 
 func (s *inMemoryStore) getNextGlobalSequenceNumber() uint64 {
 	return uint64(len(s.allRecords))
-}
-
-func (s *inMemoryStore) notifySubscribers(record *rangedb.Record) {
-	s.subscriberMux.RLock()
-
-	for _, subscriber := range s.subscribers {
-		subscriber.Accept(record)
-	}
-
-	s.subscriberMux.RUnlock()
 }

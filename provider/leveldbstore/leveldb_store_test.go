@@ -114,6 +114,6 @@ func Test_Failures(t *testing.T) {
 		assert.False(t, recordIterator.Next())
 		assert.Nil(t, recordIterator.Record())
 		assert.EqualError(t, recordIterator.Err(), "failingDeserializer.Deserialize")
-		assert.Equal(t, "failed to deserialize record: failingDeserializer.Deserialize\n", logBuffer.String())
+		assert.Equal(t, "failingDeserializer.Deserialize\nfailed to deserialize record: failingDeserializer.Deserialize\n", logBuffer.String())
 	})
 }

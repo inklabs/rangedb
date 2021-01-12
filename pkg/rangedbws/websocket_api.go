@@ -71,7 +71,7 @@ func New(options ...Option) (*websocketAPI, error) {
 	}
 
 	api.initRoutes()
-	err := api.initProjections()
+	err := api.initBroadcaster()
 	if err != nil {
 		return nil, err
 	}
@@ -86,11 +86,13 @@ func (a *websocketAPI) initRoutes() {
 	a.handler = router
 }
 
-func (a *websocketAPI) initProjections() error {
+func (a *websocketAPI) initBroadcaster() error {
 	ctx := context.Background()
-	return a.store.Subscribe(ctx,
-		rangedb.RecordSubscriberFunc(a.broadcaster.Accept),
+	subscription := a.store.AllEventsSubscription(ctx,
+		subscriberRecordBuffSize,
+		a.broadcaster,
 	)
+	return subscription.Start()
 }
 
 func (a *websocketAPI) Stop() {

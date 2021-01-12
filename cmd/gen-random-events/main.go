@@ -59,7 +59,10 @@ func main() {
 	stop := make(chan os.Signal)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 
-	store := remotestore.New(conn)
+	store, err := remotestore.New(conn)
+	if err != nil {
+		log.Fatal(err)
+	}
 	ctx, done := context.WithCancel(context.Background())
 	go generateRandomEvents(ctx, store, totalEvents, *maxEventsPerStream, *eventType)
 

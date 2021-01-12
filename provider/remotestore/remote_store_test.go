@@ -48,11 +48,12 @@ func Test_RemoteStore_VerifyStoreInterface(t *testing.T) {
 
 		t.Cleanup(func() {
 			require.NoError(t, conn.Close())
-			rangeDBServer.Stop()
+			require.NoError(t, rangeDBServer.Stop())
 			server.Stop()
 		})
 
-		store := remotestore.New(conn)
+		store, err := remotestore.New(conn)
+		require.NoError(t, err)
 		rangedbtest.BindEvents(store)
 
 		return store
@@ -86,11 +87,12 @@ func BenchmarkRemoteStore(b *testing.B) {
 
 		b.Cleanup(func() {
 			require.NoError(b, conn.Close())
-			rangeDBServer.Stop()
+			require.NoError(b, rangeDBServer.Stop())
 			server.Stop()
 		})
 
-		store := remotestore.New(conn)
+		store, err := remotestore.New(conn)
+		require.NoError(b, err)
 		rangedbtest.BindEvents(store)
 
 		return store

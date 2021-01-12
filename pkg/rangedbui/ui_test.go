@@ -214,15 +214,16 @@ func storeWithTwoEvents(t *testing.T) (rangedb.Store, *projection.AggregateTypeS
 	aggregateTypeStats := projection.NewAggregateTypeStats()
 
 	ctx := rangedbtest.TimeoutContext(t)
-	require.NoError(t, store.Subscribe(ctx, aggregateTypeStats))
+	subscription := store.AllEventsSubscription(ctx, 10, aggregateTypeStats)
+	require.NoError(t, subscription.Start())
 
-	rangedbtest.SaveEvents(t, store,
+	rangedbtest.BlockingSaveEvents(t, store,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{
 			ID:     "f6b6f8ed682c4b5180f625e53b3c4bac",
 			Number: 0,
 		}},
 	)
-	rangedbtest.SaveEvents(t, store,
+	rangedbtest.BlockingSaveEvents(t, store,
 		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{
 			ID: "5e4a649230924041a7ccf18887ccc153",
 		}},

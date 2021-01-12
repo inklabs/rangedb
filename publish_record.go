@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// PublishRecordOrCancel publishes a Record to a ResultRecord channel, or times out.
 func PublishRecordOrCancel(ctx context.Context, resultRecords chan ResultRecord, record *Record, timeout time.Duration) bool {
 	select {
 	case <-ctx.Done():

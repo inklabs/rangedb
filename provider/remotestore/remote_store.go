@@ -7,18 +7,20 @@ import (
 	"io"
 	"log"
 	"strings"
-	"sync"
 	"time"
 
 	"google.golang.org/grpc"
 
 	"github.com/inklabs/rangedb"
+	"github.com/inklabs/rangedb/pkg/broadcast"
 	"github.com/inklabs/rangedb/pkg/grpc/rangedbpb"
 	"github.com/inklabs/rangedb/pkg/rangedberror"
+	"github.com/inklabs/rangedb/pkg/recordsubscriber"
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
 
 const (
+	broadcastRecordBuffSize        = 100
 	rpcErrContextCanceled          = "Canceled desc = context canceled"
 	rpcErrUnexpectedSequenceNumber = "unable to save to store: unexpected sequence number"
 )
@@ -35,20 +37,26 @@ type PbRecordReceiver interface {
 }
 
 type remoteStore struct {
-	serializer JsonSerializer
-	client     rangedbpb.RangeDBClient
-
-	subscriberMux sync.RWMutex
-	subscribers   []rangedb.RecordSubscriber
+	serializer  JsonSerializer
+	client      rangedbpb.RangeDBClient
+	broadcaster broadcast.Broadcaster
 }
 
 // New constructs a new rangedb.Store client that communicates with a remote gRPC backend.
-func New(conn *grpc.ClientConn) *remoteStore {
+func New(conn *grpc.ClientConn) (*remoteStore, error) {
 	client := rangedbpb.NewRangeDBClient(conn)
-	return &remoteStore{
-		serializer: jsonrecordserializer.New(),
-		client:     client,
+	s := &remoteStore{
+		serializer:  jsonrecordserializer.New(),
+		broadcaster: broadcast.New(broadcastRecordBuffSize, broadcast.DefaultTimeout),
+		client:      client,
 	}
+
+	err := s.listenForEvents()
+	if err != nil {
+		return nil, err
+	}
+
+	return s, nil
 }
 
 func (s *remoteStore) Bind(events ...rangedb.Event) {
@@ -224,25 +232,25 @@ func (s *remoteStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRe
 	return response.LastStreamSequenceNumber, nil
 }
 
-func (s *remoteStore) Subscribe(ctx context.Context, subscribers ...rangedb.RecordSubscriber) error {
-	select {
-	case <-ctx.Done():
-		return context.Canceled
+func (s *remoteStore) AllEventsSubscription(ctx context.Context, bufferSize int, subscriber rangedb.RecordSubscriber) rangedb.RecordSubscription {
+	return recordsubscriber.New(
+		recordsubscriber.AllEventsConfig(ctx, s, s.broadcaster, bufferSize,
+			func(record *rangedb.Record) error {
+				subscriber.Accept(record)
+				return nil
+			},
+		))
+}
 
-	default:
-	}
-
-	s.subscriberMux.Lock()
-	if len(s.subscribers) == 0 {
-		err := s.listenForEvents(ctx)
-		if err != nil {
-			return err
-		}
-	}
-	s.subscribers = append(s.subscribers, subscribers...)
-	s.subscriberMux.Unlock()
-
-	return nil
+func (s *remoteStore) AggregateTypesSubscription(ctx context.Context, bufferSize int, subscriber rangedb.RecordSubscriber, aggregateTypes ...string) rangedb.RecordSubscription {
+	return recordsubscriber.New(
+		recordsubscriber.AggregateTypesConfig(ctx, s, s.broadcaster, bufferSize,
+			aggregateTypes,
+			func(record *rangedb.Record) error {
+				subscriber.Accept(record)
+				return nil
+			},
+		))
 }
 
 func (s *remoteStore) TotalEventsInStream(ctx context.Context, streamName string) (uint64, error) {
@@ -300,8 +308,9 @@ func (s *remoteStore) readRecords(ctx context.Context, events PbRecordReceiver) 
 	return rangedb.NewRecordIterator(resultRecords)
 }
 
-func (s *remoteStore) listenForEvents(ctx context.Context) error {
+func (s *remoteStore) listenForEvents() error {
 	request := &rangedbpb.SubscribeToLiveEventsRequest{}
+	ctx := context.Background()
 	events, err := s.client.SubscribeToLiveEvents(ctx, request)
 	if err != nil {
 		err = fmt.Errorf("failed to subscribe: %v", err)
@@ -316,11 +325,7 @@ func (s *remoteStore) listenForEvents(ctx context.Context) error {
 				continue
 			}
 
-			s.subscriberMux.RLock()
-			for _, subscriber := range s.subscribers {
-				subscriber.Accept(recordIterator.Record())
-			}
-			s.subscriberMux.RUnlock()
+			s.broadcaster.Accept(recordIterator.Record())
 		}
 	}()
 

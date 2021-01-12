@@ -15,14 +15,19 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/inklabs/rangedb"
+	"github.com/inklabs/rangedb/pkg/broadcast"
 	"github.com/inklabs/rangedb/pkg/clock"
 	"github.com/inklabs/rangedb/pkg/clock/provider/systemclock"
 	"github.com/inklabs/rangedb/pkg/rangedberror"
+	"github.com/inklabs/rangedb/pkg/recordsubscriber"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/jsonrecordserializer"
 )
 
-const streamAdvisoryLockTimeout = 2 * time.Second
+const (
+	broadcastRecordBuffSize   = 100
+	streamAdvisoryLockTimeout = 2 * time.Second
+)
 
 type batchSQLRecord struct {
 	AggregateType        string
@@ -46,11 +51,9 @@ type postgresStore struct {
 	db                *sql.DB
 	clock             clock.Clock
 	serializer        JsonSerializer
+	broadcaster       broadcast.Broadcaster
 	pgNotifyIsEnabled bool
 	startListenOnce   sync.Once
-
-	subscriberMux sync.RWMutex
-	subscribers   []rangedb.RecordSubscriber
 }
 
 // Option defines functional option parameters for postgresStore.
@@ -73,9 +76,10 @@ func WithPgNotify() Option {
 // New constructs an postgresStore.
 func New(config *Config, options ...Option) (*postgresStore, error) {
 	s := &postgresStore{
-		config:     config,
-		clock:      systemclock.New(),
-		serializer: jsonrecordserializer.New(),
+		config:      config,
+		clock:       systemclock.New(),
+		serializer:  jsonrecordserializer.New(),
+		broadcaster: broadcast.New(broadcastRecordBuffSize, broadcast.DefaultTimeout),
 	}
 
 	for _, option := range options {
@@ -89,6 +93,12 @@ func New(config *Config, options ...Option) (*postgresStore, error) {
 	err = s.initDB()
 	if err != nil {
 		return nil, err
+	}
+	if s.pgNotifyIsEnabled {
+		err = s.startPQListener()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return s, nil
@@ -236,30 +246,25 @@ func (s *postgresStore) saveEvents(ctx context.Context, transaction *sql.Tx, exp
 	}, nil
 }
 
-func (s *postgresStore) Subscribe(ctx context.Context, subscribers ...rangedb.RecordSubscriber) error {
-	select {
-	case <-ctx.Done():
-		return context.Canceled
+func (s *postgresStore) AllEventsSubscription(ctx context.Context, bufferSize int, subscriber rangedb.RecordSubscriber) rangedb.RecordSubscription {
+	return recordsubscriber.New(
+		recordsubscriber.AllEventsConfig(ctx, s, s.broadcaster, bufferSize,
+			func(record *rangedb.Record) error {
+				subscriber.Accept(record)
+				return nil
+			},
+		))
+}
 
-	default:
-	}
-
-	if s.pgNotifyIsEnabled {
-		var err error
-		s.startListenOnce.Do(func() {
-			err = s.startPQListener()
-		})
-		if err != nil {
-			return err
-		}
-	}
-
-	s.subscriberMux.Lock()
-	// TODO: Remove multiple subscribers. Preferring broadcaster
-	s.subscribers = append(s.subscribers, subscribers...)
-	s.subscriberMux.Unlock()
-
-	return nil
+func (s *postgresStore) AggregateTypesSubscription(ctx context.Context, bufferSize int, subscriber rangedb.RecordSubscriber, aggregateTypes ...string) rangedb.RecordSubscription {
+	return recordsubscriber.New(
+		recordsubscriber.AggregateTypesConfig(ctx, s, s.broadcaster, bufferSize,
+			aggregateTypes,
+			func(record *rangedb.Record) error {
+				subscriber.Accept(record)
+				return nil
+			},
+		))
 }
 
 func (s *postgresStore) TotalEventsInStream(ctx context.Context, streamName string) (uint64, error) {
@@ -316,7 +321,7 @@ func (s *postgresStore) batchNotifySubscribers(saveResult *saveResults) error {
 
 		record.Data = deSerializedData
 		record.Metadata = metadata
-		s.notifySubscribers(record)
+		s.broadcaster.Accept(record)
 	}
 
 	return nil
@@ -366,7 +371,7 @@ func (s *postgresStore) eventRecordsToBatchRecords(eventRecords []*rangedb.Event
 	return batchEvents, nil
 }
 
-func (s *postgresStore) batchInsert(ctx context.Context, transaction DBQueryable, batchRecords []*batchSQLRecord) ([]uint64, uint64, error) {
+func (s *postgresStore) batchInsert(ctx context.Context, transaction dbQueryable, batchRecords []*batchSQLRecord) ([]uint64, uint64, error) {
 	valueStrings := make([]string, 0, len(batchRecords))
 	valueArgs := make([]interface{}, 0, len(batchRecords)*8)
 	var lastStreamSequenceNumber uint64
@@ -418,7 +423,7 @@ func (s *postgresStore) batchInsert(ctx context.Context, transaction DBQueryable
 	return globalSequenceNumbers, lastStreamSequenceNumber, nil
 }
 
-func (s *postgresStore) lockStream(ctx context.Context, transaction DBExecAble, aggregateID string) error {
+func (s *postgresStore) lockStream(ctx context.Context, transaction dbExecAble, aggregateID string) error {
 	lockCtx, cancel := context.WithTimeout(ctx, streamAdvisoryLockTimeout)
 	defer cancel()
 
@@ -431,15 +436,6 @@ func (s *postgresStore) lockStream(ctx context.Context, transaction DBExecAble, 
 		return fmt.Errorf("unable to obtain lock: %v", err)
 	}
 	return nil
-}
-
-func (s *postgresStore) notifySubscribers(record *rangedb.Record) {
-	s.subscriberMux.RLock()
-	defer s.subscriberMux.RUnlock()
-
-	for _, subscriber := range s.subscribers {
-		subscriber.Accept(record)
-	}
 }
 
 func (s *postgresStore) initDB() error {
@@ -595,7 +591,7 @@ func (s *postgresStore) startPQListener() error {
 	listener := pq.NewListener(s.config.DataSourceName(), 10*time.Second, time.Minute, reportProblem)
 	err := listener.Listen("records")
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	go s.listen(listener)
@@ -603,6 +599,7 @@ func (s *postgresStore) startPQListener() error {
 	return nil
 }
 
+// PostgresJsonRecord holds a JSON record sent via pg_notify.
 type PostgresJsonRecord struct {
 	AggregateType        string `json:"aggregatetype"`
 	AggregateID          string `json:"aggregateid"`
@@ -657,7 +654,7 @@ func (s *postgresStore) listen(listener *pq.Listener) {
 				Metadata:             metadata,
 			}
 
-			s.notifySubscribers(record)
+			s.broadcaster.Accept(record)
 
 		case <-time.After(90 * time.Second):
 			go func() {
@@ -670,7 +667,7 @@ func (s *postgresStore) listen(listener *pq.Listener) {
 	}
 }
 
-type DBQueryable interface {
+type dbQueryable interface {
 	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
 }
 
@@ -678,6 +675,6 @@ type dbRowQueryable interface {
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 }
 
-type DBExecAble interface {
+type dbExecAble interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 }

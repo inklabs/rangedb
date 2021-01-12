@@ -308,7 +308,7 @@ func TestNew_Failures(t *testing.T) {
 		app, err := chat.New(failingStore)
 
 		// Then
-		require.EqualError(t, err, "failingSubscribeEventStore.Subscribe")
+		require.EqualError(t, err, "failingRecordSubscription.StartFrom")
 		assert.Nil(t, app)
 	})
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/inklabs/rangedb/pkg/broadcast"
 )
 
+// Config defines a record subscription configuration.
 type Config struct {
 	BufferSize    int
 	GetRecords    GetRecordsIteratorFunc
@@ -16,6 +17,7 @@ type Config struct {
 	DoneChan      <-chan struct{}
 }
 
+// AllEventsConfig returns a configuration to subscribe to all events.
 func AllEventsConfig(ctx context.Context, store rangedb.Store, broadcaster broadcast.Broadcaster, bufferLength int, consumeRecord ConsumeRecordFunc) Config {
 	return Config{
 		BufferSize: bufferLength,
@@ -33,6 +35,7 @@ func AllEventsConfig(ctx context.Context, store rangedb.Store, broadcaster broad
 	}
 }
 
+// AggregateTypesConfig returns a configuration to subscribe to events by aggregate types.
 func AggregateTypesConfig(ctx context.Context, store rangedb.Store, broadcaster broadcast.Broadcaster, bufLen int, aggregateTypes []string, consumeRecord ConsumeRecordFunc) Config {
 	return Config{
 		BufferSize: bufLen,

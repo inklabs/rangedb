@@ -36,8 +36,12 @@ func (f failingSubscribeEventStore) Save(_ context.Context, _ ...*rangedb.EventR
 	return 0, nil
 }
 
-func (f failingSubscribeEventStore) Subscribe(_ context.Context, _ ...rangedb.RecordSubscriber) error {
-	return fmt.Errorf("failingSubscribeEventStore.Subscribe")
+func (f failingSubscribeEventStore) AllEventsSubscription(_ context.Context, _ int, _ rangedb.RecordSubscriber) rangedb.RecordSubscription {
+	return &failingRecordSubscription{}
+}
+
+func (f failingSubscribeEventStore) AggregateTypesSubscription(_ context.Context, _ int, _ rangedb.RecordSubscriber, _ ...string) rangedb.RecordSubscription {
+	return &failingRecordSubscription{}
 }
 
 func (f failingSubscribeEventStore) TotalEventsInStream(_ context.Context, _ string) (uint64, error) {
@@ -48,3 +52,27 @@ func getEmptyIterator() rangedb.RecordIterator {
 	recordResults := make(chan rangedb.ResultRecord)
 	return rangedb.NewRecordIterator(recordResults)
 }
+
+type failingRecordSubscription struct{}
+
+func (f failingRecordSubscription) Start() error {
+	return fmt.Errorf("failingRecordSubscription.Start")
+}
+
+func (f failingRecordSubscription) StartFrom(_ uint64) error {
+	return fmt.Errorf("failingRecordSubscription.StartFrom")
+}
+
+func (f failingRecordSubscription) Stop() {}
+
+type dummyRecordSubscription struct{}
+
+func (f dummyRecordSubscription) Start() error {
+	return nil
+}
+
+func (f dummyRecordSubscription) StartFrom(_ uint64) error {
+	return nil
+}
+
+func (f dummyRecordSubscription) Stop() {}

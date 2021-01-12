@@ -21,7 +21,9 @@ func TestAggregateTypeStats(t *testing.T) {
 		store := inmemorystore.New()
 		rangedbtest.BindEvents(store)
 		ctx := rangedbtest.TimeoutContext(t)
-		require.NoError(t, store.Subscribe(ctx, aggregateTypeStats))
+		blockingSubscriber := rangedbtest.NewBlockingSubscriber(aggregateTypeStats)
+		subscription := store.AllEventsSubscription(ctx, 10, blockingSubscriber)
+		require.NoError(t, subscription.Start())
 		const aggregateIDA = "107cfb7172a64d3f81eb07dca95ba35e"
 		const aggregateIDB = "2400af829cf84a3b9739fa4aea253d4b"
 		const aggregateIDC = "b0225de257b3453c827c3130417c2260"
@@ -36,6 +38,9 @@ func TestAggregateTypeStats(t *testing.T) {
 		rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event3})
 
 		// Then
+		rangedbtest.ReadRecord(t, blockingSubscriber.Records)
+		rangedbtest.ReadRecord(t, blockingSubscriber.Records)
+		rangedbtest.ReadRecord(t, blockingSubscriber.Records)
 		assert.Equal(t, uint64(3), aggregateTypeStats.TotalEvents())
 		assert.Equal(t, uint64(2), aggregateTypeStats.LatestGlobalSequenceNumber())
 		assert.Equal(t, uint64(2), aggregateTypeStats.TotalEventsByAggregateType(event1.AggregateType()))
@@ -49,7 +54,9 @@ func TestAggregateTypeStats(t *testing.T) {
 		store := inmemorystore.New()
 		rangedbtest.BindEvents(store)
 		ctx := rangedbtest.TimeoutContext(t)
-		require.NoError(t, store.Subscribe(ctx, aggregateTypeStats))
+		blockingSubscriber := rangedbtest.NewBlockingSubscriber(aggregateTypeStats)
+		subscription := store.AllEventsSubscription(ctx, 10, blockingSubscriber)
+		require.NoError(t, subscription.Start())
 		const aggregateIDA = "f64c58e4c25d4635923e655cd058ff72"
 		const aggregateIDB = "944b33c4122d4246aa321ea9236db953"
 		const aggregateIDC = "c34485e284be4b0588eccddca36b8c3f"
@@ -59,6 +66,9 @@ func TestAggregateTypeStats(t *testing.T) {
 		rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event1})
 		rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event2})
 		rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event3})
+		rangedbtest.ReadRecord(t, blockingSubscriber.Records)
+		rangedbtest.ReadRecord(t, blockingSubscriber.Records)
+		rangedbtest.ReadRecord(t, blockingSubscriber.Records)
 		snapshotStore := inmemorySnapshotStore{}
 		require.NoError(t, snapshotStore.Save(aggregateTypeStats))
 		aggregateTypeStats2 := projection.NewAggregateTypeStats()

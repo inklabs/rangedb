@@ -6,6 +6,7 @@ import (
 	"github.com/inklabs/rangedb"
 )
 
+// DefaultTimeout for broadcasting records to subscribers.
 const DefaultTimeout = time.Millisecond * 100
 
 // SendRecordChan is a write only channel for rangedb.Record.
@@ -17,11 +18,13 @@ type RecordSubscriber interface {
 	Stop()
 }
 
+// AggregateTypeSubscription defines an aggregate type subscriber.
 type AggregateTypeSubscription struct {
 	AggregateType string
 	Subscriber    RecordSubscriber
 }
 
+// Broadcaster defines a record broadcaster.
 type Broadcaster interface {
 	Accept(record *rangedb.Record)
 	SubscribeAllEvents(subscribers ...RecordSubscriber)
@@ -43,6 +46,7 @@ type broadcaster struct {
 	timeout                   time.Duration
 }
 
+// New constructs a broadcaster.
 func New(bufferSize int, timeout time.Duration) *broadcaster {
 	broadcaster := &broadcaster{
 		subscribeAllEvents:        make(chan RecordSubscriber),

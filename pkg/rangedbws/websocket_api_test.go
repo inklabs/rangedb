@@ -363,7 +363,7 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		api, err := rangedbws.New(rangedbws.WithStore(failingStore))
 
 		// Then
-		assert.EqualError(t, err, "failingSubscribeEventStore.Subscribe")
+		assert.EqualError(t, err, "failingRecordSubscription.Start")
 		assert.Nil(t, api)
 	})
 

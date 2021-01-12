@@ -15,19 +15,12 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/inklabs/rangedb"
-	"github.com/inklabs/rangedb/pkg/broadcast"
 	"github.com/inklabs/rangedb/pkg/projection"
 	"github.com/inklabs/rangedb/pkg/rangedberror"
-	"github.com/inklabs/rangedb/pkg/recordsubscriber"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/provider/jsonrecordiostream"
 	"github.com/inklabs/rangedb/provider/msgpackrecordiostream"
 	"github.com/inklabs/rangedb/provider/ndjsonrecordiostream"
-)
-
-const (
-	broadcastRecordBuffSize  = 100
-	subscriberRecordBuffSize = 20
 )
 
 type api struct {
@@ -38,7 +31,6 @@ type api struct {
 	snapshotStore         projection.SnapshotStore
 	handler               http.Handler
 	logger                *log.Logger
-	broadcaster           broadcast.Broadcaster
 	baseUri               string
 	projections           struct {
 		aggregateTypeStats *projection.AggregateTypeStats
@@ -84,7 +76,6 @@ func New(options ...Option) (*api, error) {
 		msgpackRecordIoStream: msgpackrecordiostream.New(),
 		store:                 inmemorystore.New(),
 		logger:                log.New(ioutil.Discard, "", 0),
-		broadcaster:           broadcast.New(broadcastRecordBuffSize, broadcast.DefaultTimeout),
 		baseUri:               "http://127.0.0.1",
 	}
 
@@ -130,24 +121,9 @@ func (a *api) initProjections() error {
 	}
 
 	ctx := context.Background()
-	err := a.store.Subscribe(ctx,
-		rangedb.RecordSubscriberFunc(a.broadcaster.Accept),
-	)
-	if err != nil {
-		return err
-	}
-
-	config := recordsubscriber.AllEventsConfig(ctx,
-		a.store,
-		a.broadcaster,
-		subscriberRecordBuffSize,
-		func(record *rangedb.Record) error {
-			a.projections.aggregateTypeStats.Accept(record)
-			return nil
-		},
-	)
-	subscriber := recordsubscriber.New(config)
-	err = subscriber.StartFrom(globalSequenceNumber)
+	const bufferSize = 10
+	subscription := a.store.AllEventsSubscription(ctx, bufferSize, a.projections.aggregateTypeStats)
+	err := subscription.StartFrom(globalSequenceNumber)
 	if err != nil {
 		return err
 	}
