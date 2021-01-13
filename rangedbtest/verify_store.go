@@ -1097,6 +1097,29 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			// Then
 			assert.Equal(t, context.Canceled, err)
 		})
+
+		t.Run("returns no events when global sequence number out of range", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			const aggregateID = "fe7a973d57bb4693a997bb445776da6a"
+			store := newStore(t, sequentialclock.New())
+			event1 := &ThingWasDone{ID: aggregateID, Number: 2}
+			event2 := &ThingWasDone{ID: aggregateID, Number: 3}
+			ctx := TimeoutContext(t)
+			BlockingSaveEvents(t, store,
+				&rangedb.EventRecord{Event: event1},
+				&rangedb.EventRecord{Event: event2},
+			)
+			countSubscriber := NewCountSubscriber()
+			subscription := store.AllEventsSubscription(ctx, 10, countSubscriber)
+
+			// When
+			err := subscription.StartFrom(2)
+
+			// Then
+			require.NoError(t, err)
+			require.Equal(t, 0, countSubscriber.TotalEvents())
+		})
 	})
 
 	t.Run("AggregateTypesSubscription", func(t *testing.T) {
