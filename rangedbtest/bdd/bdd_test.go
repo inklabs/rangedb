@@ -127,7 +127,7 @@ func noopDispatcher(_ bdd.Command) {}
 func stubEventDispatcher(t *testing.T, store rangedb.Store, events ...rangedb.Event) func(bdd.Command) {
 	return func(_ bdd.Command) {
 		for _, event := range events {
-			rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event})
+			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event})
 		}
 	}
 }

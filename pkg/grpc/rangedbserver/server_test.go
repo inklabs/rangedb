@@ -35,14 +35,14 @@ func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 	event2 := rangedbtest.ThingWasDone{ID: aggregateID1, Number: 200}
 	event3 := rangedbtest.ThingWasDone{ID: aggregateID2, Number: 300}
 	event4 := rangedbtest.AnotherWasComplete{ID: aggregateID3}
-	rangedbtest.SaveEvents(t, store,
+	rangedbtest.BlockingSaveEvents(t, store,
 		&rangedb.EventRecord{Event: event1},
 		&rangedb.EventRecord{Event: event2},
 	)
-	rangedbtest.SaveEvents(t, store,
+	rangedbtest.BlockingSaveEvents(t, store,
 		&rangedb.EventRecord{Event: event3},
 	)
-	rangedbtest.SaveEvents(t, store,
+	rangedbtest.BlockingSaveEvents(t, store,
 		&rangedb.EventRecord{Event: event4},
 	)
 
@@ -143,7 +143,7 @@ func TestRangeDBServer_SubscribeToLiveEvents(t *testing.T) {
 		const aggregateID2 = "5b36ae984b724685917b69ae47968be1"
 		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 		ctx := rangedbtest.TimeoutContext(t)
-		rangedbtest.SaveEvents(t, store,
+		rangedbtest.BlockingSaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 100}},
 			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 200}},
 		)
@@ -158,10 +158,10 @@ func TestRangeDBServer_SubscribeToLiveEvents(t *testing.T) {
 		time.Sleep(time.Millisecond * 5)
 		actualRecords := make(chan *rangedbpb.Record, 10)
 
-		rangedbtest.SaveEvents(t, store,
+		rangedbtest.BlockingSaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 300}},
 		)
-		rangedbtest.SaveEvents(t, store,
+		rangedbtest.BlockingSaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: aggregateID2}},
 		)
 
@@ -208,7 +208,7 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 		const aggregateID2 = "5b36ae984b724685917b69ae47968be1"
 		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 		ctx := rangedbtest.TimeoutContext(t)
-		rangedbtest.SaveEvents(t, store,
+		rangedbtest.BlockingSaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 100}},
 			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 200}},
 		)
@@ -228,10 +228,10 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 		require.NoError(t, err)
 		actualRecords <- record
 
-		rangedbtest.SaveEvents(t, store,
+		rangedbtest.BlockingSaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 300}},
 		)
-		rangedbtest.SaveEvents(t, store,
+		rangedbtest.BlockingSaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: aggregateID2}},
 		)
 
@@ -290,7 +290,7 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 		const aggregateID2 = "5b36ae984b724685917b69ae47968be1"
 		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 		ctx := rangedbtest.TimeoutContext(t)
-		rangedbtest.SaveEvents(t, store,
+		rangedbtest.BlockingSaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 100}},
 			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 200}},
 		)
@@ -311,13 +311,13 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 		require.NoError(t, err)
 		actualRecords <- record
 
-		rangedbtest.SaveEvents(t, store,
+		rangedbtest.BlockingSaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 300}},
 		)
-		rangedbtest.SaveEvents(t, store,
+		rangedbtest.BlockingSaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.ThatWasDone{ID: "54d8ee5ba84d45a09b3186d9617c4f86"}},
 		)
-		rangedbtest.SaveEvents(t, store,
+		rangedbtest.BlockingSaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: aggregateID2}},
 		)
 

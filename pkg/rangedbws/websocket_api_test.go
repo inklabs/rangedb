@@ -31,8 +31,8 @@ func Test_WebsocketApi(t *testing.T) {
 			store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 			event1 := &rangedbtest.ThingWasDone{ID: "6595a5c206c746c3a9d9006c7df5784e", Number: 1}
 			event2 := &rangedbtest.ThingWasDone{ID: "8cc839e1fd3545b7a0fe67808d84cbd4", Number: 2}
-			rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event1})
-			rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event2})
+			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event1})
+			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event2})
 			api, err := rangedbws.New(rangedbws.WithStore(store))
 			require.NoError(t, err)
 			t.Cleanup(api.Stop)
@@ -91,9 +91,9 @@ func Test_WebsocketApi(t *testing.T) {
 			event1 := &rangedbtest.ThingWasDone{ID: "24f4ffa9bd2c43468241d648f16b6786", Number: 1}
 			event2 := &rangedbtest.ThingWasDone{ID: "b75064a917054396a9bb3a6b46d7bd4c", Number: 2}
 			event3 := &rangedbtest.ThingWasDone{ID: "d8e3d651d1e9477d9af18893a2e337b9", Number: 3}
-			rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event1})
-			rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event2})
-			rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event3})
+			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event1})
+			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event2})
+			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event3})
 			api, err := rangedbws.New(rangedbws.WithStore(store))
 			require.NoError(t, err)
 			t.Cleanup(api.Stop)
@@ -219,9 +219,9 @@ func Test_WebsocketApi(t *testing.T) {
 			event1 := &rangedbtest.ThingWasDone{ID: "c0f61ffbe61a418383244277e9ee6084", Number: 1}
 			event2 := &rangedbtest.AnotherWasComplete{ID: "0ebd3f223484462185cf0e78da083696"}
 			event3 := &rangedbtest.ThatWasDone{ID: "14d50d2cbf8d4b2cbdac21308a4f8155"}
-			rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event1})
-			rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event2})
-			rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event3})
+			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event1})
+			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event2})
+			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event3})
 			api, err := rangedbws.New(rangedbws.WithStore(store))
 			require.NoError(t, err)
 			t.Cleanup(api.Stop)
@@ -334,7 +334,7 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
 		event := &rangedbtest.ThingWasDone{ID: "372b47686e1b43d29d2fd48f2a0e83f0", Number: 1}
-		rangedbtest.SaveEvents(t, store,
+		rangedbtest.BlockingSaveEvents(t, store,
 			&rangedb.EventRecord{Event: event},
 		)
 		api, err := rangedbws.New(rangedbws.WithStore(store))
