@@ -55,6 +55,7 @@ func (s *recordSubscriber) Receiver() broadcast.SendRecordChan {
 }
 
 func (s *recordSubscriber) StartFrom(globalSequenceNumber uint64) error {
+	s.lastGlobalSequenceNumber = globalSequenceNumber
 	err := s.writeRecords(globalSequenceNumber)
 	if err != nil {
 		return err

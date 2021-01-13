@@ -5,11 +5,9 @@ import (
 	"flag"
 	"fmt"
 	"log"
-	"math"
 	"math/rand"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
@@ -25,22 +23,11 @@ func main() {
 	fmt.Println("Random Event Generator")
 
 	eventType := flag.String("eventType", "", "event type: ThingWasDone, ThatWasDone, AnotherWasComplete, etc.")
-	totalEventsInput := flag.String("total", "", "total number of random events to generate")
 	maxEventsPerStream := flag.Int("maxPerStream", 10, "max events per stream")
 	host := flag.String("host", "127.0.0.1:8081", "RangeDB gRPC host address")
 	flag.Parse()
 
-	totalEvents := math.MaxInt32
-	if *totalEventsInput == "" {
-		fmt.Println("Generating events until stopped")
-	} else {
-		totalEvents, err := strconv.Atoi(*totalEventsInput)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		fmt.Printf("Generating %d events", totalEvents)
-	}
+	fmt.Println("Generating events until stopped")
 
 	dialCtx, connectDone := context.WithTimeout(context.Background(), time.Second*5)
 	conn, err := grpc.DialContext(dialCtx, *host, grpc.WithInsecure(), grpc.WithBlock())
@@ -64,7 +51,7 @@ func main() {
 		log.Fatal(err)
 	}
 	ctx, done := context.WithCancel(context.Background())
-	go generateRandomEvents(ctx, store, totalEvents, *maxEventsPerStream, *eventType)
+	go generateRandomEvents(ctx, store, *maxEventsPerStream, *eventType)
 
 	<-stop
 
@@ -72,16 +59,16 @@ func main() {
 	done()
 }
 
-func generateRandomEvents(ctx context.Context, store rangedb.Store, totalEvents int, maxEventsPerStream int, eventType string) {
-	total := 0
-	for i := 0; i < totalEvents; i++ {
+func generateRandomEvents(ctx context.Context, store rangedb.Store, maxEventsPerStream int, eventType string) {
+	total := uint64(0)
+	for {
 		eventsPerStream := rand.Intn(maxEventsPerStream) + 1
 		eventRecords := getNEvents(eventsPerStream, shortuuid.New().String(), eventType)
 		_, err := store.Save(ctx, eventRecords...)
 		if err != nil {
 			log.Fatal(err)
 		}
-		total += eventsPerStream
+		total += uint64(eventsPerStream)
 		fmt.Printf("Saved %d events\r", total)
 	}
 }

@@ -470,6 +470,30 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			assert.Equal(t, expectedRecord, recordIterator.Record())
 			assertCanceledIterator(t, recordIterator)
 		})
+
+		t.Run("returns no events when global sequence number out of range", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			store := newStore(t, sequentialclock.New())
+			const aggregateIDA = "1b017406ea1045ddbdaa4f78df23f720"
+			const aggregateIDB = "3357a70d698f432aa53eb261d7806049"
+			const aggregateIDX = "14935d12e38747ffb98070e72e1386b7"
+			thingWasDoneA0 := &ThingWasDone{ID: aggregateIDA, Number: 100}
+			thingWasDoneA1 := &ThingWasDone{ID: aggregateIDA, Number: 200}
+			thingWasDoneB0 := &ThingWasDone{ID: aggregateIDB, Number: 300}
+			AnotherWasCompleteX0 := &AnotherWasComplete{ID: aggregateIDX}
+			ctx := TimeoutContext(t)
+			SaveEvents(t, store, &rangedb.EventRecord{Event: thingWasDoneA0})
+			SaveEvents(t, store, &rangedb.EventRecord{Event: thingWasDoneB0})
+			SaveEvents(t, store, &rangedb.EventRecord{Event: thingWasDoneA1})
+			SaveEvents(t, store, &rangedb.EventRecord{Event: AnotherWasCompleteX0})
+
+			// When
+			recordIterator := store.Events(ctx, 4)
+
+			// Then
+			AssertNoMoreResultsInIterator(t, recordIterator)
+		})
 	})
 
 	t.Run("EventsByAggregateTypes", func(t *testing.T) {
