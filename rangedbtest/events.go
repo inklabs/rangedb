@@ -88,6 +88,27 @@ func (t FloatWasDone) EventType() string {
 	return "FloatWasDone"
 }
 
+// StringWasDone is an event used for testing.
+type StringWasDone struct {
+	ID     string `json:"id"`
+	Action string `json:"action"`
+}
+
+// AggregateID returns the aggregate id.
+func (t StringWasDone) AggregateID() string {
+	return t.ID
+}
+
+// AggregateType returns the aggregate type.
+func (t StringWasDone) AggregateType() string {
+	return "string"
+}
+
+// EventType returns the event type. This will always be the struct name.
+func (t StringWasDone) EventType() string {
+	return "StringWasDone"
+}
+
 // NewEventThatWillFailUnmarshal returns an event that will fail a json unmarshal.
 func NewEventThatWillFailUnmarshal(aggregateType, aggregateID string) rangedb.Event {
 	return rangedb.NewRawEvent(

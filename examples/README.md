@@ -42,3 +42,14 @@ https://pkg.go.dev/github.com/inklabs/rangedb/pkg/grpc/rangedbserver
   * [Failure Response](../pkg/grpc/rangedbserver/save_failure_response_test.go)
 * [Optimistic Save Events](../pkg/grpc/rangedbserver/optimistic_save_test.go)
   * [Failure Response](../pkg/grpc/rangedbserver/optimistic_save_failure_test.go)
+
+---
+
+## GDPR Examples
+
+### Crypto-shredding
+
+https://verraes.net/2019/05/eventsourcing-patterns-throw-away-the-key/
+
+* [Encrypt/Decrypt Event](../pkg/crypto/encrypt_event_test.go)
+* [Delete Encryption Key](../pkg/crypto/engine_delete_test.go)
