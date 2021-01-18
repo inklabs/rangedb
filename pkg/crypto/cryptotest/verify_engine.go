@@ -1,7 +1,6 @@
 package cryptotest
 
 import (
-	"log"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,125 +11,70 @@ import (
 
 func VerifyEngine(t *testing.T, newEngine func(t *testing.T) crypto.Engine) {
 	t.Helper()
-	const id = "d8f83eb1b600477fa81ba2d5c68c57dc"
+	const (
+		subjectID = "9abd18cd825443b78742807c769c6e34"
+		text      = "lorem ipsum"
+	)
 
-	t.Run("encrypts a record", func(t *testing.T) {
+	t.Run("encrypts and decrypts a string", func(t *testing.T) {
 		// Given
-		event := &CustomerSignedUp{
-			ID:     id,
-			Name:   "John Doe",
-			Email:  "john@example.com",
-			Status: "premium",
-		}
-		inMemoryEngine := newEngine(t)
-		encryptor := crypto.NewEventEncryptor(inMemoryEngine)
-		err := encryptor.Encrypt(event)
+		engine := newEngine(t)
+		encryptedData, err := engine.Encrypt(subjectID, text)
 		require.NoError(t, err)
-		assert.Equal(t, id, event.ID)
-		assert.NotEqual(t, "John Doe", event.Name)
-		assert.NotEqual(t, "john@example.com", event.Email)
-		assert.Equal(t, "premium", event.Status)
+		assert.NotEqual(t, text, encryptedData)
 
 		// When
-		err = encryptor.Decrypt(event)
+		decryptedData, err := engine.Decrypt(subjectID, encryptedData)
 
 		// Then
-		assert.Equal(t, id, event.ID)
-		assert.Equal(t, "John Doe", event.Name)
-		assert.Equal(t, "john@example.com", event.Email)
-		assert.Equal(t, "premium", event.Status)
+		require.NoError(t, err)
+		assert.Equal(t, text, decryptedData)
 	})
 
-	t.Run("encrypts a record containing an int", func(t *testing.T) {
+	t.Run("encrypts a record, deletes the subjectID, can no longer decrypt", func(t *testing.T) {
 		// Given
-		event := &CustomerAddedBirth{
-			ID:         id,
-			BirthMonth: 12,
-			BirthYear:  1977,
-		}
-		inMemoryEngine := newEngine(t)
-		encryptor := crypto.NewEventEncryptor(inMemoryEngine)
-		log.Printf("%#v", event)
-		err := encryptor.Encrypt(event)
+		engine := newEngine(t)
+		encryptedData, err := engine.Encrypt(subjectID, text)
 		require.NoError(t, err)
-		assert.Equal(t, id, event.ID)
-		assert.Equal(t, 0, event.BirthMonth)
-		assert.Equal(t, 0, event.BirthYear)
+		assert.NotEqual(t, text, encryptedData)
 
 		// When
-		log.Printf("%#v", event)
-		err = encryptor.Decrypt(event)
-		log.Printf("%#v", event)
-
-		// Then
-		assert.Equal(t, id, event.ID)
-		assert.Equal(t, 12, event.BirthMonth)
-		assert.Equal(t, 1977, event.BirthYear)
-	})
-
-	t.Run("encrypts a record, deletes the key, cannot decrypt record", func(t *testing.T) {
-		// Given
-		event := &CustomerSignedUp{
-			ID:     id,
-			Name:   "John Doe",
-			Email:  "john@example.com",
-			Status: "premium",
-		}
-		inMemoryEngine := newEngine(t)
-		eventEncryptor := crypto.NewEventEncryptor(inMemoryEngine)
-		err := eventEncryptor.Encrypt(event)
-		require.NoError(t, err)
-		assert.Equal(t, id, event.ID)
-		assert.NotEqual(t, "John Doe", event.Name)
-
-		// When
-		err = inMemoryEngine.Delete(id)
+		err = engine.Delete(subjectID)
 
 		// Then
 		require.NoError(t, err)
-		err = eventEncryptor.Decrypt(event)
+		decryptedData, err := engine.Decrypt(subjectID, encryptedData)
 		require.Equal(t, crypto.ErrKeyWasDeleted, err)
-		assert.Equal(t, id, event.ID)
-		assert.Equal(t, "", event.Name)
-		assert.Equal(t, "", event.Email)
-		assert.Equal(t, "premium", event.Status)
+		assert.Equal(t, "", decryptedData)
 	})
 
-	t.Run("encrypts a record, deletes the key, cannot encrypt with that subject ID", func(t *testing.T) {
+	t.Run("encrypts a record, deletes the subjectID, can no longer encrypt", func(t *testing.T) {
 		// Given
-		event := &CustomerSignedUp{
-			ID:     id,
-			Name:   "John Doe",
-			Email:  "john@example.com",
-			Status: "premium",
-		}
-		cryptoEngine := newEngine(t)
-		eventEncryptor := crypto.NewEventEncryptor(cryptoEngine)
-		err := eventEncryptor.Encrypt(event)
+		engine := newEngine(t)
+		encryptedData, err := engine.Encrypt(subjectID, text)
 		require.NoError(t, err)
-		assert.Equal(t, id, event.ID)
-		assert.NotEqual(t, "John Doe", event.Name)
-		err = cryptoEngine.Delete(id)
+		assert.NotEqual(t, text, encryptedData)
+		err = engine.Delete(subjectID)
 		require.NoError(t, err)
 
 		// When
-		err = eventEncryptor.Encrypt(event)
+		encryptedData, err = engine.Encrypt(subjectID, text)
 
 		// Then
 		require.Equal(t, crypto.ErrKeyWasDeleted, err)
+		assert.Equal(t, "", encryptedData)
 	})
 
-	t.Run("errors decrypting from missing encryption key", func(t *testing.T) {
+	t.Run("errors decrypting from non-existent encryption subjectID", func(t *testing.T) {
 		// Given
 		const (
-			key                 = "d8c26748aa904f6ea2473730f04921fe"
 			base64EncryptedData = "AIDTAIiCazaQavILI07rtA=="
 		)
 		// Given
 		engine := newEngine(t)
 
 		// When
-		decodedData, err := engine.Decrypt(key, base64EncryptedData)
+		decodedData, err := engine.Decrypt(subjectID, base64EncryptedData)
 
 		// Then
 		require.Equal(t, crypto.ErrKeyNotFound, err)

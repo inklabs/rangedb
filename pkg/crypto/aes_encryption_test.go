@@ -18,10 +18,10 @@ func TestAESEncryption(t *testing.T) {
 				key  = "aesEncryptionKey"
 				text = "password"
 			)
-			engine := crypto.NewAESEncryption([]byte(iv))
+			aesEncryption := crypto.NewAESEncryption([]byte(iv))
 
 			// When
-			encryptedValue, err := engine.Encrypt(key, text)
+			encryptedValue, err := aesEncryption.Encrypt(key, text)
 
 			// Then
 			require.NoError(t, err)
@@ -36,10 +36,10 @@ func TestAESEncryption(t *testing.T) {
 				key  = "inv-key"
 				text = "lorem ipsum"
 			)
-			engine := crypto.NewAESEncryption([]byte(iv))
+			aesEncryption := crypto.NewAESEncryption([]byte(iv))
 
 			// When
-			decryptedValue, err := engine.Encrypt(key, text)
+			decryptedValue, err := aesEncryption.Encrypt(key, text)
 
 			// Then
 			require.EqualError(t, err, "crypto/aes: invalid key size 7")
@@ -55,10 +55,10 @@ func TestAESEncryption(t *testing.T) {
 				key               = "cf05dd80559342738d66977bc2aeb0e7"
 				invalidBase64Data = "."
 			)
-			engine := crypto.NewAESEncryption([]byte(iv))
+			aesEncryption := crypto.NewAESEncryption([]byte(iv))
 
 			// When
-			decryptedValue, err := engine.Decrypt(key, invalidBase64Data)
+			decryptedValue, err := aesEncryption.Decrypt(key, invalidBase64Data)
 
 			// Then
 			require.EqualError(t, err, "illegal base64 data at input byte 0")
@@ -72,10 +72,10 @@ func TestAESEncryption(t *testing.T) {
 				key             = "cf05dd80559342738d66977bc2aeb0e7"
 				emptyBase64Data = ""
 			)
-			engine := crypto.NewAESEncryption([]byte(iv))
+			aesEncryption := crypto.NewAESEncryption([]byte(iv))
 
 			// When
-			decryptedValue, err := engine.Decrypt(key, emptyBase64Data)
+			decryptedValue, err := aesEncryption.Decrypt(key, emptyBase64Data)
 
 			// Then
 			require.EqualError(t, err, "encrypted data empty")
@@ -89,10 +89,10 @@ func TestAESEncryption(t *testing.T) {
 				key                 = "inv-key"
 				base64EncryptedData = "AIDTAIiCazaQavILI07rtA=="
 			)
-			engine := crypto.NewAESEncryption([]byte(iv))
+			aesEncryption := crypto.NewAESEncryption([]byte(iv))
 
 			// When
-			decryptedValue, err := engine.Decrypt(key, base64EncryptedData)
+			decryptedValue, err := aesEncryption.Decrypt(key, base64EncryptedData)
 
 			// Then
 			require.EqualError(t, err, "crypto/aes: invalid key size 7")
@@ -108,15 +108,15 @@ func TestAESEncryption(t *testing.T) {
 			key  = "af51295ce958410ca61b123954b7ca71"
 			text = "lorem ipsum"
 		)
-		engine := crypto.NewAESEncryption([]byte(iv))
+		aesEncryption := crypto.NewAESEncryption([]byte(iv))
 
 		// When
-		encryptedValue, err := engine.Encrypt(key, text)
+		encryptedValue, err := aesEncryption.Encrypt(key, text)
 		require.NoError(t, err)
 		assert.NotEqual(t, text, encryptedValue)
 
 		// Then
-		decryptedValue, err := engine.Decrypt(key, encryptedValue)
+		decryptedValue, err := aesEncryption.Decrypt(key, encryptedValue)
 		require.NoError(t, err)
 		assert.Equal(t, text, decryptedValue)
 	})
