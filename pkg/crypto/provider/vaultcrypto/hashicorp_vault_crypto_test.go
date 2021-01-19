@@ -1,9 +1,14 @@
 package vaultcrypto_test
 
 import (
+	"io/ioutil"
+	"net/http"
 	"os"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/inklabs/rangedb/pkg/crypto"
@@ -12,6 +17,112 @@ import (
 )
 
 func TestHashicorpVault_VerifyEngineInterface(t *testing.T) {
+	config := getConfigFromEnvironment(t)
+	const iv = "1234567890123456"
+	aesEncryptor := crypto.NewAESEncryption([]byte(iv))
+
+	cryptotest.VerifyEngine(t, func(t *testing.T) crypto.Engine {
+		vaultCrypto, err := vaultcrypto.New(config, aesEncryptor)
+		require.NoError(t, err)
+		return vaultCrypto
+	})
+}
+
+func TestFailures(t *testing.T) {
+	config := getConfigFromEnvironment(t)
+	const (
+		iv        = "1234567890123456"
+		text      = "lorem ipsum"
+		subjectID = "eb7ea7b5ec984f4893b9a0ae29efb99b"
+	)
+	aesEncryptor := crypto.NewAESEncryption([]byte(iv))
+
+	t.Run("encrypt", func(t *testing.T) {
+		t.Run("errors from invalid subjectID", func(t *testing.T) {
+			// Given
+			vaultCrypto, err := vaultcrypto.New(config, aesEncryptor)
+			require.NoError(t, err)
+			const invalidSubjectID = ":/#?&@%+~"
+
+			// When
+			encryptedData, err := vaultCrypto.Encrypt(invalidSubjectID, text)
+
+			// Then
+			require.EqualError(t, err, `parse "http://127.0.0.1:8200/v1/secret/data/:/#?&@%+~": invalid URL escape "%+~"`)
+			assert.Equal(t, "", encryptedData)
+		})
+
+		t.Run("errors from http timeout", func(t *testing.T) {
+			// Given
+			config.Address = "http://192.0.2.1:8200"
+			vaultCrypto, err := vaultcrypto.New(config, aesEncryptor)
+			require.NoError(t, err)
+			vaultCrypto.SetTimeout(time.Nanosecond)
+
+			// When
+			encryptedData, err := vaultCrypto.Encrypt(subjectID, text)
+
+			// Then
+			require.EqualError(t, err, `Get "http://192.0.2.1:8200/v1/secret/data/eb7ea7b5ec984f4893b9a0ae29efb99b": context deadline exceeded (Client.Timeout exceeded while awaiting headers)`)
+			assert.Equal(t, "", encryptedData)
+		})
+
+		t.Run("errors when getting encryption key", func(t *testing.T) {
+			// Given
+			vaultCrypto, err := vaultcrypto.New(config, aesEncryptor)
+			require.NoError(t, err)
+			vaultCrypto.SetTransport(NewStubTransport(func(request *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusRequestTimeout,
+					Body:       ioutil.NopCloser(strings.NewReader("{}")),
+				}, nil
+			}))
+
+			// When
+			encryptedData, err := vaultCrypto.Encrypt(subjectID, text)
+
+			// Then
+			require.EqualError(t, err, "unable to get encryption key")
+			assert.Equal(t, "", encryptedData)
+		})
+
+		t.Run("errors when saving encryption key", func(t *testing.T) {
+			// Given
+			vaultCrypto, err := vaultcrypto.New(config, aesEncryptor)
+			require.NoError(t, err)
+			vaultCrypto.SetTransport(NewStubTransport(func(request *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusNotFound,
+					Body:       ioutil.NopCloser(strings.NewReader("{}")),
+				}, nil
+			}))
+
+			// When
+			encryptedData, err := vaultCrypto.Encrypt(subjectID, text)
+
+			// Then
+			require.EqualError(t, err, "unable to save")
+			assert.Equal(t, "", encryptedData)
+		})
+	})
+
+	t.Run("delete", func(t *testing.T) {
+		t.Run("delete errors from invalid subjectID", func(t *testing.T) {
+			// Given
+			vaultCrypto, err := vaultcrypto.New(config, aesEncryptor)
+			require.NoError(t, err)
+			const invalidSubjectID = ":/#?&@%+~"
+
+			// When
+			err = vaultCrypto.Delete(invalidSubjectID)
+
+			// Then
+			require.EqualError(t, err, `parse "http://192.0.2.1:8200/v1/secret/destroy/:/#?&@%+~": invalid URL escape "%+~"`)
+		})
+	})
+}
+
+func getConfigFromEnvironment(t *testing.T) vaultcrypto.Config {
 	address := os.Getenv("VAULT_ADDRESS")
 	token := os.Getenv("VAULT_TOKEN")
 
@@ -20,16 +131,22 @@ func TestHashicorpVault_VerifyEngineInterface(t *testing.T) {
 		t.Skip("VAULT_ADDRESS and VAULT_TOKEN are required")
 	}
 
-	const iv = "1234567890123456"
-	aesEncryptor := crypto.NewAESEncryption([]byte(iv))
-	config := vaultcrypto.Config{
+	return vaultcrypto.Config{
 		Address: address,
 		Token:   token,
 	}
+}
 
-	cryptotest.VerifyEngine(t, func(t *testing.T) crypto.Engine {
-		vaultCrypto, err := vaultcrypto.New(config, aesEncryptor)
-		require.NoError(t, err)
-		return vaultCrypto
-	})
+type stubTransport struct {
+	roundTrip func(request *http.Request) (*http.Response, error)
+}
+
+func NewStubTransport(roundTrip func(request *http.Request) (*http.Response, error)) *stubTransport {
+	return &stubTransport{
+		roundTrip: roundTrip,
+	}
+}
+
+func (s *stubTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	return s.roundTrip(request)
 }

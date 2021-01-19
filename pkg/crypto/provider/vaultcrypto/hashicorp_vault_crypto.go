@@ -59,7 +59,6 @@ func (h *hashicorpVaultCrypto) Decrypt(subjectID, base64EncryptedData string) (s
 		return "", err
 	}
 
-	log.Printf("%s - %s", encryptionKey, base64EncryptedData)
 	return h.encryptor.Decrypt(encryptionKey, base64EncryptedData)
 }
 
@@ -182,4 +181,12 @@ func (h *hashicorpVaultCrypto) getPath(subjectID string) string {
 
 func (h *hashicorpVaultCrypto) getDestroyPath(subjectID string) string {
 	return fmt.Sprintf("%s/v1/secret/destroy/%s", h.config.Address, subjectID)
+}
+
+func (h *hashicorpVaultCrypto) SetTimeout(duration time.Duration) {
+	h.httpClient.Timeout = duration
+}
+
+func (h *hashicorpVaultCrypto) SetTransport(transport http.RoundTripper) {
+	h.httpClient.Transport = transport
 }
