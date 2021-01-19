@@ -7,17 +7,16 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/inklabs/rangedb/pkg/crypto"
+	"github.com/inklabs/rangedb/pkg/shortuuid"
 )
 
 func VerifyEngine(t *testing.T, newEngine func(t *testing.T) crypto.Engine) {
 	t.Helper()
-	const (
-		subjectID = "9abd18cd825443b78742807c769c6e34"
-		text      = "lorem ipsum"
-	)
+	const text = "lorem ipsum"
 
 	t.Run("encrypts and decrypts a string", func(t *testing.T) {
 		// Given
+		const subjectID = "de85370e9e0e449e9fba3afd4f2142b1"
 		engine := newEngine(t)
 		encryptedData, err := engine.Encrypt(subjectID, text)
 		require.NoError(t, err)
@@ -33,6 +32,7 @@ func VerifyEngine(t *testing.T, newEngine func(t *testing.T) crypto.Engine) {
 
 	t.Run("encrypts a record, deletes the subjectID, can no longer decrypt", func(t *testing.T) {
 		// Given
+		subjectID := shortuuid.New().String()
 		engine := newEngine(t)
 		encryptedData, err := engine.Encrypt(subjectID, text)
 		require.NoError(t, err)
@@ -50,6 +50,7 @@ func VerifyEngine(t *testing.T, newEngine func(t *testing.T) crypto.Engine) {
 
 	t.Run("encrypts a record, deletes the subjectID, can no longer encrypt", func(t *testing.T) {
 		// Given
+		subjectID := shortuuid.New().String()
 		engine := newEngine(t)
 		encryptedData, err := engine.Encrypt(subjectID, text)
 		require.NoError(t, err)
@@ -69,6 +70,7 @@ func VerifyEngine(t *testing.T, newEngine func(t *testing.T) crypto.Engine) {
 		// Given
 		const (
 			base64EncryptedData = "AIDTAIiCazaQavILI07rtA=="
+			subjectID           = "7c808b69511847358dd2723683976531"
 		)
 		// Given
 		engine := newEngine(t)
