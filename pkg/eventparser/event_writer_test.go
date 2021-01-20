@@ -53,9 +53,9 @@ func TestEventWriter(t *testing.T) {
 // 2021-01-19 10:24:27.0256008 -0800 PST
 package mypkg
 
-func (e ThingWasDone) AggregateID() string { return e.ID }
+func (e ThingWasDone) AggregateID() string   { return e.ID }
 func (e ThingWasDone) AggregateType() string { return "thing" }
-func (e ThingWasDone) EventType() string { return "ThingWasDone" }
+func (e ThingWasDone) EventType() string     { return "ThingWasDone" }
 `
 		assert.Equal(t, expectedOut, out.String())
 	})
@@ -84,13 +84,13 @@ func (e ThingWasDone) EventType() string { return "ThingWasDone" }
 // 2021-01-19 10:24:27.0256008 -0800 PST
 package mypkg
 
-func (e ThingWasDone) AggregateID() string { return e.ID }
+func (e ThingWasDone) AggregateID() string   { return e.ID }
 func (e ThingWasDone) AggregateType() string { return "thing" }
-func (e ThingWasDone) EventType() string { return "ThingWasDone" }
+func (e ThingWasDone) EventType() string     { return "ThingWasDone" }
 
-func (e AnotherThingWasDone) AggregateID() string { return e.ID }
+func (e AnotherThingWasDone) AggregateID() string   { return e.ID }
 func (e AnotherThingWasDone) AggregateType() string { return "thing" }
-func (e AnotherThingWasDone) EventType() string { return "AnotherThingWasDone" }
+func (e AnotherThingWasDone) EventType() string     { return "AnotherThingWasDone" }
 `
 		assert.Equal(t, expectedOut, out.String())
 	})
@@ -124,9 +124,9 @@ import (
 	"github.com/inklabs/rangedb/pkg/crypto"
 )
 
-func (e CustomerSignedUp) AggregateID() string { return e.ID }
+func (e CustomerSignedUp) AggregateID() string   { return e.ID }
 func (e CustomerSignedUp) AggregateType() string { return "customer" }
-func (e CustomerSignedUp) EventType() string { return "CustomerSignedUp" }
+func (e CustomerSignedUp) EventType() string     { return "CustomerSignedUp" }
 func (e *CustomerSignedUp) Encrypt(encryptor crypto.Encryptor) error {
 	var err error
 	e.Email, err = encryptor.Encrypt(e.ID, e.Email)
@@ -179,9 +179,9 @@ import (
 	"github.com/inklabs/rangedb/pkg/crypto"
 )
 
-func (e CustomerSignedUp) AggregateID() string { return e.ID }
+func (e CustomerSignedUp) AggregateID() string   { return e.ID }
 func (e CustomerSignedUp) AggregateType() string { return "customer" }
-func (e CustomerSignedUp) EventType() string { return "CustomerSignedUp" }
+func (e CustomerSignedUp) EventType() string     { return "CustomerSignedUp" }
 func (e *CustomerSignedUp) Encrypt(encryptor crypto.Encryptor) error {
 	var err error
 	e.Name, err = encryptor.Encrypt(e.ID, e.Name)
@@ -251,9 +251,9 @@ import (
 	"github.com/inklabs/rangedb/pkg/crypto"
 )
 
-func (e CustomerAddedBirthYear) AggregateID() string { return e.ID }
+func (e CustomerAddedBirthYear) AggregateID() string   { return e.ID }
 func (e CustomerAddedBirthYear) AggregateType() string { return "customer" }
-func (e CustomerAddedBirthYear) EventType() string { return "CustomerAddedBirthYear" }
+func (e CustomerAddedBirthYear) EventType() string     { return "CustomerAddedBirthYear" }
 func (e *CustomerAddedBirthYear) Encrypt(encryptor crypto.Encryptor) error {
 	var err error
 	stringBirthYear := strconv.Itoa(e.BirthYear)
@@ -319,9 +319,9 @@ import (
 	"github.com/inklabs/rangedb/pkg/crypto"
 )
 
-func (e CustomerAddedBirth) AggregateID() string { return e.ID }
+func (e CustomerAddedBirth) AggregateID() string   { return e.ID }
 func (e CustomerAddedBirth) AggregateType() string { return "customer" }
-func (e CustomerAddedBirth) EventType() string { return "CustomerAddedBirth" }
+func (e CustomerAddedBirth) EventType() string     { return "CustomerAddedBirth" }
 func (e *CustomerAddedBirth) Encrypt(encryptor crypto.Encryptor) error {
 	var err error
 	stringBirthMonth := strconv.Itoa(e.BirthMonth)
@@ -410,9 +410,9 @@ import (
 	"github.com/inklabs/rangedb/pkg/crypto"
 )
 
-func (e CustomerAddedBirth) AggregateID() string { return e.ID }
+func (e CustomerAddedBirth) AggregateID() string   { return e.ID }
 func (e CustomerAddedBirth) AggregateType() string { return "customer" }
-func (e CustomerAddedBirth) EventType() string { return "CustomerAddedBirth" }
+func (e CustomerAddedBirth) EventType() string     { return "CustomerAddedBirth" }
 func (e *CustomerAddedBirth) Encrypt(encryptor crypto.Encryptor) error {
 	var err error
 	e.Name, err = encryptor.Encrypt(e.ID, e.Name)
