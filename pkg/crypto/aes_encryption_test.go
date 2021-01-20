@@ -121,3 +121,25 @@ func TestAESEncryption(t *testing.T) {
 		assert.Equal(t, text, decryptedValue)
 	})
 }
+
+func BenchmarkAESEncryption(b *testing.B) {
+	const (
+		iv                  = "1234567890123456"
+		key                 = "24f8d5773ae944ce890ec4b09daf3054"
+		text                = "lorem ipsum"
+		base64EncryptedData = "NO8RD1DFHuYHSyWbOiZlsw=="
+	)
+	aesEncryption := crypto.NewAESEncryption([]byte(iv))
+
+	b.Run("encrypt", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			_, _ = aesEncryption.Encrypt(key, text)
+		}
+	})
+
+	b.Run("decrypt", func(b *testing.B) {
+		for i := 0; i < b.N; i++ {
+			_, _ = aesEncryption.Decrypt(key, base64EncryptedData)
+		}
+	})
+}
