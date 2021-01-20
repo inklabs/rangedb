@@ -131,6 +131,7 @@ func (e *CustomerSignedUp) Encrypt(encryptor crypto.Encryptor) error {
 	var err error
 	e.Email, err = encryptor.Encrypt(e.ID, e.Email)
 	if err != nil {
+		e.Email = ""
 		return err
 	}
 
@@ -186,11 +187,15 @@ func (e *CustomerSignedUp) Encrypt(encryptor crypto.Encryptor) error {
 	var err error
 	e.Name, err = encryptor.Encrypt(e.ID, e.Name)
 	if err != nil {
+		e.Name = ""
+		e.Email = ""
 		return err
 	}
 
 	e.Email, err = encryptor.Encrypt(e.ID, e.Email)
 	if err != nil {
+		e.Name = ""
+		e.Email = ""
 		return err
 	}
 
@@ -259,6 +264,7 @@ func (e *CustomerAddedBirthYear) Encrypt(encryptor crypto.Encryptor) error {
 	stringBirthYear := strconv.Itoa(e.BirthYear)
 	e.BirthYearEncrypted, err = encryptor.Encrypt(e.ID, stringBirthYear)
 	if err != nil {
+		e.BirthYear = 0
 		return err
 	}
 	e.BirthYear = 0
@@ -327,6 +333,8 @@ func (e *CustomerAddedBirth) Encrypt(encryptor crypto.Encryptor) error {
 	stringBirthMonth := strconv.Itoa(e.BirthMonth)
 	e.BirthMonthEncrypted, err = encryptor.Encrypt(e.ID, stringBirthMonth)
 	if err != nil {
+		e.BirthMonth = 0
+		e.BirthYear = 0
 		return err
 	}
 	e.BirthMonth = 0
@@ -334,6 +342,8 @@ func (e *CustomerAddedBirth) Encrypt(encryptor crypto.Encryptor) error {
 	stringBirthYear := strconv.Itoa(e.BirthYear)
 	e.BirthYearEncrypted, err = encryptor.Encrypt(e.ID, stringBirthYear)
 	if err != nil {
+		e.BirthMonth = 0
+		e.BirthYear = 0
 		return err
 	}
 	e.BirthYear = 0
@@ -417,17 +427,23 @@ func (e *CustomerAddedBirth) Encrypt(encryptor crypto.Encryptor) error {
 	var err error
 	e.Name, err = encryptor.Encrypt(e.ID, e.Name)
 	if err != nil {
+		e.Name = ""
+		e.Email = ""
 		return err
 	}
 
 	e.Email, err = encryptor.Encrypt(e.ID, e.Email)
 	if err != nil {
+		e.Name = ""
+		e.Email = ""
 		return err
 	}
 
 	stringBirthMonth := strconv.Itoa(e.BirthMonth)
 	e.BirthMonthEncrypted, err = encryptor.Encrypt(e.ID, stringBirthMonth)
 	if err != nil {
+		e.BirthMonth = 0
+		e.BirthYear = 0
 		return err
 	}
 	e.BirthMonth = 0
@@ -435,6 +451,8 @@ func (e *CustomerAddedBirth) Encrypt(encryptor crypto.Encryptor) error {
 	stringBirthYear := strconv.Itoa(e.BirthYear)
 	e.BirthYearEncrypted, err = encryptor.Encrypt(e.ID, stringBirthYear)
 	if err != nil {
+		e.BirthMonth = 0
+		e.BirthYear = 0
 		return err
 	}
 	e.BirthYear = 0

@@ -9,13 +9,13 @@ import (
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 )
 
-func ExampleEngine_Delete() {
+func ExampleKeyStore_Delete() {
 	// Given
 	shortuuid.SetRand(100)
 	const iv = "1234567890123456"
 	aesEncryptor := crypto.NewAESEncryption([]byte(iv))
-	engine := inmemorycrypto.New(aesEncryptor)
-	eventEncryptor := crypto.NewEventEncryptor(engine)
+	keyStore := inmemorycrypto.New()
+	eventEncryptor := crypto.NewEventEncryptor(keyStore, aesEncryptor)
 	event := &cryptotest.CustomerSignedUp{
 		ID:     "62df778c16f84969a8a5448a9ce00218",
 		Name:   "John Doe",
@@ -27,7 +27,7 @@ func ExampleEngine_Delete() {
 	PrintError(eventEncryptor.Encrypt(event))
 	PrintEvent(event)
 
-	PrintError(engine.Delete(event.AggregateID()))
+	PrintError(keyStore.Delete(event.AggregateID()))
 
 	err := eventEncryptor.Decrypt(event)
 	fmt.Printf("error: %v\n", err)

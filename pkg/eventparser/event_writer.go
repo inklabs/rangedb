@@ -74,6 +74,9 @@ func (e *{{ .Name }}) Encrypt(encryptor crypto.Encryptor) error {
 {{- range $event.PersonalData.Fields }}
 	e.{{ . }}, err = encryptor.Encrypt(e.{{ $event.PersonalData.SubjectID }}, e.{{ . }})
 	if err != nil {
+		{{- range $event.PersonalData.Fields }}
+		e.{{ . }} = ""
+		{{- end }}
 		return err
 	}
 {{ end }}
@@ -81,6 +84,9 @@ func (e *{{ .Name }}) Encrypt(encryptor crypto.Encryptor) error {
 	string{{ $value }} := strconv.Itoa(e.{{ $value }})
 	e.{{ $key }}, err = encryptor.Encrypt(e.{{ $event.PersonalData.SubjectID }}, string{{ $value }})
 	if err != nil {
+		{{- range $k, $v := $event.PersonalData.SerializedFields }}
+		e.{{ $v }} = 0
+		{{- end }}
 		return err
 	}
 	e.{{ $value }} = 0

@@ -9,10 +9,7 @@ import (
 )
 
 func TestInMemoryCrypto_VerifyEngineInterface(t *testing.T) {
-	const iv = "1234567890123456"
-	aesEncryptor := crypto.NewAESEncryption([]byte(iv))
-
-	cryptotest.VerifyEngine(t, func(t *testing.T) crypto.Engine {
-		return inmemorycrypto.New(aesEncryptor)
+	cryptotest.VerifyKeyStore(t, func(t *testing.T) crypto.KeyStore {
+		return inmemorycrypto.New()
 	})
 }

@@ -18,8 +18,8 @@ func TestEventEncryptor(t *testing.T) {
 		id = "2151bdf139a4467e8d6e12e51406e208"
 	)
 	aesEncryptor := crypto.NewAESEncryption([]byte(iv))
-	engine := inmemorycrypto.New(aesEncryptor)
-	eventEncryptor := crypto.NewEventEncryptor(engine)
+	keyStore := inmemorycrypto.New()
+	eventEncryptor := crypto.NewEventEncryptor(keyStore, aesEncryptor)
 
 	t.Run("encrypts and decrypts an event containing a string", func(t *testing.T) {
 		// Given
@@ -102,6 +102,79 @@ func TestEventEncryptor(t *testing.T) {
 			// Then
 			require.NoError(t, err)
 			assert.Equal(t, "action", event.Action)
+		})
+	})
+
+	t.Run("errors", func(t *testing.T) {
+		t.Run("encrypting an event with a deleted key", func(t *testing.T) {
+			// Given
+			const key = "1fb69ce223844c38b58771bade7f555a"
+			event := &cryptotest.CustomerSignedUp{
+				ID:     id,
+				Name:   "John Doe",
+				Email:  "john@example.com",
+				Status: "premium",
+			}
+			keyStore := inmemorycrypto.New()
+			require.NoError(t, keyStore.Set(id, key))
+			require.NoError(t, keyStore.Delete(id))
+			eventEncryptor := crypto.NewEventEncryptor(keyStore, aesEncryptor)
+
+			// When
+			err := eventEncryptor.Encrypt(event)
+
+			// Then
+			require.Equal(t, crypto.ErrKeyWasDeleted, err)
+			assert.Equal(t, id, event.ID)
+			assert.Equal(t, "", event.Name)
+			assert.Equal(t, "", event.Email)
+			assert.Equal(t, "premium", event.Status)
+		})
+
+		t.Run("decrypting an event with a deleted key", func(t *testing.T) {
+			// Given
+			event := &cryptotest.CustomerSignedUp{
+				ID:     id,
+				Name:   "John Doe",
+				Email:  "john@example.com",
+				Status: "premium",
+			}
+			keyStore := inmemorycrypto.New()
+			eventEncryptor := crypto.NewEventEncryptor(keyStore, aesEncryptor)
+			err := eventEncryptor.Encrypt(event)
+			require.NoError(t, keyStore.Delete(id))
+
+			// When
+			err = eventEncryptor.Decrypt(event)
+
+			// Then
+			require.Equal(t, crypto.ErrKeyWasDeleted, err)
+			assert.Equal(t, id, event.ID)
+			assert.Equal(t, "", event.Name)
+			assert.Equal(t, "", event.Email)
+			assert.Equal(t, "premium", event.Status)
+		})
+
+		t.Run("decrypting an event with a non-existent key for a subjectID", func(t *testing.T) {
+			// Given
+			event := &cryptotest.CustomerSignedUp{
+				ID:     id,
+				Name:   "John Doe",
+				Email:  "john@example.com",
+				Status: "premium",
+			}
+			keyStore := inmemorycrypto.New()
+			eventEncryptor := crypto.NewEventEncryptor(keyStore, aesEncryptor)
+
+			// When
+			err := eventEncryptor.Decrypt(event)
+
+			// Then
+			require.Equal(t, crypto.ErrKeyNotFound, err)
+			assert.Equal(t, id, event.ID)
+			assert.Equal(t, "", event.Name)
+			assert.Equal(t, "", event.Email)
+			assert.Equal(t, "premium", event.Status)
 		})
 	})
 }
