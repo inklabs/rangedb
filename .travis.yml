@@ -7,6 +7,7 @@ sudo: false
 
 services:
   - postgresql
+  - docker
 
 install:
   - go mod download
@@ -14,6 +15,7 @@ install:
   - go vet ./...
 
 before_script:
+  - docker run -it -p 2113:2113 -p 1113:1113 eventstore/eventstore --insecure
   - psql -c 'create database travis_ci_test;' -U postgres
   - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-0.8.0-linux-amd64 > ./cc-test-reporter
   - chmod +x ./cc-test-reporter
