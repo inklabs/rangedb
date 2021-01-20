@@ -12,8 +12,8 @@ func ExampleEventEncryptor_Encrypt() {
 	shortuuid.SetRand(100)
 	const iv = "1234567890123456"
 	aesEncryptor := crypto.NewAESEncryption([]byte(iv))
-	engine := inmemorycrypto.New(aesEncryptor)
-	eventEncryptor := crypto.NewEventEncryptor(engine)
+	keyStore := inmemorycrypto.New()
+	eventEncryptor := crypto.NewEventEncryptor(keyStore, aesEncryptor)
 	event := &cryptotest.CustomerSignedUp{
 		ID:     "fe65ac8d8c3a45e9b3cee407f10ee518",
 		Name:   "John Doe",
