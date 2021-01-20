@@ -1499,7 +1499,7 @@ func assertCanceledIterator(t *testing.T, iter rangedb.RecordIterator) {
 // AssertRecordsInIterator asserts all expected rangedb.Record exist in the rangedb.RecordIterator.
 func AssertRecordsInIterator(t *testing.T, recordIterator rangedb.RecordIterator, expectedRecords ...*rangedb.Record) {
 	for i, expectedRecord := range expectedRecords {
-		assert.True(t, recordIterator.Next())
+		require.True(t, recordIterator.Next())
 		assert.Nil(t, recordIterator.Err())
 		require.Equal(t, expectedRecord, recordIterator.Record(), i)
 	}
