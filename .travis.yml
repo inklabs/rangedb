@@ -31,7 +31,7 @@ env:
 
 script:
   - go test -v -race -coverprofile c.out.tmp ./...
-  - cat c.out.tmp | grep -v "_vfsdata.go" | grep -v "_gen.go" | grep -v ".pb.go" | grep -v "/rangedbtest/" > c.out
+  - cat c.out.tmp | grep -v "_vfsdata.go" | grep -v "_gen.go" | grep -v ".pb.go" | grep -v "/rangedbtest/" | grep -v "/cryptotest/" > c.out
   - go tool cover -func c.out
 
 after_script:

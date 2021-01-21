@@ -36,9 +36,9 @@ func AllEventsConfig(ctx context.Context, store rangedb.Store, broadcaster broad
 }
 
 // AggregateTypesConfig returns a configuration to subscribe to events by aggregate types.
-func AggregateTypesConfig(ctx context.Context, store rangedb.Store, broadcaster broadcast.Broadcaster, bufLen int, aggregateTypes []string, consumeRecord ConsumeRecordFunc) Config {
+func AggregateTypesConfig(ctx context.Context, store rangedb.Store, broadcaster broadcast.Broadcaster, bufferLength int, aggregateTypes []string, consumeRecord ConsumeRecordFunc) Config {
 	return Config{
-		BufferSize: bufLen,
+		BufferSize: bufferLength,
 		DoneChan:   ctx.Done(),
 		Subscribe: func(subscriber broadcast.RecordSubscriber) {
 			broadcaster.SubscribeAggregateTypes(subscriber, aggregateTypes...)
