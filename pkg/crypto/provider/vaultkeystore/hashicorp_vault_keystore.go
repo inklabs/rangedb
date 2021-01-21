@@ -13,8 +13,9 @@ import (
 	"github.com/inklabs/rangedb/pkg/crypto"
 )
 
+const deleteAllHashiVersionsJSON = `{"versions":[1,2]}`
+
 type hashicorpVaultKeyStore struct {
-	encryptor  crypto.Encryptor
 	config     Config
 	httpClient *http.Client
 }
@@ -24,10 +25,9 @@ type Config struct {
 	Token   string
 }
 
-func New(config Config, encryptor crypto.Encryptor) (*hashicorpVaultKeyStore, error) {
+func New(config Config) (*hashicorpVaultKeyStore, error) {
 	return &hashicorpVaultKeyStore{
-		encryptor: encryptor,
-		config:    config,
+		config: config,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -46,7 +46,7 @@ func (h *hashicorpVaultKeyStore) Get(subjectID string) (string, error) {
 		return "", err
 	}
 
-	var resp saveResponse
+	var resp secretResponse
 	err = json.NewDecoder(response.Body).Decode(&resp)
 	if err != nil {
 		return "", err
@@ -105,8 +105,7 @@ func (h *hashicorpVaultKeyStore) Set(subjectID, key string) error {
 }
 
 func (h *hashicorpVaultKeyStore) Delete(subjectID string) error {
-	jsonString := `{"versions":[1,2]}`
-	request, err := http.NewRequest(http.MethodPost, h.getDestroyPath(subjectID), strings.NewReader(jsonString))
+	request, err := http.NewRequest(http.MethodPost, h.getDestroyPath(subjectID), strings.NewReader(deleteAllHashiVersionsJSON))
 	if err != nil {
 		return err
 	}
@@ -131,7 +130,7 @@ type dataPayload struct {
 	Data map[string]string `json:"data"`
 }
 
-type saveResponse struct {
+type secretResponse struct {
 	RequestID     string `json:"request_id"`
 	LeaseID       string `json:"lease_id"`
 	Renewable     bool   `json:"renewable"`

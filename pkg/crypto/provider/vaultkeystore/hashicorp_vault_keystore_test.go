@@ -18,11 +18,9 @@ import (
 
 func TestHashicorpVault_VerifyEngineInterface(t *testing.T) {
 	config := getConfigFromEnvironment(t)
-	const iv = "1234567890123456"
-	aesEncryptor := crypto.NewAESEncryption([]byte(iv))
 
 	cryptotest.VerifyKeyStore(t, func(t *testing.T) crypto.KeyStore {
-		vaultKeyStore, err := vaultkeystore.New(config, aesEncryptor)
+		vaultKeyStore, err := vaultkeystore.New(config)
 		require.NoError(t, err)
 		return vaultKeyStore
 	})
@@ -31,16 +29,14 @@ func TestHashicorpVault_VerifyEngineInterface(t *testing.T) {
 func TestFailures(t *testing.T) {
 	config := getConfigFromEnvironment(t)
 	const (
-		iv            = "1234567890123456"
 		subjectID     = "eb7ea7b5ec984f4893b9a0ae29efb99b"
 		encryptionKey = "d67d3e84841c4ab58db32ae694ea7cad"
 	)
-	aesEncryptor := crypto.NewAESEncryption([]byte(iv))
 
 	t.Run("get", func(t *testing.T) {
 		t.Run("errors from invalid subjectID", func(t *testing.T) {
 			// Given
-			vaultCrypto, err := vaultkeystore.New(config, aesEncryptor)
+			vaultCrypto, err := vaultkeystore.New(config)
 			require.NoError(t, err)
 			const invalidSubjectID = ":/#?&@%+~"
 
@@ -55,7 +51,7 @@ func TestFailures(t *testing.T) {
 		t.Run("errors from http timeout", func(t *testing.T) {
 			// Given
 			config.Address = "http://192.0.2.1:8200"
-			vaultCrypto, err := vaultkeystore.New(config, aesEncryptor)
+			vaultCrypto, err := vaultkeystore.New(config)
 			require.NoError(t, err)
 			vaultCrypto.SetTimeout(time.Nanosecond)
 
@@ -69,7 +65,7 @@ func TestFailures(t *testing.T) {
 
 		t.Run("errors from invalid json response", func(t *testing.T) {
 			// Given
-			vaultCrypto, err := vaultkeystore.New(config, aesEncryptor)
+			vaultCrypto, err := vaultkeystore.New(config)
 			require.NoError(t, err)
 			vaultCrypto.SetTransport(NewStubTransport(func(request *http.Request) (*http.Response, error) {
 				return &http.Response{
@@ -86,13 +82,13 @@ func TestFailures(t *testing.T) {
 			assert.Equal(t, "", key)
 		})
 
-		t.Run("errors when getting encryption key", func(t *testing.T) {
+		t.Run("errors when getting encryption key from unknown response error", func(t *testing.T) {
 			// Given
-			vaultCrypto, err := vaultkeystore.New(config, aesEncryptor)
+			vaultCrypto, err := vaultkeystore.New(config)
 			require.NoError(t, err)
 			vaultCrypto.SetTransport(NewStubTransport(func(request *http.Request) (*http.Response, error) {
 				return &http.Response{
-					StatusCode: http.StatusRequestTimeout,
+					StatusCode: http.StatusInternalServerError,
 					Body:       ioutil.NopCloser(strings.NewReader("{}")),
 				}, nil
 			}))
@@ -109,7 +105,7 @@ func TestFailures(t *testing.T) {
 	t.Run("set", func(t *testing.T) {
 		t.Run("errors from invalid subjectID", func(t *testing.T) {
 			// Given
-			vaultCrypto, err := vaultkeystore.New(config, aesEncryptor)
+			vaultCrypto, err := vaultkeystore.New(config)
 			require.NoError(t, err)
 			const invalidSubjectID = ":/#?&@%+~"
 
@@ -123,7 +119,7 @@ func TestFailures(t *testing.T) {
 		t.Run("errors from http timeout", func(t *testing.T) {
 			// Given
 			config.Address = "http://192.0.2.1:8200"
-			vaultCrypto, err := vaultkeystore.New(config, aesEncryptor)
+			vaultCrypto, err := vaultkeystore.New(config)
 			require.NoError(t, err)
 			vaultCrypto.SetTimeout(time.Nanosecond)
 
@@ -134,13 +130,13 @@ func TestFailures(t *testing.T) {
 			require.EqualError(t, err, `Post "http://192.0.2.1:8200/v1/secret/data/eb7ea7b5ec984f4893b9a0ae29efb99b": context deadline exceeded (Client.Timeout exceeded while awaiting headers)`)
 		})
 
-		t.Run("errors when saving encryption key", func(t *testing.T) {
+		t.Run("errors when saving encryption key from unknown error response", func(t *testing.T) {
 			// Given
-			vaultCrypto, err := vaultkeystore.New(config, aesEncryptor)
+			vaultCrypto, err := vaultkeystore.New(config)
 			require.NoError(t, err)
 			vaultCrypto.SetTransport(NewStubTransport(func(request *http.Request) (*http.Response, error) {
 				return &http.Response{
-					StatusCode: http.StatusNotFound,
+					StatusCode: http.StatusInternalServerError,
 					Body:       ioutil.NopCloser(strings.NewReader("{}")),
 				}, nil
 			}))
@@ -156,7 +152,7 @@ func TestFailures(t *testing.T) {
 	t.Run("delete", func(t *testing.T) {
 		t.Run("delete errors from invalid subjectID", func(t *testing.T) {
 			// Given
-			vaultCrypto, err := vaultkeystore.New(config, aesEncryptor)
+			vaultCrypto, err := vaultkeystore.New(config)
 			require.NoError(t, err)
 			const invalidSubjectID = ":/#?&@%+~"
 
@@ -170,7 +166,7 @@ func TestFailures(t *testing.T) {
 		t.Run("errors from http timeout", func(t *testing.T) {
 			// Given
 			config.Address = "http://192.0.2.1:8200"
-			vaultCrypto, err := vaultkeystore.New(config, aesEncryptor)
+			vaultCrypto, err := vaultkeystore.New(config)
 			require.NoError(t, err)
 			vaultCrypto.SetTimeout(time.Nanosecond)
 
@@ -181,13 +177,13 @@ func TestFailures(t *testing.T) {
 			require.EqualError(t, err, `Post "http://192.0.2.1:8200/v1/secret/destroy/eb7ea7b5ec984f4893b9a0ae29efb99b": context deadline exceeded (Client.Timeout exceeded while awaiting headers)`)
 		})
 
-		t.Run("errors when deleting encryption key", func(t *testing.T) {
+		t.Run("errors when deleting encryption key from unknown error response", func(t *testing.T) {
 			// Given
-			vaultCrypto, err := vaultkeystore.New(config, aesEncryptor)
+			vaultCrypto, err := vaultkeystore.New(config)
 			require.NoError(t, err)
 			vaultCrypto.SetTransport(NewStubTransport(func(request *http.Request) (*http.Response, error) {
 				return &http.Response{
-					StatusCode: http.StatusRequestTimeout,
+					StatusCode: http.StatusInternalServerError,
 					Body:       ioutil.NopCloser(strings.NewReader("{}")),
 				}, nil
 			}))
