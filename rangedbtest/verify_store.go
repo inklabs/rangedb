@@ -1442,10 +1442,13 @@ func LoadIterator(records ...*rangedb.Record) rangedb.RecordIterator {
 func BlockingSaveEvents(t *testing.T, store rangedb.Store, records ...*rangedb.EventRecord) {
 	ctx := TimeoutContext(t)
 	blockingSubscriber := NewBlockingSubscriber(nil)
-	require.NoError(t, store.AllEventsSubscription(ctx, 10, blockingSubscriber).Start())
+	subscription := store.AllEventsSubscription(ctx, 10, blockingSubscriber)
+	require.NoError(t, subscription.Start())
 	_, err := store.Save(ctx, records...)
 	require.NoError(t, err)
-	ReadRecord(t, blockingSubscriber.Records)
+	for i := 0; i < len(records); i++ {
+		ReadRecord(t, blockingSubscriber.Records)
+	}
 }
 
 // SaveEvents helper to save events with a timeout.
