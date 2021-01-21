@@ -37,5 +37,8 @@ var ErrKeyWasDeleted = fmt.Errorf("removed from GDPR request")
 // ErrKeyNotFound encryption key was not found error.
 var ErrKeyNotFound = fmt.Errorf("key not found")
 
-// ErrKeyExistsForSubjectID encryption key has already been set for subjectID
+// ErrKeyExistsForSubjectID encryption key has already been set for subjectID.
 var ErrKeyExistsForSubjectID = fmt.Errorf("key already exists for subjectID")
+
+// ErrInvalidKey encryption key is not valid.
+var ErrInvalidKey = fmt.Errorf("invalid encryption key")

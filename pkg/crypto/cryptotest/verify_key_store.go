@@ -65,7 +65,7 @@ func VerifyKeyStore(t *testing.T, newStore func(t *testing.T) crypto.KeyStore) {
 	})
 
 	t.Run("set", func(t *testing.T) {
-		t.Run("fails due to existing key", func(t *testing.T) {
+		t.Run("errors due to existing key", func(t *testing.T) {
 			// Given
 			const (
 				key1 = "062cb6d874ac49f4ac48e3ff7b0124d3"
@@ -81,6 +81,19 @@ func VerifyKeyStore(t *testing.T, newStore func(t *testing.T) crypto.KeyStore) {
 
 			// Then
 			require.Equal(t, crypto.ErrKeyExistsForSubjectID, err)
+		})
+
+		t.Run("errors from empty encryption key", func(t *testing.T) {
+			// Given
+			const emptyKey = ""
+			subjectID := shortuuid.New().String()
+			store := newStore(t)
+
+			// When
+			err := store.Set(subjectID, emptyKey)
+
+			// Then
+			require.Equal(t, crypto.ErrInvalidKey, err)
 		})
 	})
 }

@@ -70,6 +70,10 @@ func (h *hashicorpVaultKeyStore) Get(subjectID string) (string, error) {
 }
 
 func (h *hashicorpVaultKeyStore) Set(subjectID, key string) error {
+	if key == "" {
+		return crypto.ErrInvalidKey
+	}
+
 	_, err := h.Get(subjectID)
 	if err == nil {
 		return crypto.ErrKeyExistsForSubjectID

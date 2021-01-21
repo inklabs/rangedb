@@ -33,6 +33,10 @@ func (i *inMemoryKeyStore) Get(subjectID string) (string, error) {
 }
 
 func (i *inMemoryKeyStore) Set(subjectID, key string) error {
+	if key == "" {
+		return crypto.ErrInvalidKey
+	}
+
 	i.mux.Lock()
 	defer i.mux.Unlock()
 
