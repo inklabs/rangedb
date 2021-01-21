@@ -1,4 +1,4 @@
-package inmemorycrypto
+package inmemorykeystore
 
 import (
 	"sync"
@@ -6,18 +6,18 @@ import (
 	"github.com/inklabs/rangedb/pkg/crypto"
 )
 
-type inMemoryCrypto struct {
+type inMemoryKeyStore struct {
 	mux            sync.RWMutex
 	EncryptionKeys map[string]string
 }
 
-func New() *inMemoryCrypto {
-	return &inMemoryCrypto{
+func New() *inMemoryKeyStore {
+	return &inMemoryKeyStore{
 		EncryptionKeys: make(map[string]string),
 	}
 }
 
-func (i *inMemoryCrypto) Get(subjectID string) (string, error) {
+func (i *inMemoryKeyStore) Get(subjectID string) (string, error) {
 	i.mux.RLock()
 	defer i.mux.RUnlock()
 
@@ -32,7 +32,7 @@ func (i *inMemoryCrypto) Get(subjectID string) (string, error) {
 	return "", crypto.ErrKeyNotFound
 }
 
-func (i *inMemoryCrypto) Set(subjectID, key string) error {
+func (i *inMemoryKeyStore) Set(subjectID, key string) error {
 	i.mux.Lock()
 	defer i.mux.Unlock()
 
@@ -45,7 +45,7 @@ func (i *inMemoryCrypto) Set(subjectID, key string) error {
 	return nil
 }
 
-func (i *inMemoryCrypto) Delete(subjectID string) error {
+func (i *inMemoryKeyStore) Delete(subjectID string) error {
 	i.mux.Lock()
 	defer i.mux.Unlock()
 

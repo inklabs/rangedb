@@ -1,15 +1,15 @@
-package inmemorycrypto_test
+package inmemorykeystore_test
 
 import (
 	"testing"
 
 	"github.com/inklabs/rangedb/pkg/crypto"
 	"github.com/inklabs/rangedb/pkg/crypto/cryptotest"
-	"github.com/inklabs/rangedb/pkg/crypto/provider/inmemorycrypto"
+	"github.com/inklabs/rangedb/pkg/crypto/provider/inmemorykeystore"
 )
 
 func TestInMemoryCrypto_VerifyEngineInterface(t *testing.T) {
 	cryptotest.VerifyKeyStore(t, func(t *testing.T) crypto.KeyStore {
-		return inmemorycrypto.New()
+		return inmemorykeystore.New()
 	})
 }

@@ -5,7 +5,7 @@ import (
 
 	"github.com/inklabs/rangedb/pkg/crypto"
 	"github.com/inklabs/rangedb/pkg/crypto/cryptotest"
-	"github.com/inklabs/rangedb/pkg/crypto/provider/inmemorycrypto"
+	"github.com/inklabs/rangedb/pkg/crypto/provider/inmemorykeystore"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 )
 
@@ -14,7 +14,7 @@ func ExampleKeyStore_Delete() {
 	shortuuid.SetRand(100)
 	const iv = "1234567890123456"
 	aesEncryptor := crypto.NewAESEncryption([]byte(iv))
-	keyStore := inmemorycrypto.New()
+	keyStore := inmemorykeystore.New()
 	eventEncryptor := crypto.NewEventEncryptor(keyStore, aesEncryptor)
 	event := &cryptotest.CustomerSignedUp{
 		ID:     "62df778c16f84969a8a5448a9ce00218",
