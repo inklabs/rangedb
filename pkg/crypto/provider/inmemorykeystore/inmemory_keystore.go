@@ -7,13 +7,15 @@ import (
 )
 
 type inMemoryKeyStore struct {
-	mux            sync.RWMutex
-	EncryptionKeys map[string]string
+	mux                       sync.RWMutex
+	EncryptionKeysBySubjectID map[string]string
+	EncryptionKeys            map[string]struct{}
 }
 
 func New() *inMemoryKeyStore {
 	return &inMemoryKeyStore{
-		EncryptionKeys: make(map[string]string),
+		EncryptionKeysBySubjectID: make(map[string]string),
+		EncryptionKeys:            make(map[string]struct{}),
 	}
 }
 
@@ -21,7 +23,7 @@ func (i *inMemoryKeyStore) Get(subjectID string) (string, error) {
 	i.mux.RLock()
 	defer i.mux.RUnlock()
 
-	if key, ok := i.EncryptionKeys[subjectID]; ok {
+	if key, ok := i.EncryptionKeysBySubjectID[subjectID]; ok {
 		if key == "" {
 			return "", crypto.ErrKeyWasDeleted
 		}
@@ -40,11 +42,16 @@ func (i *inMemoryKeyStore) Set(subjectID, key string) error {
 	i.mux.Lock()
 	defer i.mux.Unlock()
 
-	if _, ok := i.EncryptionKeys[subjectID]; ok {
+	if _, ok := i.EncryptionKeys[key]; ok {
+		return crypto.ErrKeyAlreadyUsed
+	}
+
+	if _, ok := i.EncryptionKeysBySubjectID[subjectID]; ok {
 		return crypto.ErrKeyExistsForSubjectID
 	}
 
-	i.EncryptionKeys[subjectID] = key
+	i.EncryptionKeysBySubjectID[subjectID] = key
+	i.EncryptionKeys[key] = struct{}{}
 
 	return nil
 }
@@ -53,7 +60,7 @@ func (i *inMemoryKeyStore) Delete(subjectID string) error {
 	i.mux.Lock()
 	defer i.mux.Unlock()
 
-	i.EncryptionKeys[subjectID] = ""
+	i.EncryptionKeysBySubjectID[subjectID] = ""
 
 	return nil
 }

@@ -40,5 +40,8 @@ var ErrKeyNotFound = fmt.Errorf("key not found")
 // ErrKeyExistsForSubjectID encryption key has already been set for subjectID.
 var ErrKeyExistsForSubjectID = fmt.Errorf("key already exists for subjectID")
 
+// ErrKeyAlreadyUsed encryption key has already been set for subjectID.
+var ErrKeyAlreadyUsed = fmt.Errorf("encryption key already used")
+
 // ErrInvalidKey encryption key is not valid.
 var ErrInvalidKey = fmt.Errorf("invalid encryption key")

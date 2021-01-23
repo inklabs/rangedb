@@ -95,5 +95,22 @@ func VerifyKeyStore(t *testing.T, newStore func(t *testing.T) crypto.KeyStore) {
 			// Then
 			require.Equal(t, crypto.ErrInvalidKey, err)
 		})
+
+		t.Run("errors due to duplicate encryption key for two subjectIDs", func(t *testing.T) {
+			t.Skip("TODO: add support for unique secrets")
+			// Given
+			const key = "062cb6d874ac49f4ac48e3ff7b0124d3"
+			subjectID1 := shortuuid.New().String()
+			subjectID2 := shortuuid.New().String()
+			store := newStore(t)
+			err := store.Set(subjectID1, key)
+			require.NoError(t, err)
+
+			// When
+			err = store.Set(subjectID2, key)
+
+			// Then
+			require.Equal(t, crypto.ErrKeyAlreadyUsed, err)
+		})
 	})
 }

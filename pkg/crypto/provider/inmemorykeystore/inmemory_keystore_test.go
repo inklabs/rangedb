@@ -8,7 +8,7 @@ import (
 	"github.com/inklabs/rangedb/pkg/crypto/provider/inmemorykeystore"
 )
 
-func TestInMemoryCrypto_VerifyEngineInterface(t *testing.T) {
+func TestInMemoryCrypto_VerifyKeyStoreInterface(t *testing.T) {
 	cryptotest.VerifyKeyStore(t, func(t *testing.T) crypto.KeyStore {
 		return inmemorykeystore.New()
 	})
