@@ -14,8 +14,8 @@ func (r rotCipher) Encrypt(_, data string) (string, error) {
 	return strings.Map(rot, data), nil
 }
 
-func (r rotCipher) Decrypt(_, encryptedData string) (string, error) {
-	return strings.Map(rot, encryptedData), nil
+func (r rotCipher) Decrypt(_, cipherText string) (string, error) {
+	return strings.Map(rot, cipherText), nil
 }
 
 func rot(r rune) rune {

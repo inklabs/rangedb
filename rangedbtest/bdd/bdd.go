@@ -55,7 +55,6 @@ func (c *TestCase) Then(expectedEvents ...rangedb.Event) func(*testing.T) {
 	return func(t *testing.T) {
 		t.Helper()
 
-		ctx := rangedbtest.TimeoutContext(t)
 		streamPreviousEventCounts := make(map[string]uint64)
 		for _, event := range c.previousEvents {
 			streamPreviousEventCounts[rangedb.GetEventStream(event)]++
@@ -65,7 +64,8 @@ func (c *TestCase) Then(expectedEvents ...rangedb.Event) func(*testing.T) {
 		c.dispatch(c.command)
 
 		if len(expectedEvents) == 0 {
-			allEvents, err := recordIteratorToSlice(c.store.Events(context.Background(), 0))
+			ctx := rangedbtest.TimeoutContext(t)
+			allEvents, err := recordIteratorToSlice(c.store.Events(ctx, 0))
 			require.NoError(t, err)
 
 			totalRaisedEvents := len(allEvents) - len(c.previousEvents)
@@ -82,6 +82,7 @@ func (c *TestCase) Then(expectedEvents ...rangedb.Event) func(*testing.T) {
 
 		for stream, expectedEventsInStream := range streamExpectedEvents {
 			streamSequenceNumber := streamPreviousEventCounts[stream]
+			ctx := rangedbtest.TimeoutContext(t)
 			actualEvents, err := recordIteratorToSlice(c.store.EventsByStream(ctx, streamSequenceNumber, stream))
 			assert.NoError(t, err)
 

@@ -2,6 +2,7 @@ package crypto_test
 
 import (
 	"fmt"
+	"math/rand"
 
 	"github.com/inklabs/rangedb/pkg/crypto"
 	"github.com/inklabs/rangedb/pkg/crypto/cryptotest"
@@ -12,8 +13,10 @@ import (
 func ExampleKeyStore_Delete() {
 	// Given
 	shortuuid.SetRand(100)
-	const iv = "1234567890123456"
-	aesEncryptor := crypto.NewAESEncryption([]byte(iv))
+	seededRandReader := rand.New(rand.NewSource(100)).Read
+	aesEncryptor := crypto.NewAESEncryption(
+		crypto.WithRandReader(seededRandReader),
+	)
 	keyStore := inmemorykeystore.New()
 	eventEncryptor := crypto.NewEventEncryptor(keyStore, aesEncryptor)
 	event := &cryptotest.CustomerSignedUp{
@@ -37,8 +40,8 @@ func ExampleKeyStore_Delete() {
 	// Output:
 	// {
 	//   "ID": "62df778c16f84969a8a5448a9ce00218",
-	//   "Name": "fPIXXZQhL6havetg6lNFKw==",
-	//   "Email": "XuHVTHWiofPUNo0zSbHrfmlnEDLJyBF4F+fmbYU+9Dk=",
+	//   "Name": "0rqOcAcpgzhCA8Q41OlL83xrT56JryDImc8h1gqsZyU=",
+	//   "Email": "mcvYi7yvuCthzJbtElQXByccn9EQt7Wrody/MsF0pEhFXdcUAVBCUjyD8gJ0z8gT",
 	//   "Status": "active"
 	// }
 	// error: removed from GDPR request

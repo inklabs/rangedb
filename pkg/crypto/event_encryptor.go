@@ -44,24 +44,24 @@ func newEngine(store KeyStore, encryptor Encryptor) *engine {
 }
 
 func (e *engine) Encrypt(subjectID, data string) (string, error) {
-	key, err := e.keyStore.Get(subjectID)
+	encryptionKey, err := e.keyStore.Get(subjectID)
 	if err == ErrKeyNotFound {
-		key = shortuuid.New().String()
-		err = e.keyStore.Set(subjectID, key)
+		encryptionKey = shortuuid.New().String()
+		err = e.keyStore.Set(subjectID, encryptionKey)
 	}
 
 	if err != nil {
 		return "", err
 	}
 
-	return e.encryptor.Encrypt(key, data)
+	return e.encryptor.Encrypt(encryptionKey, data)
 }
 
-func (e *engine) Decrypt(subjectID, encryptedData string) (string, error) {
-	key, err := e.keyStore.Get(subjectID)
+func (e *engine) Decrypt(subjectID, cipherText string) (string, error) {
+	encryptionKey, err := e.keyStore.Get(subjectID)
 	if err != nil {
 		return "", err
 	}
 
-	return e.encryptor.Decrypt(key, encryptedData)
+	return e.encryptor.Decrypt(encryptionKey, cipherText)
 }

@@ -9,7 +9,7 @@ import (
 // Encryptor defines how to encrypt/decrypt string data using base64.
 type Encryptor interface {
 	Encrypt(key, data string) (string, error)
-	Decrypt(key, base64EncryptedData string) (string, error)
+	Decrypt(key, cipherText string) (string, error)
 }
 
 // EventEncryptor defines how to encrypt/decrypt a rangedb.Event

@@ -13,11 +13,8 @@ import (
 )
 
 func TestEventEncryptor(t *testing.T) {
-	const (
-		iv = "1234567890123456"
-		id = "2151bdf139a4467e8d6e12e51406e208"
-	)
-	aesEncryptor := crypto.NewAESEncryption([]byte(iv))
+	const id = "2151bdf139a4467e8d6e12e51406e208"
+	aesEncryptor := crypto.NewAESEncryption()
 	keyStore := inmemorykeystore.New()
 	eventEncryptor := crypto.NewEventEncryptor(keyStore, aesEncryptor)
 

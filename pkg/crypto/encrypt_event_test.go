@@ -1,6 +1,8 @@
 package crypto_test
 
 import (
+	"math/rand"
+
 	"github.com/inklabs/rangedb/pkg/crypto"
 	"github.com/inklabs/rangedb/pkg/crypto/cryptotest"
 	"github.com/inklabs/rangedb/pkg/crypto/provider/inmemorykeystore"
@@ -10,8 +12,10 @@ import (
 func ExampleEventEncryptor_Encrypt() {
 	// Given
 	shortuuid.SetRand(100)
-	const iv = "1234567890123456"
-	aesEncryptor := crypto.NewAESEncryption([]byte(iv))
+	seededRandReader := rand.New(rand.NewSource(100)).Read
+	aesEncryptor := crypto.NewAESEncryption(
+		crypto.WithRandReader(seededRandReader),
+	)
 	keyStore := inmemorykeystore.New()
 	eventEncryptor := crypto.NewEventEncryptor(keyStore, aesEncryptor)
 	event := &cryptotest.CustomerSignedUp{
@@ -31,8 +35,8 @@ func ExampleEventEncryptor_Encrypt() {
 	// Output:
 	// {
 	//   "ID": "fe65ac8d8c3a45e9b3cee407f10ee518",
-	//   "Name": "fPIXXZQhL6havetg6lNFKw==",
-	//   "Email": "XuHVTHWiofPUNo0zSbHrfmlnEDLJyBF4F+fmbYU+9Dk=",
+	//   "Name": "0rqOcAcpgzhCA8Q41OlL83xrT56JryDImc8h1gqsZyU=",
+	//   "Email": "mcvYi7yvuCthzJbtElQXByccn9EQt7Wrody/MsF0pEhFXdcUAVBCUjyD8gJ0z8gT",
 	//   "Status": "active"
 	// }
 	// {
