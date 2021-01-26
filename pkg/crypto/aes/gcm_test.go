@@ -18,7 +18,8 @@ func TestGCM_Errors(t *testing.T) {
 	t.Run("unable to read nonce during encrypt", func(t *testing.T) {
 		// Given
 		failingReader := failingReader{}
-		encryptor := aes.NewGCM(aes.WithRandReader(failingReader))
+		encryptor := aes.NewGCM()
+		encryptor.SetRandReader(failingReader)
 
 		// When
 		encryptedValue, err := encryptor.Encrypt(aestest.ValidAES256Base64Key, aestest.PlainText)
@@ -32,7 +33,8 @@ func TestGCM_Errors(t *testing.T) {
 		// Given
 		const InvalidShortAESGCMBase64CipherText = "Glq32jvn9nPO/pqxN9p3YQT4pvoZuV4aQCOy/TIdEtqW8vtGMns="
 		failingReader := failingReader{}
-		encryptor := aes.NewGCM(aes.WithRandReader(failingReader))
+		encryptor := aes.NewGCM()
+		encryptor.SetRandReader(failingReader)
 
 		// When
 		encryptedValue, err := encryptor.Decrypt(aestest.ValidAES256Base64Key, InvalidShortAESGCMBase64CipherText)

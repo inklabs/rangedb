@@ -1,4 +1,4 @@
-package crypto_test
+package eventencryptor_test
 
 import (
 	"testing"
@@ -9,6 +9,7 @@ import (
 	"github.com/inklabs/rangedb/pkg/crypto"
 	"github.com/inklabs/rangedb/pkg/crypto/aes"
 	"github.com/inklabs/rangedb/pkg/crypto/cryptotest"
+	"github.com/inklabs/rangedb/pkg/crypto/eventencryptor"
 	"github.com/inklabs/rangedb/pkg/crypto/provider/inmemorykeystore"
 	"github.com/inklabs/rangedb/rangedbtest"
 )
@@ -17,7 +18,7 @@ func TestEventEncryptor(t *testing.T) {
 	const id = "2151bdf139a4467e8d6e12e51406e208"
 	aesEncryptor := aes.NewGCM()
 	keyStore := inmemorykeystore.New()
-	eventEncryptor := crypto.NewEventEncryptor(keyStore, aesEncryptor)
+	eventEncryptor := eventencryptor.New(keyStore, aesEncryptor)
 
 	t.Run("encrypts and decrypts an event containing a string", func(t *testing.T) {
 		// Given
@@ -116,7 +117,7 @@ func TestEventEncryptor(t *testing.T) {
 			keyStore := inmemorykeystore.New()
 			require.NoError(t, keyStore.Set(id, key))
 			require.NoError(t, keyStore.Delete(id))
-			eventEncryptor := crypto.NewEventEncryptor(keyStore, aesEncryptor)
+			eventEncryptor := eventencryptor.New(keyStore, aesEncryptor)
 
 			// When
 			err := eventEncryptor.Encrypt(event)
@@ -138,7 +139,7 @@ func TestEventEncryptor(t *testing.T) {
 				Status: "premium",
 			}
 			keyStore := inmemorykeystore.New()
-			eventEncryptor := crypto.NewEventEncryptor(keyStore, aesEncryptor)
+			eventEncryptor := eventencryptor.New(keyStore, aesEncryptor)
 			err := eventEncryptor.Encrypt(event)
 			require.NoError(t, keyStore.Delete(id))
 
@@ -162,7 +163,7 @@ func TestEventEncryptor(t *testing.T) {
 				Status: "premium",
 			}
 			keyStore := inmemorykeystore.New()
-			eventEncryptor := crypto.NewEventEncryptor(keyStore, aesEncryptor)
+			eventEncryptor := eventencryptor.New(keyStore, aesEncryptor)
 
 			// When
 			err := eventEncryptor.Decrypt(event)

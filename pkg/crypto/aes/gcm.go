@@ -9,31 +9,15 @@ import (
 	"io"
 )
 
-// GCMOption defines functional option parameters for GCM.
-type GCMOption func(*GCM)
-
-// WithRandReader is a functional option to inject a random reader.
-func WithRandReader(randReader io.Reader) GCMOption {
-	return func(e *GCM) {
-		e.randReader = randReader
-	}
-}
-
 type GCM struct {
 	randReader io.Reader
 }
 
 // NewGCM constructs an AES/GCM encryption engine.
-func NewGCM(options ...GCMOption) *GCM {
-	e := &GCM{
+func NewGCM() *GCM {
+	return &GCM{
 		randReader: rand.Reader,
 	}
-
-	for _, option := range options {
-		option(e)
-	}
-
-	return e
 }
 
 // Encrypt returns AES/GCM base64 cipher text.
@@ -111,4 +95,8 @@ func (e *GCM) decrypt(key, sealedCipherText []byte) ([]byte, error) {
 	}
 
 	return plainText, nil
+}
+
+func (e *GCM) SetRandReader(randReader io.Reader) {
+	e.randReader = randReader
 }
