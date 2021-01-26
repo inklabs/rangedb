@@ -8,7 +8,7 @@ import (
 )
 
 // Version for RangeDB.
-const Version = "0.7.1"
+const Version = "0.7.2"
 
 // Record contains event data and metadata.
 type Record struct {

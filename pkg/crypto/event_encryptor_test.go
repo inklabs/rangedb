@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/inklabs/rangedb/pkg/crypto"
+	"github.com/inklabs/rangedb/pkg/crypto/aes"
 	"github.com/inklabs/rangedb/pkg/crypto/cryptotest"
 	"github.com/inklabs/rangedb/pkg/crypto/provider/inmemorykeystore"
 	"github.com/inklabs/rangedb/rangedbtest"
@@ -14,7 +15,7 @@ import (
 
 func TestEventEncryptor(t *testing.T) {
 	const id = "2151bdf139a4467e8d6e12e51406e208"
-	aesEncryptor := crypto.NewAESEncryption()
+	aesEncryptor := aes.NewGCM()
 	keyStore := inmemorykeystore.New()
 	eventEncryptor := crypto.NewEventEncryptor(keyStore, aesEncryptor)
 
