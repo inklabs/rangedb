@@ -1,4 +1,4 @@
-# RangeDB
+# RangeDB ![RangeDB Logo](https://github.com/inklabs/rangedb/blob/master/pkg/rangedbui/static/img/rangedb-logo-white-30x30.png)
 
 [![Build Status](https://travis-ci.org/inklabs/rangedb.svg?branch=master)](https://travis-ci.org/inklabs/rangedb)
 [![Docker Build Status](https://img.shields.io/docker/cloud/build/inklabs/rangedb)](https://hub.docker.com/r/inklabs/rangedb/builds)
