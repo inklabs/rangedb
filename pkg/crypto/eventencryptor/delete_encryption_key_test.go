@@ -1,6 +1,7 @@
-package crypto_test
+package eventencryptor_test
 
 import (
+	"fmt"
 	"math/rand"
 
 	"github.com/inklabs/rangedb/pkg/crypto/aes"
@@ -10,7 +11,7 @@ import (
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 )
 
-func ExampleEventEncryptor_Encrypt() {
+func ExampleKeyStore_Delete() {
 	// Given
 	shortuuid.SetRand(100)
 	seededRandReader := rand.New(rand.NewSource(100))
@@ -20,7 +21,7 @@ func ExampleEventEncryptor_Encrypt() {
 	eventEncryptor := eventencryptor.New(keyStore, aesEncryptor)
 	eventEncryptor.SetRandReader(seededRandReader)
 	event := &cryptotest.CustomerSignedUp{
-		ID:     "fe65ac8d8c3a45e9b3cee407f10ee518",
+		ID:     "62df778c16f84969a8a5448a9ce00218",
 		Name:   "John Doe",
 		Email:  "john@example.com",
 		Status: "active",
@@ -30,20 +31,25 @@ func ExampleEventEncryptor_Encrypt() {
 	PrintError(eventEncryptor.Encrypt(event))
 	PrintEvent(event)
 
-	PrintError(eventEncryptor.Decrypt(event))
+	PrintError(keyStore.Delete(event.AggregateID()))
+
+	err := eventEncryptor.Decrypt(event)
+	fmt.Printf("error: %v\n", err)
+
 	PrintEvent(event)
 
 	// Output:
 	// {
-	//   "ID": "fe65ac8d8c3a45e9b3cee407f10ee518",
+	//   "ID": "62df778c16f84969a8a5448a9ce00218",
 	//   "Name": "Lp5pGK8QGYw3NJyJVBsW49HESSf+NEraAQoBmpLXboZvsN/L",
 	//   "Email": "o1H9t1BClYc5UcyUV+Roe3wz5gwRZRjgBI/xzwZs8ueQGQ5L8uGnbrTGrh8=",
 	//   "Status": "active"
 	// }
+	// error: removed from GDPR request
 	// {
-	//   "ID": "fe65ac8d8c3a45e9b3cee407f10ee518",
-	//   "Name": "John Doe",
-	//   "Email": "john@example.com",
+	//   "ID": "62df778c16f84969a8a5448a9ce00218",
+	//   "Name": "",
+	//   "Email": "",
 	//   "Status": "active"
 	// }
 }

@@ -1,4 +1,4 @@
-package crypto_test
+package eventencryptor_test
 
 import (
 	"encoding/json"
