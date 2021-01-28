@@ -51,5 +51,5 @@ https://pkg.go.dev/github.com/inklabs/rangedb/pkg/grpc/rangedbserver
 
 https://verraes.net/2019/05/eventsourcing-patterns-throw-away-the-key/
 
-* [Encrypt/Decrypt Event](../pkg/crypto/encrypt_event_test.go)
-* [Delete Encryption Key](../pkg/crypto/delete_encryption_key_test.go)
+* [Encrypt/Decrypt Event](../pkg/crypto/eventencryptor/encrypt_event_test.go)
+* [Delete Encryption Key](../pkg/crypto/eventencryptor/delete_encryption_key_test.go)
