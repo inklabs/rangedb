@@ -4,7 +4,7 @@ import (
 	"github.com/inklabs/rangedb"
 )
 
-//go:generate go run ../gen/eventbinder/main.go -package rangedbtest -files events.go
+//go:generate go run ../gen/eventbinder/main.go -files events.go
 
 // ThingWasDone is an event used for testing.
 type ThingWasDone struct {

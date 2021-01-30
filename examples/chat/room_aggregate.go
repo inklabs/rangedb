@@ -22,7 +22,11 @@ type roomState struct {
 
 // NewRoom constructs a new cqrs.Aggregate.
 func NewRoom() *room {
-	return &room{}
+	return &room{
+		state: roomState{
+			BannedUsers: make(map[string]struct{}),
+		},
+	}
 }
 
 func (a *room) apply(event rangedb.Event) {
@@ -114,11 +118,6 @@ func (a *room) userIsBanned(userID string) bool {
 // TODO: Generate code below
 
 func (a *room) Load(recordIterator rangedb.RecordIterator) {
-	a.state = roomState{
-		BannedUsers: make(map[string]struct{}),
-	}
-	a.pendingEvents = nil
-
 	for recordIterator.Next() {
 		if recordIterator.Err() == nil {
 			if event, ok := recordIterator.Record().Data.(rangedb.Event); ok {
@@ -150,7 +149,12 @@ func (a *room) Handle(command cqrs.Command) []rangedb.Event {
 
 	}
 
+	defer a.resetPendingEvents()
 	return a.pendingEvents
+}
+
+func (a *room) resetPendingEvents() {
+	a.pendingEvents = nil
 }
 
 func (a *room) CommandTypes() []string {

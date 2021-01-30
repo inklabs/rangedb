@@ -13,7 +13,7 @@ import (
 )
 
 func main() {
-	packageName := flag.String("package", "", "package")
+	packageName := flag.String("package", os.Getenv("GOPACKAGE"), "package")
 	fileNamesCSV := flag.String("files", "", "comma separated filenames containing events")
 	outFilePath := flag.String("out", "bind_events_gen.go", "output file name")
 	flag.Parse()

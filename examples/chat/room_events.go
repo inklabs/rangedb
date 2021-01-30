@@ -1,6 +1,6 @@
 package chat
 
-//go:generate go run ../../gen/eventgenerator/main.go -package chat -id RoomID -aggregateType room -inFile room_events.go
+//go:generate go run ../../gen/eventgenerator/main.go -id RoomID -aggregateType room
 
 type RoomWasOnBoarded struct {
 	RoomID   string `json:"roomID"`

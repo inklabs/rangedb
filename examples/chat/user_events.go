@@ -1,6 +1,6 @@
 package chat
 
-//go:generate go run ../../gen/eventgenerator/main.go -package chat -id UserID -aggregateType user -inFile user_events.go
+//go:generate go run ../../gen/eventgenerator/main.go -id UserID -aggregateType user
 
 type UserWasOnBoarded struct {
 	UserID string `json:"userID"`

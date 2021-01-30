@@ -51,7 +51,6 @@ func (a *user) WarnUser(c WarnUser) {
 // TODO: Generate code below
 
 func (a *user) Load(recordIterator rangedb.RecordIterator) {
-	a.state = userState{}
 	a.pendingEvents = nil
 
 	for recordIterator.Next() {
@@ -73,7 +72,12 @@ func (a *user) Handle(command cqrs.Command) []rangedb.Event {
 
 	}
 
+	defer a.resetPendingEvents()
 	return a.pendingEvents
+}
+
+func (a *user) resetPendingEvents() {
+	a.pendingEvents = nil
 }
 
 func (a *user) CommandTypes() []string {

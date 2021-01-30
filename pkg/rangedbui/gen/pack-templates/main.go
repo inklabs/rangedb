@@ -16,7 +16,7 @@ import (
 func main() {
 	templatesPath := flag.String("path", ".", "path to templates")
 	outPath := flag.String("out", ".", "destination path")
-	packageName := flag.String("package", "main", "package name")
+	packageName := flag.String("package", os.Getenv("GOPACKAGE"), "package name")
 	flag.Parse()
 
 	templates := make(map[string]string)

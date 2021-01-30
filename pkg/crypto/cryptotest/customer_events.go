@@ -1,6 +1,6 @@
 package cryptotest
 
-//go:generate go run ../../../gen/eventgenerator/main.go -package cryptotest -id ID -aggregateType customer -inFile customer_events.go
+//go:generate go run ../../../gen/eventgenerator/main.go -id ID -aggregateType customer
 
 // CustomerSignedUp is an event used for testing PII encryption of string fields.
 type CustomerSignedUp struct {

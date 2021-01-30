@@ -18,7 +18,7 @@ import (
 )
 
 //go:generate go run github.com/shurcooL/vfsgen/cmd/vfsgendev -source="github.com/inklabs/rangedb/pkg/rangedbui".StaticAssets
-//go:generate go run ./gen/pack-templates -path ./templates -package rangedbui
+//go:generate go run ./gen/pack-templates -path ./templates rangedbui
 
 type webUI struct {
 	handler            http.Handler

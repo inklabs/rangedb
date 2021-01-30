@@ -9,7 +9,6 @@ import (
 	"io"
 	"log"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/lib/pq"
@@ -53,7 +52,6 @@ type postgresStore struct {
 	serializer        JsonSerializer
 	broadcaster       broadcast.Broadcaster
 	pgNotifyIsEnabled bool
-	startListenOnce   sync.Once
 }
 
 // Option defines functional option parameters for postgresStore.

@@ -12,10 +12,10 @@ import (
 )
 
 func main() {
-	pkg := flag.String("package", "", "package")
+	pkg := flag.String("package", os.Getenv("GOPACKAGE"), "package")
 	id := flag.String("id", "", "id")
 	aggregateType := flag.String("aggregateType", "", "stream identifier")
-	inFilePath := flag.String("inFile", "", "input filename containing structs")
+	inFilePath := flag.String("inFile", os.Getenv("GOFILE"), "input filename containing structs")
 	outFilePath := flag.String("outFile", "", "output filename containing generated struct methods")
 	flag.Parse()
 
