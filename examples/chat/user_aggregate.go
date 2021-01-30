@@ -1,8 +1,9 @@
 package chat
 
+//go:generate go run ../../gen/aggregategenerator/main.go -name user -commands user_commands.go
+
 import (
 	"github.com/inklabs/rangedb"
-	"github.com/inklabs/rangedb/pkg/cqrs"
 )
 
 type user struct {
@@ -46,47 +47,4 @@ func (a *user) WarnUser(c WarnUser) {
 		UserID: c.UserID,
 		Reason: c.Reason,
 	})
-}
-
-// TODO: Generate code below
-
-func (a *user) Load(recordIterator rangedb.RecordIterator) {
-	a.pendingEvents = nil
-
-	for recordIterator.Next() {
-		if recordIterator.Err() == nil {
-			if event, ok := recordIterator.Record().Data.(rangedb.Event); ok {
-				a.apply(event)
-			}
-		}
-	}
-}
-
-func (a *user) Handle(command cqrs.Command) []rangedb.Event {
-	switch c := command.(type) {
-	case OnBoardUser:
-		a.OnBoardUser(c)
-
-	case WarnUser:
-		a.WarnUser(c)
-
-	}
-
-	defer a.resetPendingEvents()
-	return a.pendingEvents
-}
-
-func (a *user) resetPendingEvents() {
-	a.pendingEvents = nil
-}
-
-func (a *user) CommandTypes() []string {
-	return []string{
-		OnBoardUser{}.CommandType(),
-		WarnUser{}.CommandType(),
-	}
-}
-
-func (a *user) raise(events ...rangedb.Event) {
-	a.pendingEvents = append(a.pendingEvents, events...)
 }

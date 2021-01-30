@@ -1,10 +1,11 @@
 package chat
 
+//go:generate go run ../../gen/aggregategenerator/main.go -name room -commands room_commands.go
+
 import (
 	"sync"
 
 	"github.com/inklabs/rangedb"
-	"github.com/inklabs/rangedb/pkg/cqrs"
 )
 
 type room struct {
@@ -113,61 +114,4 @@ func (a *room) userIsBanned(userID string) bool {
 	_, ok := a.state.BannedUsers[userID]
 	a.sync.RUnlock()
 	return ok
-}
-
-// TODO: Generate code below
-
-func (a *room) Load(recordIterator rangedb.RecordIterator) {
-	for recordIterator.Next() {
-		if recordIterator.Err() == nil {
-			if event, ok := recordIterator.Record().Data.(rangedb.Event); ok {
-				a.apply(event)
-			}
-		}
-	}
-}
-
-func (a *room) Handle(command cqrs.Command) []rangedb.Event {
-	switch c := command.(type) {
-	case OnBoardRoom:
-		a.OnBoardRoom(c)
-
-	case JoinRoom:
-		a.JoinRoom(c)
-
-	case SendMessageToRoom:
-		a.SendMessageToRoom(c)
-
-	case SendPrivateMessageToRoom:
-		a.SendPrivateMessageToRoom(c)
-
-	case RemoveUserFromRoom:
-		a.RemoveUserFromRoom(c)
-
-	case BanUserFromRoom:
-		a.BanUserFromRoom(c)
-
-	}
-
-	defer a.resetPendingEvents()
-	return a.pendingEvents
-}
-
-func (a *room) resetPendingEvents() {
-	a.pendingEvents = nil
-}
-
-func (a *room) CommandTypes() []string {
-	return []string{
-		OnBoardRoom{}.CommandType(),
-		JoinRoom{}.CommandType(),
-		SendMessageToRoom{}.CommandType(),
-		SendPrivateMessageToRoom{}.CommandType(),
-		RemoveUserFromRoom{}.CommandType(),
-		BanUserFromRoom{}.CommandType(),
-	}
-}
-
-func (a *room) raise(events ...rangedb.Event) {
-	a.pendingEvents = append(a.pendingEvents, events...)
 }
