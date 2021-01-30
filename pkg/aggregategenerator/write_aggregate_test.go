@@ -156,5 +156,4 @@ func (a *thing) raise(events ...rangedb.Event) {
 `
 		assert.Equal(t, expectedOut, out.String())
 	})
-
 }
