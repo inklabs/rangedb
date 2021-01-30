@@ -1,6 +1,7 @@
 package recordsubscriber_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -16,7 +17,6 @@ import (
 func TestRecordSubscriber(t *testing.T) {
 	t.Run("consumes one existing record", func(t *testing.T) {
 		// Given
-		doneChan := make(chan struct{})
 		totalRecords := 0
 		config := recordsubscriber.Config{
 			BufferSize: 10,
@@ -27,7 +27,7 @@ func TestRecordSubscriber(t *testing.T) {
 			},
 			Subscribe:   stubSubscribeFunc,
 			Unsubscribe: stubSubscribeFunc,
-			DoneChan:    doneChan,
+			Ctx:         rangedbtest.TimeoutContext(t),
 		}
 		subscriber := recordsubscriber.New(config)
 
@@ -42,7 +42,6 @@ func TestRecordSubscriber(t *testing.T) {
 
 	t.Run("consumes no existing records, subscribes, then consumes a record", func(t *testing.T) {
 		// Given
-		doneChan := make(chan struct{})
 		totalRecords := 0
 		config := recordsubscriber.Config{
 			BufferSize: 10,
@@ -56,7 +55,7 @@ func TestRecordSubscriber(t *testing.T) {
 			},
 			Subscribe:   stubSubscribeFunc,
 			Unsubscribe: stubSubscribeFunc,
-			DoneChan:    doneChan,
+			Ctx:         rangedbtest.TimeoutContext(t),
 		}
 		subscriber := recordsubscriber.New(config)
 
@@ -71,7 +70,6 @@ func TestRecordSubscriber(t *testing.T) {
 
 	t.Run("consumes no existing records, subscribes and ignores one record, then consumes a record", func(t *testing.T) {
 		// Given
-		doneChan := make(chan struct{})
 		totalRecords := 0
 		config := recordsubscriber.Config{
 			BufferSize: 10,
@@ -82,7 +80,7 @@ func TestRecordSubscriber(t *testing.T) {
 			},
 			Subscribe:   stubSubscribeFunc,
 			Unsubscribe: stubSubscribeFunc,
-			DoneChan:    doneChan,
+			Ctx:         rangedbtest.TimeoutContext(t),
 		}
 		subscriber := recordsubscriber.New(config)
 		record := rangedbtest.DummyRecord()
@@ -100,7 +98,6 @@ func TestRecordSubscriber(t *testing.T) {
 
 	t.Run("consumes no existing record, consumes record on subscription", func(t *testing.T) {
 		// Given
-		doneChan := make(chan struct{})
 		receivedRecords := make(chan *rangedb.Record, 1)
 		defer close(receivedRecords)
 		config := recordsubscriber.Config{
@@ -112,7 +109,7 @@ func TestRecordSubscriber(t *testing.T) {
 			},
 			Subscribe:   stubSubscribeFunc,
 			Unsubscribe: stubSubscribeFunc,
-			DoneChan:    doneChan,
+			Ctx:         rangedbtest.TimeoutContext(t),
 		}
 		subscriber := recordsubscriber.New(config)
 		err := subscriber.StartFrom(0)
@@ -129,7 +126,6 @@ func TestRecordSubscriber(t *testing.T) {
 
 	t.Run("consumes no existing record, errors when consuming record on subscription", func(t *testing.T) {
 		// Given
-		doneChan := make(chan struct{})
 		unsubscribed := make(chan bool)
 		config := recordsubscriber.Config{
 			BufferSize: 10,
@@ -141,7 +137,7 @@ func TestRecordSubscriber(t *testing.T) {
 			Unsubscribe: func(subscriber broadcast.RecordSubscriber) {
 				unsubscribed <- true
 			},
-			DoneChan: doneChan,
+			Ctx: rangedbtest.TimeoutContext(t),
 		}
 		subscriber := recordsubscriber.New(config)
 		err := subscriber.StartFrom(0)
@@ -158,7 +154,6 @@ func TestRecordSubscriber(t *testing.T) {
 
 	t.Run("consume record errors on first call", func(t *testing.T) {
 		// Given
-		doneChan := make(chan struct{})
 		config := recordsubscriber.Config{
 			BufferSize: 10,
 			GetRecords: returnNRecordsIterator(1),
@@ -167,7 +162,7 @@ func TestRecordSubscriber(t *testing.T) {
 			},
 			Subscribe:   stubSubscribeFunc,
 			Unsubscribe: stubSubscribeFunc,
-			DoneChan:    doneChan,
+			Ctx:         rangedbtest.TimeoutContext(t),
 		}
 		subscriber := recordsubscriber.New(config)
 
@@ -181,7 +176,6 @@ func TestRecordSubscriber(t *testing.T) {
 
 	t.Run("consume record errors on second call", func(t *testing.T) {
 		// Given
-		doneChan := make(chan struct{})
 		calls := 0
 		config := recordsubscriber.Config{
 			BufferSize: 10,
@@ -195,7 +189,7 @@ func TestRecordSubscriber(t *testing.T) {
 			},
 			Subscribe:   stubSubscribeFunc,
 			Unsubscribe: stubSubscribeFunc,
-			DoneChan:    doneChan,
+			Ctx:         rangedbtest.TimeoutContext(t),
 		}
 		subscriber := recordsubscriber.New(config)
 
@@ -209,7 +203,6 @@ func TestRecordSubscriber(t *testing.T) {
 
 	t.Run("errors in get records", func(t *testing.T) {
 		// Given
-		doneChan := make(chan struct{})
 		config := recordsubscriber.Config{
 			BufferSize: 10,
 			GetRecords: func(globalSequenceNumber uint64) rangedb.RecordIterator {
@@ -226,7 +219,7 @@ func TestRecordSubscriber(t *testing.T) {
 			},
 			Subscribe:   stubSubscribeFunc,
 			Unsubscribe: stubSubscribeFunc,
-			DoneChan:    doneChan,
+			Ctx:         rangedbtest.TimeoutContext(t),
 		}
 		subscriber := recordsubscriber.New(config)
 
@@ -238,10 +231,10 @@ func TestRecordSubscriber(t *testing.T) {
 		assert.EqualError(t, err, "get record error")
 	})
 
-	t.Run("stops from done channel", func(t *testing.T) {
+	t.Run("stops from closed context", func(t *testing.T) {
 		// Given
-		doneChan := make(chan struct{})
-		close(doneChan)
+		closedContext, done := context.WithCancel(rangedbtest.TimeoutContext(t))
+		done()
 		unsubscribed := make(chan bool)
 		config := recordsubscriber.Config{
 			BufferSize: 10,
@@ -257,7 +250,7 @@ func TestRecordSubscriber(t *testing.T) {
 			Unsubscribe: func(subscriber broadcast.RecordSubscriber) {
 				unsubscribed <- true
 			},
-			DoneChan: doneChan,
+			Ctx: closedContext,
 		}
 		subscriber := recordsubscriber.New(config)
 
@@ -268,6 +261,31 @@ func TestRecordSubscriber(t *testing.T) {
 		// Then
 		require.NoError(t, err)
 		assert.True(t, <-unsubscribed)
+	})
+
+	t.Run("calling stop is idempotent, then start errors", func(t *testing.T) {
+		// Given
+		totalRecords := 0
+		config := recordsubscriber.Config{
+			BufferSize: 10,
+			GetRecords: returnNRecordsIterator(1),
+			ConsumeRecord: func(record *rangedb.Record) error {
+				totalRecords++
+				return nil
+			},
+			Subscribe:   stubSubscribeFunc,
+			Unsubscribe: stubSubscribeFunc,
+			Ctx:         rangedbtest.TimeoutContext(t),
+		}
+		subscriber := recordsubscriber.New(config)
+		subscriber.Stop()
+		subscriber.Stop()
+
+		// When
+		err := subscriber.Start()
+
+		// Then
+		assert.Equal(t, context.Canceled, err)
 	})
 }
 

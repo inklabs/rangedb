@@ -2,7 +2,6 @@ package recordsubscriber
 
 import (
 	"context"
-	"sync"
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/broadcast"
@@ -26,14 +25,15 @@ type recordSubscriber struct {
 	consumeRecord            ConsumeRecordFunc
 	subscribe                SubscribeFunc
 	unsubscribe              SubscribeFunc
-	doneChan                 <-chan struct{}
+	ctx                      context.Context
+	cancelCtx                context.CancelFunc
 	lastGlobalSequenceNumber uint64
 	totalRecordsSent         uint64 // TODO: Remove and refactor zero based sequence numbers to begin with 1
-	closeOnce                sync.Once
 }
 
 // New constructs a record subscriber.
 func New(config Config) *recordSubscriber {
+	ctx, cancelCtx := context.WithCancel(config.Ctx)
 	return &recordSubscriber{
 		stopChan:        make(chan struct{}),
 		finishChan:      make(chan struct{}),
@@ -42,7 +42,8 @@ func New(config Config) *recordSubscriber {
 		consumeRecord:   config.ConsumeRecord,
 		subscribe:       config.Subscribe,
 		unsubscribe:     config.Unsubscribe,
-		doneChan:        config.DoneChan,
+		ctx:             ctx,
+		cancelCtx:       cancelCtx,
 	}
 }
 
@@ -76,7 +77,7 @@ func (s *recordSubscriber) StartFrom(globalSequenceNumber uint64) error {
 
 func (s *recordSubscriber) Start() error {
 	select {
-	case <-s.doneChan:
+	case <-s.ctx.Done():
 		return context.Canceled
 
 	default:
@@ -95,7 +96,7 @@ func (s *recordSubscriber) work() {
 			close(s.finishChan)
 			return
 
-		case <-s.doneChan:
+		case <-s.ctx.Done():
 			s.unsubscribe(s)
 			close(s.finishChan)
 			return
@@ -119,9 +120,7 @@ func (s *recordSubscriber) recordHasAlreadyBeenSent(record *rangedb.Record) bool
 }
 
 func (s *recordSubscriber) Stop() {
-	s.closeOnce.Do(func() {
-		close(s.stopChan)
-	})
+	s.cancelCtx()
 }
 
 func (s *recordSubscriber) writeRecords(globalSequenceNumber uint64) error {

@@ -14,14 +14,14 @@ type Config struct {
 	ConsumeRecord ConsumeRecordFunc
 	Subscribe     SubscribeFunc
 	Unsubscribe   SubscribeFunc
-	DoneChan      <-chan struct{}
+	Ctx           context.Context
 }
 
 // AllEventsConfig returns a configuration to subscribe to all events.
 func AllEventsConfig(ctx context.Context, store rangedb.Store, broadcaster broadcast.Broadcaster, bufferLength int, consumeRecord ConsumeRecordFunc) Config {
 	return Config{
 		BufferSize: bufferLength,
-		DoneChan:   ctx.Done(),
+		Ctx:        ctx,
 		Subscribe: func(subscriber broadcast.RecordSubscriber) {
 			broadcaster.SubscribeAllEvents(subscriber)
 		},
@@ -39,7 +39,7 @@ func AllEventsConfig(ctx context.Context, store rangedb.Store, broadcaster broad
 func AggregateTypesConfig(ctx context.Context, store rangedb.Store, broadcaster broadcast.Broadcaster, bufferLength int, aggregateTypes []string, consumeRecord ConsumeRecordFunc) Config {
 	return Config{
 		BufferSize: bufferLength,
-		DoneChan:   ctx.Done(),
+		Ctx:        ctx,
 		Subscribe: func(subscriber broadcast.RecordSubscriber) {
 			broadcaster.SubscribeAggregateTypes(subscriber, aggregateTypes...)
 		},
