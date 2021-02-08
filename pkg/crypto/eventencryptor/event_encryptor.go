@@ -1,7 +1,7 @@
 package eventencryptor
 
 import (
-	"crypto/rand"
+	cryptoRand "crypto/rand"
 	"encoding/base64"
 	"io"
 
@@ -49,7 +49,7 @@ func newEngine(store crypto.KeyStore, encryptor crypto.Encryptor) *engine {
 	return &engine{
 		keyStore:   store,
 		encryptor:  encryptor,
-		randReader: rand.Reader,
+		randReader: cryptoRand.Reader,
 	}
 }
 

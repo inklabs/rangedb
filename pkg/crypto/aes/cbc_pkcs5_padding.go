@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
+	cryptoRand "crypto/rand"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -58,7 +58,7 @@ func (e *cbcPKCS5Padding) encrypt(plainText, key []byte) ([]byte, error) {
 	cipherText := make([]byte, len(plainTextWithPadding))
 
 	initializationVector := make([]byte, aes.BlockSize)
-	if _, err := io.ReadFull(rand.Reader, initializationVector); err != nil {
+	if _, err := io.ReadFull(cryptoRand.Reader, initializationVector); err != nil {
 		return nil, err
 	}
 

@@ -3,20 +3,20 @@ package aes
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
+	cryptoRand "crypto/rand"
 	"encoding/base64"
 	"fmt"
 	"io"
 )
 
-type GCM struct {
+type gcm struct {
 	randReader io.Reader
 }
 
 // NewGCM constructs an AES/GCM encryption engine.
-func NewGCM() *GCM {
-	return &GCM{
-		randReader: rand.Reader,
+func NewGCM() *gcm {
+	return &gcm{
+		randReader: cryptoRand.Reader,
 	}
 }
 
@@ -24,7 +24,7 @@ func NewGCM() *GCM {
 // The key argument should be the base64 encoded AES key,
 // either 16, 24, or 32 bytes to select
 // AES-128, AES-192, or AES-256.
-func (e *GCM) Encrypt(base64Key, plainText string) (string, error) {
+func (e *gcm) Encrypt(base64Key, plainText string) (string, error) {
 	key, err := base64.StdEncoding.DecodeString(base64Key)
 	if err != nil {
 		return "", err
@@ -36,7 +36,7 @@ func (e *GCM) Encrypt(base64Key, plainText string) (string, error) {
 }
 
 // Decrypt returns a decrypted string from AES/GCM base64 cipher text.
-func (e *GCM) Decrypt(base64Key, base64CipherText string) (string, error) {
+func (e *gcm) Decrypt(base64Key, base64CipherText string) (string, error) {
 	key, err := base64.StdEncoding.DecodeString(base64Key)
 	if err != nil {
 		return "", err
@@ -51,7 +51,7 @@ func (e *GCM) Decrypt(base64Key, base64CipherText string) (string, error) {
 	return string(decryptedData), err
 }
 
-func (e *GCM) encrypt(plainText, key []byte) ([]byte, error) {
+func (e *gcm) encrypt(plainText, key []byte) ([]byte, error) {
 	cipherBlock, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, err
@@ -71,7 +71,7 @@ func (e *GCM) encrypt(plainText, key []byte) ([]byte, error) {
 	return sealedCipherText, nil
 }
 
-func (e *GCM) decrypt(key, sealedCipherText []byte) ([]byte, error) {
+func (e *gcm) decrypt(key, sealedCipherText []byte) ([]byte, error) {
 	if len(sealedCipherText) == 0 {
 		return nil, fmt.Errorf("encrypted data empty")
 	}
@@ -97,6 +97,6 @@ func (e *GCM) decrypt(key, sealedCipherText []byte) ([]byte, error) {
 	return plainText, nil
 }
 
-func (e *GCM) SetRandReader(randReader io.Reader) {
+func (e *gcm) SetRandReader(randReader io.Reader) {
 	e.randReader = randReader
 }

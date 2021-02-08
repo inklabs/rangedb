@@ -8,7 +8,7 @@ import (
 
 // Encryptor defines how to encrypt/decrypt string data using base64.
 type Encryptor interface {
-	Encrypt(key, data string) (string, error)
+	Encrypt(key, plainText string) (string, error)
 	Decrypt(key, cipherText string) (string, error)
 }
 
