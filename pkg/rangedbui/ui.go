@@ -5,6 +5,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 
@@ -15,30 +16,27 @@ import (
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/projection"
-	"github.com/inklabs/rangedb/pkg/rangedbui/pkg/templatemanager"
 )
-
-//go:generate go run ./gen/pack-templates -path ./templates rangedbui
 
 //go:embed static
 var StaticAssets embed.FS
 
+//go:embed templates
+var Templates embed.FS
+
 type webUI struct {
 	handler            http.Handler
-	templateManager    templatemanager.TemplateManager
 	aggregateTypeStats *projection.AggregateTypeStats
 	store              rangedb.Store
 }
 
 // New constructs a webUI web application.
 func New(
-	templateManager templatemanager.TemplateManager,
 	aggregateTypeStats *projection.AggregateTypeStats,
 	store rangedb.Store,
 ) *webUI {
 	webUI := &webUI{
 		aggregateTypeStats: aggregateTypeStats,
-		templateManager:    templateManager,
 		store:              store,
 	}
 
@@ -173,17 +171,21 @@ func (a *webUI) stream(w http.ResponseWriter, r *http.Request) {
 func (a *webUI) renderWithValues(w http.ResponseWriter, tpl string, data interface{}) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	err := a.templateManager.RenderTemplate(w, tpl, data)
+	err := a.RenderTemplate(w, tpl, data)
 	if err != nil {
-		if err == templatemanager.ErrTemplateNotFound {
-			http.Error(w, "404 Not Found", http.StatusNotFound)
-			return
-		}
-
 		log.Printf("unable to render template %s: %v", tpl, err)
 		http.Error(w, "500 Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+}
+
+func (a *webUI) RenderTemplate(w http.ResponseWriter, tpl string, data interface{}) error {
+	tmpl, err := template.New(tpl).Funcs(FuncMap).ParseFS(Templates, "templates/layout/*.html", "templates/"+tpl)
+	if err != nil {
+		return fmt.Errorf("unable to parse template: %w", err)
+	}
+
+	return tmpl.Execute(w, data)
 }
 
 // AggregateTypeInfo contains the aggregate type data available to templates.

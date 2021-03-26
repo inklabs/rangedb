@@ -11,17 +11,13 @@ import (
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/projection"
 	"github.com/inklabs/rangedb/pkg/rangedbui"
-	"github.com/inklabs/rangedb/pkg/rangedbui/pkg/templatemanager/provider/filesystemtemplate"
-	"github.com/inklabs/rangedb/pkg/rangedbui/pkg/templatemanager/provider/memorytemplate"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/rangedbtest"
 )
 
 func Test_Index(t *testing.T) {
 	// Given
-	templateManager, err := memorytemplate.New(rangedbui.GetTemplates())
-	require.NoError(t, err)
-	ui := rangedbui.New(templateManager, nil, nil)
+	ui := rangedbui.New(nil, nil)
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	response := httptest.NewRecorder()
 
@@ -39,9 +35,7 @@ func Test_ListAggregateTypes(t *testing.T) {
 
 	t.Run("works with memory loader", func(t *testing.T) {
 		// Given
-		templateManager, err := memorytemplate.New(rangedbui.GetTemplates())
-		require.NoError(t, err)
-		ui := rangedbui.New(templateManager, aggregateTypeStats, store)
+		ui := rangedbui.New(aggregateTypeStats, store)
 		request := httptest.NewRequest(http.MethodGet, "/aggregate-types", nil)
 		response := httptest.NewRecorder()
 
@@ -57,8 +51,7 @@ func Test_ListAggregateTypes(t *testing.T) {
 
 	t.Run("works with filesystem loader", func(t *testing.T) {
 		// Given
-		templateManager := filesystemtemplate.New("./templates")
-		ui := rangedbui.New(templateManager, aggregateTypeStats, store)
+		ui := rangedbui.New(aggregateTypeStats, store)
 		request := httptest.NewRequest(http.MethodGet, "/aggregate-types", nil)
 		response := httptest.NewRecorder()
 
@@ -75,8 +68,6 @@ func Test_ListAggregateTypes(t *testing.T) {
 
 func Test_AggregateType(t *testing.T) {
 	// Given
-	templateManager, err := memorytemplate.New(rangedbui.GetTemplates())
-	require.NoError(t, err)
 	store, aggregateTypeStats := storeWithTwoEvents(t)
 	rangedbtest.BlockingSaveEvents(t, store,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{
@@ -85,7 +76,7 @@ func Test_AggregateType(t *testing.T) {
 		}},
 	)
 
-	ui := rangedbui.New(templateManager, aggregateTypeStats, store)
+	ui := rangedbui.New(aggregateTypeStats, store)
 
 	t.Run("renders events by aggregate type", func(t *testing.T) {
 		// Given
@@ -146,8 +137,6 @@ func Test_AggregateType(t *testing.T) {
 
 func Test_Stream(t *testing.T) {
 	// Given
-	templateManager, err := memorytemplate.New(rangedbui.GetTemplates())
-	require.NoError(t, err)
 	store, aggregateTypeStats := storeWithTwoEvents(t)
 	rangedbtest.BlockingSaveEvents(t, store,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{
@@ -155,7 +144,7 @@ func Test_Stream(t *testing.T) {
 			Number: 0,
 		}},
 	)
-	ui := rangedbui.New(templateManager, aggregateTypeStats, store)
+	ui := rangedbui.New(aggregateTypeStats, store)
 
 	t.Run("renders events by stream", func(t *testing.T) {
 		// Given
@@ -195,9 +184,7 @@ func Test_Stream(t *testing.T) {
 
 func Test_ServesStaticAssets(t *testing.T) {
 	// Given
-	templateManager, err := memorytemplate.New(rangedbui.GetTemplates())
-	require.NoError(t, err)
-	ui := rangedbui.New(templateManager, nil, nil)
+	ui := rangedbui.New(nil, nil)
 	request := httptest.NewRequest(http.MethodGet, "/static/css/foundation-6.5.3.min.css", nil)
 	response := httptest.NewRecorder()
 

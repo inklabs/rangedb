@@ -1,4 +1,4 @@
-package templatemanager
+package rangedbui
 
 import (
 	"encoding/json"

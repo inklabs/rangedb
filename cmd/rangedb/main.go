@@ -19,9 +19,6 @@ import (
 	"github.com/inklabs/rangedb/pkg/projection"
 	"github.com/inklabs/rangedb/pkg/rangedbapi"
 	"github.com/inklabs/rangedb/pkg/rangedbui"
-	"github.com/inklabs/rangedb/pkg/rangedbui/pkg/templatemanager"
-	"github.com/inklabs/rangedb/pkg/rangedbui/pkg/templatemanager/provider/filesystemtemplate"
-	"github.com/inklabs/rangedb/pkg/rangedbui/pkg/templatemanager/provider/memorytemplate"
 	"github.com/inklabs/rangedb/pkg/rangedbws"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
@@ -40,7 +37,6 @@ func main() {
 	port := flag.Int("port", 8080, "port")
 	baseURI := flag.String("baseUri", "http://0.0.0.0:8080", "")
 	dbPath := flag.String("levelDBPath", "", "path to LevelDB directory")
-	templatesPath := flag.String("templates", "", "optional templates path")
 	gRPCPort := flag.Int("gRPCPort", 8081, "gRPC port")
 	flag.Parse()
 
@@ -74,21 +70,7 @@ func main() {
 		log.Fatalf("unable to create RangeDB Server: %v", err)
 	}
 
-	var templateManager templatemanager.TemplateManager
-	if *templatesPath != "" {
-		if _, err := os.Stat(*templatesPath); os.IsNotExist(err) {
-			log.Fatalf("templates path does not exist: %v", err)
-		}
-
-		templateManager = filesystemtemplate.New(*templatesPath)
-	} else {
-		templateManager, err = memorytemplate.New(rangedbui.GetTemplates())
-		if err != nil {
-			log.Fatalf("unable to load templates: %v", err)
-		}
-	}
-
-	ui := rangedbui.New(templateManager, api.AggregateTypeStatsProjection(), store)
+	ui := rangedbui.New(api.AggregateTypeStatsProjection(), store)
 
 	muxServer := http.NewServeMux()
 	muxServer.Handle("/", ui)
