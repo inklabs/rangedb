@@ -2,6 +2,7 @@ package rangedbui
 
 import (
 	"context"
+	"embed"
 	"errors"
 	"fmt"
 	"log"
@@ -17,8 +18,10 @@ import (
 	"github.com/inklabs/rangedb/pkg/rangedbui/pkg/templatemanager"
 )
 
-//go:generate go run github.com/shurcooL/vfsgen/cmd/vfsgendev -source="github.com/inklabs/rangedb/pkg/rangedbui".StaticAssets
 //go:generate go run ./gen/pack-templates -path ./templates rangedbui
+
+//go:embed static
+var StaticAssets embed.FS
 
 type webUI struct {
 	handler            http.Handler
@@ -52,7 +55,7 @@ func (a *webUI) initRoutes() {
 	router.HandleFunc("/aggregate-types", a.aggregateTypes)
 	router.HandleFunc("/e/"+aggregateType, a.aggregateType)
 	router.HandleFunc("/e/"+stream, a.stream)
-	router.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(StaticAssets)))
+	router.PathPrefix("/static/").Handler(http.FileServer(http.FS(StaticAssets)))
 
 	a.handler = handlers.CompressHandler(router)
 }

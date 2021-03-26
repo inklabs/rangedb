@@ -75,7 +75,7 @@ func TestMemoryTemplateManager_RenderTemplate(t *testing.T) {
 		_, err = memorytemplate.New(base64Templates)
 
 		// Then
-		assert.EqualError(t, err, "unable to parse template content: template: one:1: unexpected unclosed action in command")
+		assert.EqualError(t, err, "unable to parse template content: template: one:1: unclosed action")
 	})
 
 	t.Run("fails when unable to write", func(t *testing.T) {

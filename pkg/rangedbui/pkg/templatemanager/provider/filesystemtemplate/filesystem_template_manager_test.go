@@ -45,7 +45,7 @@ func TestFilesystemTemplateManager_RenderTemplate(t *testing.T) {
 		err := templateManager.RenderTemplate(&buf, "invalid-template.html", nil)
 
 		// Then
-		assert.EqualError(t, err, "template: invalid-template.html:3: unexpected unclosed action in end")
+		assert.EqualError(t, err, "template: invalid-template.html:4: unclosed action started at invalid-template.html:3")
 	})
 
 	t.Run("fails when unable to write", func(t *testing.T) {
