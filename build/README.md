@@ -15,3 +15,11 @@ docker build -f build/Dockerfile -t inklabs/rangedb:local .
 ```
 docker run -p 8080:8080 inklabs/rangedb:local
 ```
+
+## Using docker-compose to build & run locally in one step
+* From root dir
+    * docker-compose -f build/docker-compose.yml up --build
+* If inside build directory
+    * docker-compose up --build
+
+*remove **--build** if not need to rebuild image*
