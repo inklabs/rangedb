@@ -176,7 +176,7 @@ func serveGRPC(srv *grpc.Server, gRPCPort int) {
 }
 
 func snapshotBasePath(uniqueName string) string {
-	snapshotBasePath := fmt.Sprintf("%s%s/shapshots", os.TempDir(), uniqueName)
+	snapshotBasePath := fmt.Sprintf("%s/%s/snapshots", os.TempDir(), uniqueName)
 	err := os.MkdirAll(snapshotBasePath, 0700)
 	if err != nil && os.IsNotExist(err) {
 		log.Fatalf("unable to create snapshot directory: %v", err)
