@@ -88,10 +88,7 @@ func New(config *Config, options ...Option) (*postgresStore, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = s.initDB()
-	if err != nil {
-		return nil, err
-	}
+
 	if s.pgNotifyIsEnabled {
 		err = s.startPQListener()
 		if err != nil {
@@ -436,7 +433,7 @@ func (s *postgresStore) lockStream(ctx context.Context, transaction dbExecAble, 
 	return nil
 }
 
-func (s *postgresStore) initDB() error {
+func (s *postgresStore) InitDB() error {
 	sqlStatements := []string{
 		`CREATE SEQUENCE IF NOT EXISTS global_sequence_number INCREMENT 1 MINVALUE 0 START 0;`,
 		`CREATE TABLE IF NOT EXISTS record (

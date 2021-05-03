@@ -24,6 +24,7 @@ func Test_Postgres_VerifyStoreInterface(t *testing.T) {
 		)
 		require.NoError(t, err)
 		rangedbtest.BindEvents(store)
+		require.NoError(t, store.InitDB())
 
 		t.Cleanup(func() {
 			truncateRecords(t, config)
@@ -45,6 +46,7 @@ func Test_Postgres_WithPgNotify_VerifyStoreInterface(t *testing.T) {
 		)
 		require.NoError(t, err)
 		rangedbtest.BindEvents(store)
+		require.NoError(t, store.InitDB())
 
 		t.Cleanup(func() {
 			truncateRecords(t, config)
@@ -62,6 +64,7 @@ func BenchmarkPostgresStore(b *testing.B) {
 		store, err := postgresstore.New(config)
 		require.NoError(b, err)
 		rangedbtest.BindEvents(store)
+		require.NoError(b, store.InitDB())
 
 		b.Cleanup(func() {
 			truncateRecords(b, config)
@@ -96,6 +99,7 @@ func Test_Failures(t *testing.T) {
 			// Given
 			store, err := postgresstore.New(config)
 			require.NoError(t, err)
+			require.NoError(t, store.InitDB())
 			ctx := rangedbtest.TimeoutContext(t)
 
 			// When
@@ -110,6 +114,7 @@ func Test_Failures(t *testing.T) {
 			// Given
 			store, err := postgresstore.New(config)
 			require.NoError(t, err)
+			require.NoError(t, store.InitDB())
 			ctx := rangedbtest.TimeoutContext(t)
 
 			// When
@@ -126,6 +131,7 @@ func Test_Failures(t *testing.T) {
 			// Given
 			store, err := postgresstore.New(config)
 			require.NoError(t, err)
+			require.NoError(t, store.InitDB())
 			require.NoError(t, store.CloseDB())
 			ctx := rangedbtest.TimeoutContext(t)
 
@@ -142,6 +148,7 @@ func Test_Failures(t *testing.T) {
 			// Given
 			store, err := postgresstore.New(config)
 			require.NoError(t, err)
+			require.NoError(t, store.InitDB())
 			t.Cleanup(func() {
 				require.NoError(t, store.CloseDB())
 				truncateRecords(t, config)
@@ -162,6 +169,7 @@ func Test_Failures(t *testing.T) {
 			// Given
 			store, err := postgresstore.New(config)
 			require.NoError(t, err)
+			require.NoError(t, store.InitDB())
 			t.Cleanup(func() {
 				require.NoError(t, store.CloseDB())
 				truncateRecords(t, config)
@@ -182,6 +190,7 @@ func Test_Failures(t *testing.T) {
 			// Given
 			store, err := postgresstore.New(config)
 			require.NoError(t, err)
+			require.NoError(t, store.InitDB())
 			t.Cleanup(func() {
 				require.NoError(t, store.CloseDB())
 				truncateRecords(t, config)
