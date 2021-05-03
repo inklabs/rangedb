@@ -27,4 +27,39 @@ func TestConfig(t *testing.T) {
 		require.EqualError(t, err, "postgreSQL DB has not been configured via environment variables")
 		assert.Nil(t, config)
 	})
+
+	t.Run("returns correct DSN", func(t *testing.T) {
+		// Given
+		config := &postgresstore.Config{
+			Host:     "host",
+			Port:     8080,
+			User:     "user",
+			Password: "password",
+			DBName:   "dbname",
+		}
+
+		// When
+		dsn := config.DataSourceName()
+
+		// Then
+		assert.Equal(t, "host=host port=8080 user=user password=password dbname=dbname sslmode=disable", dsn)
+	})
+
+	t.Run("returns correct DSN", func(t *testing.T) {
+		// Given
+		config := &postgresstore.Config{
+			Host:       "host",
+			Port:       8080,
+			User:       "user",
+			Password:   "password",
+			DBName:     "dbname",
+			SearchPath: "searchpath",
+		}
+
+		// When
+		dsn := config.DataSourceName()
+
+		// Then
+		assert.Equal(t, "host=host port=8080 user=user password=password dbname=dbname sslmode=disable search_path=searchpath", dsn)
+	})
 }
