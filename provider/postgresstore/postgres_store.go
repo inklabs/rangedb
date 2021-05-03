@@ -401,6 +401,7 @@ func (s *postgresStore) batchInsert(ctx context.Context, transaction dbQueryable
 	if err != nil {
 		return nil, 0, fmt.Errorf("unable to insert: %v", err)
 	}
+	defer ignoreClose(rows)
 
 	var globalSequenceNumbers []uint64
 	if !s.pgNotifyIsEnabled {
