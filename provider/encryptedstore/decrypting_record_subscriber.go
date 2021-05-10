@@ -10,6 +10,7 @@ type decryptingRecordSubscriber struct {
 	eventEncryptor crypto.EventEncryptor
 }
 
+// NewDecryptingRecordSubscriber decrypts records on Accept
 func NewDecryptingRecordSubscriber(parent rangedb.RecordSubscriber, eventEncryptor crypto.EventEncryptor) *decryptingRecordSubscriber {
 	return &decryptingRecordSubscriber{
 		parent:         parent,

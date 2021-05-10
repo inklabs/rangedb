@@ -8,6 +8,7 @@ import (
 
 type failingEventEncryptor struct{}
 
+// NewFailingEventEncryptor always errors on Encrypt/Decrypt
 func NewFailingEventEncryptor() *failingEventEncryptor {
 	return &failingEventEncryptor{}
 }

@@ -12,9 +12,10 @@ type encryptedStore struct {
 	eventEncryptor crypto.EventEncryptor
 }
 
-func New(parentStore rangedb.Store, eventEncryptor crypto.EventEncryptor) *encryptedStore {
+// New constructs an Encrypted Store that automatically encrypts/decrypts events for a decorated parent rangedb.Store.
+func New(parent rangedb.Store, eventEncryptor crypto.EventEncryptor) *encryptedStore {
 	return &encryptedStore{
-		parent:         parentStore,
+		parent:         parent,
 		eventEncryptor: eventEncryptor,
 	}
 }
