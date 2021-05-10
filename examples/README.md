@@ -53,3 +53,4 @@ https://verraes.net/2019/05/eventsourcing-patterns-throw-away-the-key/
 
 * [Encrypt/Decrypt Event](../pkg/crypto/eventencryptor/encrypt_event_test.go)
 * [Delete Encryption Key](../pkg/crypto/eventencryptor/delete_encryption_key_test.go)
+* [Auto Encrypt/Decrypt Event with Decryption Store](../provider/encryptedstore/encrypt_event_test.go)
