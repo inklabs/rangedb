@@ -208,6 +208,7 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		a.logger.Printf("unable to save: %v", saveErr)
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = fmt.Fprintf(w, `{"status":"Failed"}`)
 		return

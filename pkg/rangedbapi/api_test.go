@@ -222,7 +222,12 @@ func TestApi_SaveEvents(t *testing.T) {
 		// Given
 		const aggregateID = "cbba5f386b2d4924ac34d1b9e9217d67"
 		const aggregateType = "thing"
-		api, err := rangedbapi.New(rangedbapi.WithStore(rangedbtest.NewFailingEventStore()))
+		var logBuffer bytes.Buffer
+		logger := log.New(&logBuffer, "", 0)
+		api, err := rangedbapi.New(
+			rangedbapi.WithStore(rangedbtest.NewFailingEventStore()),
+			rangedbapi.WithLogger(logger),
+		)
 		require.NoError(t, err)
 		jsonBody := `[
 		{
@@ -246,6 +251,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		assert.Equal(t, http.StatusInternalServerError, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
 		assert.Equal(t, `{"status":"Failed"}`, response.Body.String())
+		assert.Equal(t, "unable to save: failingEventStore.Save\n", logBuffer.String())
 	})
 
 	t.Run("errors when input json is invalid", func(t *testing.T) {
