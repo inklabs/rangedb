@@ -8,7 +8,7 @@ import (
 )
 
 // Version for RangeDB.
-const Version = "0.10.0-dev"
+const Version = "0.10.1-dev"
 
 // Record contains event data and metadata.
 type Record struct {
@@ -49,8 +49,13 @@ type Store interface {
 
 // RecordSubscription defines how a subscription starts and stops.
 type RecordSubscription interface {
+	// Start returns immediately after subscribing only to new events in a goroutine.
 	Start() error
+
+	// StartFrom blocks until all previous events have been processed, then returns after subscribing to new events in a goroutine.
 	StartFrom(globalSequenceNumber uint64) error
+
+	// Stop cancels the subscription and stops.
 	Stop()
 }
 
