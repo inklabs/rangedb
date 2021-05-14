@@ -24,11 +24,14 @@ func New(store rangedb.Store) (cqrs.CommandDispatcher, error) {
 
 	ctx := context.Background()
 	const bufferSize = 10
+
+	// Block until all previous events have been read
 	err := store.AllEventsSubscription(ctx, bufferSize, warnedUsers).StartFrom(0)
 	if err != nil {
 		return nil, err
 	}
 
+	// Subscribe to only new events
 	err = store.AllEventsSubscription(ctx, bufferSize, restrictedWordProcessor).Start()
 	if err != nil {
 		return nil, err
