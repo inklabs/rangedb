@@ -32,16 +32,18 @@ func NewConfigFromEnvironment() (*Config, error) {
 	pgUser := os.Getenv("PG_USER")
 	pgPassword := os.Getenv("PG_PASSWORD")
 	pgDBName := os.Getenv("PG_DBNAME")
+	pgSearchPath := os.Getenv("PG_SEARCH_PATH")
 
 	if pgHost == "" || pgUser == "" || pgDBName == "" {
 		return nil, fmt.Errorf("postgreSQL DB has not been configured via environment variables")
 	}
 
 	return &Config{
-		Host:     pgHost,
-		Port:     5432,
-		User:     pgUser,
-		Password: pgPassword,
-		DBName:   pgDBName,
+		Host:       pgHost,
+		Port:       5432,
+		User:       pgUser,
+		Password:   pgPassword,
+		DBName:     pgDBName,
+		SearchPath: pgSearchPath,
 	}, nil
 }
