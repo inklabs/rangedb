@@ -131,7 +131,7 @@ func (e *CustomerSignedUp) Encrypt(encryptor crypto.Encryptor) error {
 	var err error
 	e.Email, err = encryptor.Encrypt(e.ID, e.Email)
 	if err != nil {
-		e.Email = ""
+		e.RedactPersonalData("")
 		return err
 	}
 
@@ -141,11 +141,14 @@ func (e *CustomerSignedUp) Decrypt(encryptor crypto.Encryptor) error {
 	var err error
 	e.Email, err = encryptor.Decrypt(e.ID, e.Email)
 	if err != nil {
-		e.Email = ""
+		e.RedactPersonalData("")
 		return err
 	}
 
 	return nil
+}
+func (e *CustomerSignedUp) RedactPersonalData(redactTo string) error {
+	e.Email = redactTo
 }
 `
 		assert.Equal(t, expectedOut, out.String())
@@ -187,15 +190,13 @@ func (e *CustomerSignedUp) Encrypt(encryptor crypto.Encryptor) error {
 	var err error
 	e.Name, err = encryptor.Encrypt(e.ID, e.Name)
 	if err != nil {
-		e.Name = ""
-		e.Email = ""
+		e.RedactPersonalData("")
 		return err
 	}
 
 	e.Email, err = encryptor.Encrypt(e.ID, e.Email)
 	if err != nil {
-		e.Name = ""
-		e.Email = ""
+		e.RedactPersonalData("")
 		return err
 	}
 
@@ -205,19 +206,21 @@ func (e *CustomerSignedUp) Decrypt(encryptor crypto.Encryptor) error {
 	var err error
 	e.Name, err = encryptor.Decrypt(e.ID, e.Name)
 	if err != nil {
-		e.Name = ""
-		e.Email = ""
+		e.RedactPersonalData("")
 		return err
 	}
 
 	e.Email, err = encryptor.Decrypt(e.ID, e.Email)
 	if err != nil {
-		e.Name = ""
-		e.Email = ""
+		e.RedactPersonalData("")
 		return err
 	}
 
 	return nil
+}
+func (e *CustomerSignedUp) RedactPersonalData(redactTo string) error {
+	e.Name = redactTo
+	e.Email = redactTo
 }
 `
 		assert.Equal(t, expectedOut, out.String())
@@ -286,6 +289,8 @@ func (e *CustomerAddedBirthYear) Decrypt(encryptor crypto.Encryptor) error {
 	e.BirthYearEncrypted = ""
 
 	return nil
+}
+func (e *CustomerAddedBirthYear) RedactPersonalData(redactTo string) error {
 }
 `
 		assert.Equal(t, expectedOut, out.String())
@@ -382,6 +387,8 @@ func (e *CustomerAddedBirth) Decrypt(encryptor crypto.Encryptor) error {
 
 	return nil
 }
+func (e *CustomerAddedBirth) RedactPersonalData(redactTo string) error {
+}
 `
 		assert.Equal(t, expectedOut, out.String())
 	})
@@ -427,15 +434,13 @@ func (e *CustomerAddedBirth) Encrypt(encryptor crypto.Encryptor) error {
 	var err error
 	e.Name, err = encryptor.Encrypt(e.ID, e.Name)
 	if err != nil {
-		e.Name = ""
-		e.Email = ""
+		e.RedactPersonalData("")
 		return err
 	}
 
 	e.Email, err = encryptor.Encrypt(e.ID, e.Email)
 	if err != nil {
-		e.Name = ""
-		e.Email = ""
+		e.RedactPersonalData("")
 		return err
 	}
 
@@ -463,15 +468,13 @@ func (e *CustomerAddedBirth) Decrypt(encryptor crypto.Encryptor) error {
 	var err error
 	e.Name, err = encryptor.Decrypt(e.ID, e.Name)
 	if err != nil {
-		e.Name = ""
-		e.Email = ""
+		e.RedactPersonalData("")
 		return err
 	}
 
 	e.Email, err = encryptor.Decrypt(e.ID, e.Email)
 	if err != nil {
-		e.Name = ""
-		e.Email = ""
+		e.RedactPersonalData("")
 		return err
 	}
 
@@ -504,6 +507,10 @@ func (e *CustomerAddedBirth) Decrypt(encryptor crypto.Encryptor) error {
 	e.BirthYearEncrypted = ""
 
 	return nil
+}
+func (e *CustomerAddedBirth) RedactPersonalData(redactTo string) error {
+	e.Name = redactTo
+	e.Email = redactTo
 }
 `
 		assert.Equal(t, expectedOut, out.String())

@@ -74,9 +74,7 @@ func (e *{{ .Name }}) Encrypt(encryptor crypto.Encryptor) error {
 {{- range $event.PersonalData.Fields }}
 	e.{{ . }}, err = encryptor.Encrypt(e.{{ $event.PersonalData.SubjectID }}, e.{{ . }})
 	if err != nil {
-		{{- range $event.PersonalData.Fields }}
-		e.{{ . }} = ""
-		{{- end }}
+		e.RedactPersonalData("")
 		return err
 	}
 {{ end }}
@@ -97,9 +95,7 @@ func (e *{{ .Name }}) Decrypt(encryptor crypto.Encryptor) error {
 	var err error{{ range $event.PersonalData.Fields }}
 	e.{{ . }}, err = encryptor.Decrypt(e.{{ $event.PersonalData.SubjectID }}, e.{{ . }})
 	if err != nil {
-		{{- range $event.PersonalData.Fields }}
-		e.{{ . }} = ""
-		{{- end }}
+		e.RedactPersonalData("")
 		return err
 	}
 {{ end }}
@@ -121,6 +117,11 @@ func (e *{{ .Name }}) Decrypt(encryptor crypto.Encryptor) error {
 	e.{{ $key }} = ""
 {{ end }}
 	return nil
+}
+func (e *{{ .Name }}) RedactPersonalData(redactTo string) error {
+	{{- range $event.PersonalData.Fields }}
+	e.{{ . }} = redactTo
+	{{- end }}
 }
 {{- end }}
 {{- end }}
