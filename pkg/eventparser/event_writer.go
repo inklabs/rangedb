@@ -118,7 +118,7 @@ func (e *{{ .Name }}) Decrypt(encryptor crypto.Encryptor) error {
 {{ end }}
 	return nil
 }
-func (e *{{ .Name }}) RedactPersonalData(redactTo string) error {
+func (e *{{ .Name }}) RedactPersonalData(redactTo string) {
 	{{- range $event.PersonalData.Fields }}
 	e.{{ . }} = redactTo
 	{{- end }}
