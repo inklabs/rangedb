@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/inklabs/rangedb/pkg/crypto"
@@ -25,6 +26,37 @@ func TestPostgresKeyStore_VerifyKeyStoreInterface(t *testing.T) {
 
 		return keyStore
 	})
+}
+
+func TestPostgresKeyStore_DeletesEncryptionKey(t *testing.T) {
+	// Given
+	const (
+		subjectID     = "1b84dcd4487e4b09bf0142b563efe00e"
+		encryptionKey = "42b88545b17445d386741ac471bd5842"
+	)
+	config := configFromEnvironment(t)
+	keyStore, err := postgreskeystore.New(config)
+	require.NoError(t, err)
+	require.NoError(t, keyStore.Set(subjectID, encryptionKey))
+
+	// When
+	err = keyStore.Delete(subjectID)
+
+	// Then
+	require.NoError(t, err)
+	actualEncryptionKey := encryptionKeyBySubjectID(t, config, subjectID)
+	assert.NotEqual(t, encryptionKey, actualEncryptionKey)
+}
+
+func encryptionKeyBySubjectID(t *testing.T, config *postgresstore.Config, subjectID string) string {
+	db, err := sql.Open("postgres", config.DataSourceName())
+	require.NoError(t, err)
+
+	var encryptionKey string
+	row := db.QueryRow("SELECT EncryptionKey FROM vault WHERE SubjectID = $1", subjectID)
+	require.NoError(t, row.Scan(&encryptionKey))
+
+	return encryptionKey
 }
 
 func truncateRecords(t require.TestingT, config *postgresstore.Config) {

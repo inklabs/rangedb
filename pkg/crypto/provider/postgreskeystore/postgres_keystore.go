@@ -87,7 +87,7 @@ func (p *postgresKeyStore) Set(subjectID, encryptionKey string) error {
 }
 
 func (p *postgresKeyStore) Delete(subjectID string) error {
-	_, err := p.db.Exec("UPDATE vault SET DeletedAtTimestamp = $1 WHERE SubjectID = $2",
+	_, err := p.db.Exec("UPDATE vault SET DeletedAtTimestamp = $1, EncryptionKey = '' WHERE SubjectID = $2",
 		time.Now().Unix(),
 		subjectID)
 	if err != nil {
