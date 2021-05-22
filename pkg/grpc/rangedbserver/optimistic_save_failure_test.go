@@ -86,8 +86,8 @@ func ExampleRangeDBServer_OptimisticSave_withOptimisticConcurrencyFailure() {
 	}
 
 	// Output:
-	// rpc error: code = Internal desc = unable to save to store: unexpected sequence number: 2, next: 0
+	// rpc error: code = Internal desc = unable to save to store: unexpected sequence number: 2, actual: 0
 	// {
-	//   "Message": "unable to save to store: unexpected sequence number: 2, next: 0"
+	//   "Message": "unable to save to store: unexpected sequence number: 2, actual: 0"
 	// }
 }

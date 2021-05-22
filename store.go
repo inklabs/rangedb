@@ -37,11 +37,29 @@ type EventBinder interface {
 // Store is the interface that stores and retrieves event records.
 type Store interface {
 	EventBinder
+
+	// Events returns a RecordIterator containing all events in the store starting with globalSequenceNumber.
 	Events(ctx context.Context, globalSequenceNumber uint64) RecordIterator
+
+	// EventsByAggregateTypes returns a RecordIterator containing all events for each aggregateType(s) starting
+	// with globalSequenceNumber.
 	EventsByAggregateTypes(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) RecordIterator
+
+	// EventsByStream returns a RecordIterator containing all events in the stream starting with streamSequenceNumber.
 	EventsByStream(ctx context.Context, streamSequenceNumber uint64, streamName string) RecordIterator
+
+	// OptimisticDeleteStream removes an entire stream. If the expectedStreamSequenceNumber does not match the current
+	// stream sequence number, an rangedberror.UnexpectedSequenceNumber error is returned.
+	OptimisticDeleteStream(ctx context.Context, expectedStreamSequenceNumber uint64, streamName string) error
+
+	// OptimisticSave persists events to a single stream returning the new StreamSequenceNumber or an error. If
+	// the expectedStreamSequenceNumber does not match the current stream sequence number,
+	// an rangedberror.UnexpectedSequenceNumber error is returned.
 	OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*EventRecord) (uint64, error)
+
+	// Save persists events to a single stream returning the new StreamSequenceNumber or an error.
 	Save(ctx context.Context, eventRecords ...*EventRecord) (uint64, error)
+
 	AllEventsSubscription(ctx context.Context, bufferSize int, subscriber RecordSubscriber) RecordSubscription
 	AggregateTypesSubscription(ctx context.Context, bufferSize int, subscriber RecordSubscriber, aggregateTypes ...string) RecordSubscription
 	TotalEventsInStream(ctx context.Context, streamName string) (uint64, error)
@@ -173,3 +191,5 @@ func (e rawEvent) EventType() string {
 func (e rawEvent) MarshalJSON() ([]byte, error) {
 	return json.Marshal(e.data)
 }
+
+var ErrStreamNotFound = fmt.Errorf("stream not found")

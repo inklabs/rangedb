@@ -93,7 +93,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		// Then
 		assert.Equal(t, http.StatusCreated, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		assert.Equal(t, `{"status":"OK","lastStreamSequenceNumber":0}`, response.Body.String())
+		assert.Equal(t, `{"status":"OK","streamSequenceNumber":1}`, response.Body.String())
 	})
 
 	t.Run("saves from json with expected stream sequence number", func(t *testing.T) {
@@ -125,7 +125,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		// Then
 		assert.Equal(t, http.StatusCreated, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		assert.Equal(t, `{"status":"OK","lastStreamSequenceNumber":0}`, response.Body.String())
+		assert.Equal(t, `{"status":"OK","streamSequenceNumber":1}`, response.Body.String())
 	})
 
 	t.Run("saves 2 events from json with expected stream sequence number", func(t *testing.T) {
@@ -165,7 +165,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		// Then
 		assert.Equal(t, http.StatusCreated, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		assert.Equal(t, `{"status":"OK","lastStreamSequenceNumber":1}`, response.Body.String())
+		assert.Equal(t, `{"status":"OK","streamSequenceNumber":2}`, response.Body.String())
 	})
 
 	t.Run("errors to save from json with wrong expected stream sequence number", func(t *testing.T) {
@@ -197,7 +197,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		// Then
 		assert.Equal(t, http.StatusBadRequest, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		assert.Equal(t, `{"status":"Failed", "message": "unexpected sequence number: 1, next: 0"}`, response.Body.String())
+		assert.Equal(t, `{"status":"Failed", "message": "unexpected sequence number: 1, actual: 0"}`, response.Body.String())
 	})
 
 	t.Run("errors when content type not set", func(t *testing.T) {
@@ -360,8 +360,8 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 			{
 				"aggregateType": "thing",
 				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
-				"globalSequenceNumber": 0,
-				"streamSequenceNumber": 0,
+				"globalSequenceNumber": 1,
+				"streamSequenceNumber": 1,
 				"insertTimestamp": 0,
 				"eventID": "d2ba8e70072943388203c438d4e94bf3",
 				"eventType": "ThingWasDone",
@@ -374,8 +374,8 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 			{
 				"aggregateType": "thing",
 				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
-				"globalSequenceNumber": 1,
-				"streamSequenceNumber": 1,
+				"globalSequenceNumber": 2,
+				"streamSequenceNumber": 2,
 				"insertTimestamp": 1,
 				"eventID": "99cbd88bbcaf482ba1cc96ed12541707",
 				"eventType": "ThingWasDone",
@@ -388,8 +388,8 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 			{
 				"aggregateType": "thing",
 				"aggregateID": "5b36ae984b724685917b69ae47968be1",
-				"globalSequenceNumber": 2,
-				"streamSequenceNumber": 0,
+				"globalSequenceNumber": 3,
+				"streamSequenceNumber": 1,
 				"insertTimestamp": 2,
 				"eventID": "2e9e6918af10498cb7349c89a351fdb7",
 				"eventType": "ThingWasDone",
@@ -402,8 +402,8 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 			{
 				"aggregateType": "another",
 				"aggregateID": "9bc181144cef4fd19da1f32a17363997",
-				"globalSequenceNumber": 3,
-				"streamSequenceNumber": 0,
+				"globalSequenceNumber": 4,
+				"streamSequenceNumber": 1,
 				"insertTimestamp": 3,
 				"eventID": "5042958739514c948f776fc9f820bca0",
 				"eventType": "AnotherWasComplete",
@@ -471,8 +471,8 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 		expectedRecord1 := &rangedb.Record{
 			AggregateType:        "thing",
 			AggregateID:          aggregateID1,
-			GlobalSequenceNumber: 0,
-			StreamSequenceNumber: 0,
+			GlobalSequenceNumber: 1,
+			StreamSequenceNumber: 1,
 			InsertTimestamp:      0,
 			EventID:              "d2ba8e70072943388203c438d4e94bf3",
 			EventType:            "ThingWasDone",
@@ -485,8 +485,8 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 		expectedRecord2 := &rangedb.Record{
 			AggregateType:        "thing",
 			AggregateID:          aggregateID1,
-			GlobalSequenceNumber: 1,
-			StreamSequenceNumber: 1,
+			GlobalSequenceNumber: 2,
+			StreamSequenceNumber: 2,
 			InsertTimestamp:      1,
 			EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
 			EventType:            "ThingWasDone",
@@ -519,8 +519,8 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 			{
 				"aggregateType": "thing",
 				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
-				"globalSequenceNumber":0,
-				"streamSequenceNumber":0,
+				"globalSequenceNumber":1,
+				"streamSequenceNumber":1,
 				"insertTimestamp":0,
 				"eventID": "d2ba8e70072943388203c438d4e94bf3",
 				"eventType": "ThingWasDone",
@@ -533,8 +533,8 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 			{
 				"aggregateType": "thing",
 				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
-				"globalSequenceNumber":1,
-				"streamSequenceNumber":1,
+				"globalSequenceNumber":2,
+				"streamSequenceNumber":2,
 				"insertTimestamp":1,
 				"eventID": "99cbd88bbcaf482ba1cc96ed12541707",
 				"eventType": "ThingWasDone",
@@ -547,8 +547,8 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 			{
 				"aggregateType": "thing",
 				"aggregateID": "5b36ae984b724685917b69ae47968be1",
-				"globalSequenceNumber": 2,
-				"streamSequenceNumber": 0,
+				"globalSequenceNumber": 3,
+				"streamSequenceNumber": 1,
 				"insertTimestamp": 2,
 				"eventID": "2e9e6918af10498cb7349c89a351fdb7",
 				"eventType": "ThingWasDone",
@@ -577,8 +577,8 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 			{
 				"aggregateType": "thing",
 				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
-				"globalSequenceNumber":0,
-				"streamSequenceNumber":0,
+				"globalSequenceNumber":1,
+				"streamSequenceNumber":1,
 				"insertTimestamp":0,
 				"eventID": "d2ba8e70072943388203c438d4e94bf3",
 				"eventType": "ThingWasDone",
@@ -591,8 +591,8 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 			{
 				"aggregateType": "thing",
 				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
-				"globalSequenceNumber":1,
-				"streamSequenceNumber":1,
+				"globalSequenceNumber":2,
+				"streamSequenceNumber":2,
 				"insertTimestamp":1,
 				"eventID": "99cbd88bbcaf482ba1cc96ed12541707",
 				"eventType": "ThingWasDone",
@@ -605,8 +605,8 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 			{
 				"aggregateType": "thing",
 				"aggregateID": "5b36ae984b724685917b69ae47968be1",
-				"globalSequenceNumber": 2,
-				"streamSequenceNumber": 0,
+				"globalSequenceNumber": 3,
+				"streamSequenceNumber": 1,
 				"insertTimestamp": 2,
 				"eventID": "2e9e6918af10498cb7349c89a351fdb7",
 				"eventType": "ThingWasDone",
@@ -619,8 +619,8 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 			{
 				"aggregateType": "another",
 				"aggregateID": "9bc181144cef4fd19da1f32a17363997",
-				"globalSequenceNumber": 3,
-				"streamSequenceNumber": 0,
+				"globalSequenceNumber": 4,
+				"streamSequenceNumber": 1,
 				"insertTimestamp": 3,
 				"eventID": "5042958739514c948f776fc9f820bca0",
 				"eventType": "AnotherWasComplete",

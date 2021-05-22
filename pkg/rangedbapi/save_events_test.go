@@ -56,6 +56,6 @@ func Example_saveEvent() {
 	// Output:
 	// {
 	//   "status": "OK",
-	//   "lastStreamSequenceNumber": 1
+	//   "streamSequenceNumber": 2
 	// }
 }

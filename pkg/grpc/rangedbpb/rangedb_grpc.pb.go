@@ -11,6 +11,7 @@ import (
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
+// Requires gRPC-Go v1.32.0 or later.
 const _ = grpc.SupportPackageIsVersion7
 
 // RangeDBClient is the client API for RangeDB service.
@@ -20,6 +21,7 @@ type RangeDBClient interface {
 	Events(ctx context.Context, in *EventsRequest, opts ...grpc.CallOption) (RangeDB_EventsClient, error)
 	EventsByAggregateType(ctx context.Context, in *EventsByAggregateTypeRequest, opts ...grpc.CallOption) (RangeDB_EventsByAggregateTypeClient, error)
 	EventsByStream(ctx context.Context, in *EventsByStreamRequest, opts ...grpc.CallOption) (RangeDB_EventsByStreamClient, error)
+	OptimisticDeleteStream(ctx context.Context, in *OptimisticDeleteStreamRequest, opts ...grpc.CallOption) (*OptimisticDeleteStreamResponse, error)
 	OptimisticSave(ctx context.Context, in *OptimisticSaveRequest, opts ...grpc.CallOption) (*SaveResponse, error)
 	Save(ctx context.Context, in *SaveRequest, opts ...grpc.CallOption) (*SaveResponse, error)
 	SubscribeToLiveEvents(ctx context.Context, in *SubscribeToLiveEventsRequest, opts ...grpc.CallOption) (RangeDB_SubscribeToLiveEventsClient, error)
@@ -37,7 +39,7 @@ func NewRangeDBClient(cc grpc.ClientConnInterface) RangeDBClient {
 }
 
 func (c *rangeDBClient) Events(ctx context.Context, in *EventsRequest, opts ...grpc.CallOption) (RangeDB_EventsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_RangeDB_serviceDesc.Streams[0], "/rangedbpb.RangeDB/Events", opts...)
+	stream, err := c.cc.NewStream(ctx, &RangeDB_ServiceDesc.Streams[0], "/rangedbpb.RangeDB/Events", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +71,7 @@ func (x *rangeDBEventsClient) Recv() (*Record, error) {
 }
 
 func (c *rangeDBClient) EventsByAggregateType(ctx context.Context, in *EventsByAggregateTypeRequest, opts ...grpc.CallOption) (RangeDB_EventsByAggregateTypeClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_RangeDB_serviceDesc.Streams[1], "/rangedbpb.RangeDB/EventsByAggregateType", opts...)
+	stream, err := c.cc.NewStream(ctx, &RangeDB_ServiceDesc.Streams[1], "/rangedbpb.RangeDB/EventsByAggregateType", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +103,7 @@ func (x *rangeDBEventsByAggregateTypeClient) Recv() (*Record, error) {
 }
 
 func (c *rangeDBClient) EventsByStream(ctx context.Context, in *EventsByStreamRequest, opts ...grpc.CallOption) (RangeDB_EventsByStreamClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_RangeDB_serviceDesc.Streams[2], "/rangedbpb.RangeDB/EventsByStream", opts...)
+	stream, err := c.cc.NewStream(ctx, &RangeDB_ServiceDesc.Streams[2], "/rangedbpb.RangeDB/EventsByStream", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -132,6 +134,15 @@ func (x *rangeDBEventsByStreamClient) Recv() (*Record, error) {
 	return m, nil
 }
 
+func (c *rangeDBClient) OptimisticDeleteStream(ctx context.Context, in *OptimisticDeleteStreamRequest, opts ...grpc.CallOption) (*OptimisticDeleteStreamResponse, error) {
+	out := new(OptimisticDeleteStreamResponse)
+	err := c.cc.Invoke(ctx, "/rangedbpb.RangeDB/OptimisticDeleteStream", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *rangeDBClient) OptimisticSave(ctx context.Context, in *OptimisticSaveRequest, opts ...grpc.CallOption) (*SaveResponse, error) {
 	out := new(SaveResponse)
 	err := c.cc.Invoke(ctx, "/rangedbpb.RangeDB/OptimisticSave", in, out, opts...)
@@ -151,7 +162,7 @@ func (c *rangeDBClient) Save(ctx context.Context, in *SaveRequest, opts ...grpc.
 }
 
 func (c *rangeDBClient) SubscribeToLiveEvents(ctx context.Context, in *SubscribeToLiveEventsRequest, opts ...grpc.CallOption) (RangeDB_SubscribeToLiveEventsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_RangeDB_serviceDesc.Streams[3], "/rangedbpb.RangeDB/SubscribeToLiveEvents", opts...)
+	stream, err := c.cc.NewStream(ctx, &RangeDB_ServiceDesc.Streams[3], "/rangedbpb.RangeDB/SubscribeToLiveEvents", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +194,7 @@ func (x *rangeDBSubscribeToLiveEventsClient) Recv() (*Record, error) {
 }
 
 func (c *rangeDBClient) SubscribeToEvents(ctx context.Context, in *SubscribeToEventsRequest, opts ...grpc.CallOption) (RangeDB_SubscribeToEventsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_RangeDB_serviceDesc.Streams[4], "/rangedbpb.RangeDB/SubscribeToEvents", opts...)
+	stream, err := c.cc.NewStream(ctx, &RangeDB_ServiceDesc.Streams[4], "/rangedbpb.RangeDB/SubscribeToEvents", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -215,7 +226,7 @@ func (x *rangeDBSubscribeToEventsClient) Recv() (*Record, error) {
 }
 
 func (c *rangeDBClient) SubscribeToEventsByAggregateType(ctx context.Context, in *SubscribeToEventsByAggregateTypeRequest, opts ...grpc.CallOption) (RangeDB_SubscribeToEventsByAggregateTypeClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_RangeDB_serviceDesc.Streams[5], "/rangedbpb.RangeDB/SubscribeToEventsByAggregateType", opts...)
+	stream, err := c.cc.NewStream(ctx, &RangeDB_ServiceDesc.Streams[5], "/rangedbpb.RangeDB/SubscribeToEventsByAggregateType", opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -262,6 +273,7 @@ type RangeDBServer interface {
 	Events(*EventsRequest, RangeDB_EventsServer) error
 	EventsByAggregateType(*EventsByAggregateTypeRequest, RangeDB_EventsByAggregateTypeServer) error
 	EventsByStream(*EventsByStreamRequest, RangeDB_EventsByStreamServer) error
+	OptimisticDeleteStream(context.Context, *OptimisticDeleteStreamRequest) (*OptimisticDeleteStreamResponse, error)
 	OptimisticSave(context.Context, *OptimisticSaveRequest) (*SaveResponse, error)
 	Save(context.Context, *SaveRequest) (*SaveResponse, error)
 	SubscribeToLiveEvents(*SubscribeToLiveEventsRequest, RangeDB_SubscribeToLiveEventsServer) error
@@ -283,6 +295,9 @@ func (UnimplementedRangeDBServer) EventsByAggregateType(*EventsByAggregateTypeRe
 }
 func (UnimplementedRangeDBServer) EventsByStream(*EventsByStreamRequest, RangeDB_EventsByStreamServer) error {
 	return status.Errorf(codes.Unimplemented, "method EventsByStream not implemented")
+}
+func (UnimplementedRangeDBServer) OptimisticDeleteStream(context.Context, *OptimisticDeleteStreamRequest) (*OptimisticDeleteStreamResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method OptimisticDeleteStream not implemented")
 }
 func (UnimplementedRangeDBServer) OptimisticSave(context.Context, *OptimisticSaveRequest) (*SaveResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method OptimisticSave not implemented")
@@ -312,7 +327,7 @@ type UnsafeRangeDBServer interface {
 }
 
 func RegisterRangeDBServer(s grpc.ServiceRegistrar, srv RangeDBServer) {
-	s.RegisterService(&_RangeDB_serviceDesc, srv)
+	s.RegisterService(&RangeDB_ServiceDesc, srv)
 }
 
 func _RangeDB_Events_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -376,6 +391,24 @@ type rangeDBEventsByStreamServer struct {
 
 func (x *rangeDBEventsByStreamServer) Send(m *Record) error {
 	return x.ServerStream.SendMsg(m)
+}
+
+func _RangeDB_OptimisticDeleteStream_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(OptimisticDeleteStreamRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RangeDBServer).OptimisticDeleteStream(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rangedbpb.RangeDB/OptimisticDeleteStream",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RangeDBServer).OptimisticDeleteStream(ctx, req.(*OptimisticDeleteStreamRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _RangeDB_OptimisticSave_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -495,10 +528,17 @@ func _RangeDB_TotalEventsInStream_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
-var _RangeDB_serviceDesc = grpc.ServiceDesc{
+// RangeDB_ServiceDesc is the grpc.ServiceDesc for RangeDB service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var RangeDB_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "rangedbpb.RangeDB",
 	HandlerType: (*RangeDBServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "OptimisticDeleteStream",
+			Handler:    _RangeDB_OptimisticDeleteStream_Handler,
+		},
 		{
 			MethodName: "OptimisticSave",
 			Handler:    _RangeDB_OptimisticSave_Handler,

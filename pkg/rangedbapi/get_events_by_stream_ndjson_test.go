@@ -50,6 +50,6 @@ func Example_getEventsByStreamNdJson() {
 	fmt.Println(string(body))
 
 	// Output:
-	// {"aggregateType":"thing","aggregateID":"605f20348fb940e386c171d51c877bf1","globalSequenceNumber":0,"streamSequenceNumber":0,"insertTimestamp":0,"eventID":"d2ba8e70072943388203c438d4e94bf3","eventType":"ThingWasDone","data":{"id":"605f20348fb940e386c171d51c877bf1","number":100},"metadata":null}
-	// {"aggregateType":"thing","aggregateID":"605f20348fb940e386c171d51c877bf1","globalSequenceNumber":1,"streamSequenceNumber":1,"insertTimestamp":1,"eventID":"99cbd88bbcaf482ba1cc96ed12541707","eventType":"ThingWasDone","data":{"id":"605f20348fb940e386c171d51c877bf1","number":200},"metadata":null}
+	// {"aggregateType":"thing","aggregateID":"605f20348fb940e386c171d51c877bf1","globalSequenceNumber":1,"streamSequenceNumber":1,"insertTimestamp":0,"eventID":"d2ba8e70072943388203c438d4e94bf3","eventType":"ThingWasDone","data":{"id":"605f20348fb940e386c171d51c877bf1","number":100},"metadata":null}
+	// {"aggregateType":"thing","aggregateID":"605f20348fb940e386c171d51c877bf1","globalSequenceNumber":2,"streamSequenceNumber":2,"insertTimestamp":1,"eventID":"99cbd88bbcaf482ba1cc96ed12541707","eventType":"ThingWasDone","data":{"id":"605f20348fb940e386c171d51c877bf1","number":200},"metadata":null}
 }

@@ -102,6 +102,7 @@ func (s *rangeDBServer) Events(req *rangedbpb.EventsRequest, stream rangedbpb.Ra
 
 func (s *rangeDBServer) EventsByStream(req *rangedbpb.EventsByStreamRequest, stream rangedbpb.RangeDB_EventsByStreamServer) error {
 	recordIterator := s.store.EventsByStream(stream.Context(), req.StreamSequenceNumber, req.StreamName)
+
 	for recordIterator.Next() {
 		if recordIterator.Err() != nil {
 			return recordIterator.Err()
@@ -116,6 +117,10 @@ func (s *rangeDBServer) EventsByStream(req *rangedbpb.EventsByStreamRequest, str
 		if err != nil {
 			return err
 		}
+	}
+
+	if recordIterator.Err() != nil {
+		return recordIterator.Err()
 	}
 
 	return nil
@@ -140,6 +145,17 @@ func (s *rangeDBServer) EventsByAggregateType(req *rangedbpb.EventsByAggregateTy
 	}
 
 	return nil
+}
+
+func (s *rangeDBServer) OptimisticDeleteStream(ctx context.Context, req *rangedbpb.OptimisticDeleteStreamRequest) (*rangedbpb.OptimisticDeleteStreamResponse, error) {
+	err := s.store.OptimisticDeleteStream(ctx, req.ExpectedStreamSequenceNumber, req.StreamName)
+	if err != nil {
+		return nil, err
+	}
+
+	return &rangedbpb.OptimisticDeleteStreamResponse{
+		EventsDeleted: uint32(req.ExpectedStreamSequenceNumber),
+	}, nil
 }
 
 func (s *rangeDBServer) OptimisticSave(ctx context.Context, req *rangedbpb.OptimisticSaveRequest) (*rangedbpb.SaveResponse, error) {

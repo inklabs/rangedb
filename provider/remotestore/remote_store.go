@@ -22,7 +22,8 @@ import (
 const (
 	broadcastRecordBuffSize        = 100
 	rpcErrContextCanceled          = "Canceled desc = context canceled"
-	rpcErrUnexpectedSequenceNumber = "unable to save to store: unexpected sequence number"
+	rpcErrUnexpectedSequenceNumber = "unexpected sequence number"
+	rpcErrStreamNotFound           = "Unknown desc = stream not found"
 )
 
 // JsonSerializer defines the interface to bind events and identify event types.
@@ -71,10 +72,10 @@ func (s *remoteStore) Events(ctx context.Context, globalSequenceNumber uint64) r
 	events, err := s.client.Events(ctx, request)
 	if err != nil {
 		if strings.Contains(err.Error(), rpcErrContextCanceled) {
-			return RecordIteratorWithOneError(context.Canceled)
+			return rangedb.NewRecordIteratorWithError(context.Canceled)
 		}
 
-		return RecordIteratorWithOneError(err)
+		return rangedb.NewRecordIteratorWithError(err)
 	}
 
 	return s.readRecords(ctx, events)
@@ -89,10 +90,10 @@ func (s *remoteStore) EventsByAggregateTypes(ctx context.Context, globalSequence
 	events, err := s.client.EventsByAggregateType(ctx, request)
 	if err != nil {
 		if strings.Contains(err.Error(), rpcErrContextCanceled) {
-			return RecordIteratorWithOneError(context.Canceled)
+			return rangedb.NewRecordIteratorWithError(context.Canceled)
 		}
 
-		return RecordIteratorWithOneError(err)
+		return rangedb.NewRecordIteratorWithError(err)
 	}
 
 	return s.readRecords(ctx, events)
@@ -108,13 +109,38 @@ func (s *remoteStore) EventsByStream(ctx context.Context, streamSequenceNumber u
 	events, err := s.client.EventsByStream(ctx, request)
 	if err != nil {
 		if strings.Contains(err.Error(), rpcErrContextCanceled) {
-			return RecordIteratorWithOneError(context.Canceled)
+			return rangedb.NewRecordIteratorWithError(context.Canceled)
 		}
 
-		return RecordIteratorWithOneError(err)
+		return rangedb.NewRecordIteratorWithError(err)
 	}
 
 	return s.readRecords(ctx, events)
+}
+
+func (s *remoteStore) OptimisticDeleteStream(ctx context.Context, expectedStreamSequenceNumber uint64, streamName string) error {
+	request := &rangedbpb.OptimisticDeleteStreamRequest{
+		ExpectedStreamSequenceNumber: expectedStreamSequenceNumber,
+		StreamName:                   streamName,
+	}
+	_, err := s.client.OptimisticDeleteStream(ctx, request)
+	if err != nil {
+		if strings.Contains(err.Error(), rpcErrContextCanceled) {
+			return context.Canceled
+		}
+
+		if strings.Contains(err.Error(), rpcErrStreamNotFound) {
+			return rangedb.ErrStreamNotFound
+		}
+
+		if strings.Contains(err.Error(), rpcErrUnexpectedSequenceNumber) {
+			return rangedberror.NewUnexpectedSequenceNumberFromString(err.Error())
+		}
+
+		return err
+	}
+
+	return nil
 }
 
 func (s *remoteStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
@@ -287,6 +313,10 @@ func (s *remoteStore) readRecords(ctx context.Context, events PbRecordReceiver) 
 					resultRecords <- rangedb.ResultRecord{Err: context.Canceled}
 				}
 
+				if strings.Contains(err.Error(), rpcErrStreamNotFound) {
+					resultRecords <- rangedb.ResultRecord{Err: rangedb.ErrStreamNotFound}
+				}
+
 				log.Printf("failed to get record: %v", err)
 				resultRecords <- rangedb.ResultRecord{Err: err}
 				return
@@ -330,12 +360,4 @@ func (s *remoteStore) listenForEvents() error {
 	}()
 
 	return nil
-}
-
-// RecordIteratorWithOneError returns a rangedb.RecordIterator containing a single rangedb.ResultRecord with an error.
-func RecordIteratorWithOneError(err error) rangedb.RecordIterator {
-	records := make(chan rangedb.ResultRecord, 1)
-	records <- rangedb.ResultRecord{Err: err}
-	close(records)
-	return rangedb.NewRecordIterator(records)
 }

@@ -83,6 +83,6 @@ func ExampleRangeDBServer_OptimisticSave() {
 	// Output:
 	// {
 	//   "EventsSaved": 2,
-	//   "LastStreamSequenceNumber": 1
+	//   "LastStreamSequenceNumber": 2
 	// }
 }

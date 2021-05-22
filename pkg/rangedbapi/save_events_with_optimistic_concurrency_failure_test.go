@@ -58,5 +58,5 @@ func Example_optimisticSaveEvents_failure() {
 	fmt.Println(string(body))
 
 	// Output:
-	// {"status":"Failed", "message": "unexpected sequence number: 2, next: 0"}
+	// {"status":"Failed", "message": "unexpected sequence number: 2, actual: 0"}
 }

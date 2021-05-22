@@ -20,7 +20,7 @@ func TestUnexpectedSequenceNumber_NewFromString(t *testing.T) {
 		// Then
 		require.NotNil(t, actual)
 		assert.Equal(t, uint64(1), actual.Expected)
-		assert.Equal(t, uint64(0), actual.NextSequenceNumber)
+		assert.Equal(t, uint64(0), actual.ActualSequenceNumber)
 		assert.Equal(t, "unexpected sequence number: 1, next: 0", actual.Error())
 	})
 
@@ -34,7 +34,7 @@ func TestUnexpectedSequenceNumber_NewFromString(t *testing.T) {
 		// Then
 		require.NotNil(t, actual)
 		assert.Equal(t, uint64(1), actual.Expected)
-		assert.Equal(t, uint64(0), actual.NextSequenceNumber)
+		assert.Equal(t, uint64(0), actual.ActualSequenceNumber)
 	})
 
 	t.Run("unable to parse", func(t *testing.T) {
@@ -47,7 +47,7 @@ func TestUnexpectedSequenceNumber_NewFromString(t *testing.T) {
 		// Then
 		require.NotNil(t, actual)
 		assert.Equal(t, uint64(0), actual.Expected)
-		assert.Equal(t, uint64(0), actual.NextSequenceNumber)
+		assert.Equal(t, uint64(0), actual.ActualSequenceNumber)
 	})
 
 	t.Run("unable to scan", func(t *testing.T) {
@@ -60,6 +60,6 @@ func TestUnexpectedSequenceNumber_NewFromString(t *testing.T) {
 		// Then
 		require.NotNil(t, actual)
 		assert.Equal(t, uint64(0), actual.Expected)
-		assert.Equal(t, uint64(0), actual.NextSequenceNumber)
+		assert.Equal(t, uint64(0), actual.ActualSequenceNumber)
 	})
 }

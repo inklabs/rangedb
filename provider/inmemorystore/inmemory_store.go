@@ -108,6 +108,12 @@ func compareByGlobalSequenceNumber(globalSequenceNumber uint64) func(record *ran
 
 func (s *inMemoryStore) EventsByStream(ctx context.Context, streamSequenceNumber uint64, stream string) rangedb.RecordIterator {
 	s.mux.RLock()
+
+	if _, ok := s.recordsByStream[stream]; !ok {
+		s.mux.RUnlock()
+		return rangedb.NewRecordIteratorWithError(rangedb.ErrStreamNotFound)
+	}
+
 	return s.recordsToIterator(ctx, s.recordsByStream[stream], func(record *rangedb.Record) bool {
 		return record.StreamSequenceNumber >= streamSequenceNumber
 	})
@@ -140,6 +146,27 @@ func (s *inMemoryStore) recordsToIterator(ctx context.Context, serializedRecords
 	return rangedb.NewRecordIterator(resultRecords)
 }
 
+func (s *inMemoryStore) OptimisticDeleteStream(ctx context.Context, expectedStreamSequenceNumber uint64, streamName string) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	if _, ok := s.recordsByStream[streamName]; !ok {
+		return rangedb.ErrStreamNotFound
+	}
+
+	currentStreamSequenceNumber := s.getStreamSequenceNumber(streamName)
+	if expectedStreamSequenceNumber != currentStreamSequenceNumber {
+		return &rangedberror.UnexpectedSequenceNumber{
+			Expected:             expectedStreamSequenceNumber,
+			ActualSequenceNumber: currentStreamSequenceNumber,
+		}
+	}
+
+	delete(s.recordsByStream, streamName)
+
+	return nil
+}
+
 func (s *inMemoryStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	return s.saveEvents(ctx, &expectedStreamSequenceNumber, eventRecords...)
 }
@@ -153,8 +180,6 @@ func (s *inMemoryStore) saveEvents(ctx context.Context, expectedStreamSequenceNu
 	if len(eventRecords) < 1 {
 		return 0, fmt.Errorf("missing events")
 	}
-
-	nextExpectedStreamSequenceNumber := expectedStreamSequenceNumber
 
 	var pendingEventsData [][]byte
 	var totalSavedEvents int
@@ -191,7 +216,7 @@ func (s *inMemoryStore) saveEvents(ctx context.Context, expectedStreamSequenceNu
 			aggregateID,
 			eventRecord.Event.EventType(),
 			shortuuid.New().String(),
-			nextExpectedStreamSequenceNumber,
+			expectedStreamSequenceNumber,
 			eventRecord.Event,
 			eventRecord.Metadata,
 		)
@@ -204,8 +229,8 @@ func (s *inMemoryStore) saveEvents(ctx context.Context, expectedStreamSequenceNu
 		totalSavedEvents++
 		pendingEventsData = append(pendingEventsData, data)
 
-		if nextExpectedStreamSequenceNumber != nil {
-			*nextExpectedStreamSequenceNumber++
+		if expectedStreamSequenceNumber != nil {
+			*expectedStreamSequenceNumber++
 		}
 	}
 	s.mux.Unlock()
@@ -229,20 +254,20 @@ func (s *inMemoryStore) saveEvent(
 	event interface{}, metadata interface{}) ([]byte, uint64, error) {
 
 	stream := rangedb.GetStream(aggregateType, aggregateID)
-	nextSequenceNumber := s.getNextStreamSequenceNumber(stream)
+	streamSequenceNumber := s.getStreamSequenceNumber(stream)
 
-	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber != nextSequenceNumber {
+	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber != streamSequenceNumber {
 		return nil, 0, &rangedberror.UnexpectedSequenceNumber{
-			Expected:           *expectedStreamSequenceNumber,
-			NextSequenceNumber: nextSequenceNumber,
+			Expected:             *expectedStreamSequenceNumber,
+			ActualSequenceNumber: streamSequenceNumber,
 		}
 	}
 
 	record := &rangedb.Record{
 		AggregateType:        aggregateType,
 		AggregateID:          aggregateID,
-		GlobalSequenceNumber: s.getNextGlobalSequenceNumber(),
-		StreamSequenceNumber: nextSequenceNumber,
+		GlobalSequenceNumber: s.getGlobalSequenceNumber() + 1,
+		StreamSequenceNumber: streamSequenceNumber + 1,
 		EventType:            eventType,
 		EventID:              eventID,
 		InsertTimestamp:      uint64(s.clock.Now().Unix()),
@@ -307,10 +332,10 @@ func (s *inMemoryStore) TotalEventsInStream(ctx context.Context, streamName stri
 	return uint64(len(s.recordsByStream[streamName])), nil
 }
 
-func (s *inMemoryStore) getNextStreamSequenceNumber(stream string) uint64 {
+func (s *inMemoryStore) getStreamSequenceNumber(stream string) uint64 {
 	return uint64(len(s.recordsByStream[stream]))
 }
 
-func (s *inMemoryStore) getNextGlobalSequenceNumber() uint64 {
+func (s *inMemoryStore) getGlobalSequenceNumber() uint64 {
 	return uint64(len(s.allRecords))
 }

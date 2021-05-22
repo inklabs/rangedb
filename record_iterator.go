@@ -27,3 +27,10 @@ func (i *recordIterator) Record() *Record {
 func (i *recordIterator) Err() error {
 	return i.current.Err
 }
+
+func NewRecordIteratorWithError(err error) *recordIterator {
+	records := make(chan ResultRecord, 1)
+	records <- ResultRecord{Err: err}
+	close(records)
+	return NewRecordIterator(records)
+}

@@ -54,8 +54,8 @@ func Example_getEventsByAggregateType() {
 	//   {
 	//     "aggregateType": "thing",
 	//     "aggregateID": "605f20348fb940e386c171d51c877bf1",
-	//     "globalSequenceNumber": 0,
-	//     "streamSequenceNumber": 0,
+	//     "globalSequenceNumber": 1,
+	//     "streamSequenceNumber": 1,
 	//     "insertTimestamp": 0,
 	//     "eventID": "d2ba8e70072943388203c438d4e94bf3",
 	//     "eventType": "ThingWasDone",

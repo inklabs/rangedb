@@ -168,6 +168,10 @@ func (s *postgresStore) EventsByStream(ctx context.Context, streamSequenceNumber
 	return rangedb.NewRecordIterator(resultRecords)
 }
 
+func (s *postgresStore) OptimisticDeleteStream(ctx context.Context, expectedStreamSequenceNumber uint64, streamName string) error {
+	panic("implement me")
+}
+
 func (s *postgresStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	return s.transactionalSaveEvents(ctx, &expectedStreamSequenceNumber, eventRecords...)
 }
@@ -275,8 +279,8 @@ func (s *postgresStore) validateNextStreamSequenceNumber(ctx context.Context, qu
 
 	if expectedStreamSequenceNumber != nil && nextStreamSequenceNumber != *expectedStreamSequenceNumber {
 		return 0, &rangedberror.UnexpectedSequenceNumber{
-			Expected:           *expectedStreamSequenceNumber,
-			NextSequenceNumber: nextStreamSequenceNumber,
+			Expected:             *expectedStreamSequenceNumber,
+			ActualSequenceNumber: nextStreamSequenceNumber,
 		}
 	}
 

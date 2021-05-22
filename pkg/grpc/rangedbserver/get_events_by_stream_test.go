@@ -86,6 +86,8 @@ func ExampleRangeDBServer_EventsByStream() {
 	// {
 	//   "AggregateType": "thing",
 	//   "AggregateID": "605f20348fb940e386c171d51c877bf1",
+	//   "GlobalSequenceNumber": 1,
+	//   "StreamSequenceNumber": 1,
 	//   "EventID": "d2ba8e70072943388203c438d4e94bf3",
 	//   "EventType": "ThingWasDone",
 	//   "Data": "{\"id\":\"605f20348fb940e386c171d51c877bf1\",\"number\":100}",
@@ -94,8 +96,8 @@ func ExampleRangeDBServer_EventsByStream() {
 	// {
 	//   "AggregateType": "thing",
 	//   "AggregateID": "605f20348fb940e386c171d51c877bf1",
-	//   "GlobalSequenceNumber": 1,
-	//   "StreamSequenceNumber": 1,
+	//   "GlobalSequenceNumber": 2,
+	//   "StreamSequenceNumber": 2,
 	//   "InsertTimestamp": 1,
 	//   "EventID": "99cbd88bbcaf482ba1cc96ed12541707",
 	//   "EventType": "ThingWasDone",

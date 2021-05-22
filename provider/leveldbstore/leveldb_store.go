@@ -116,6 +116,10 @@ func (s *levelDbStore) EventsByStream(ctx context.Context, streamSequenceNumber 
 	return s.getEventsByPrefix(ctx, stream, streamSequenceNumber)
 }
 
+func (s *levelDbStore) OptimisticDeleteStream(ctx context.Context, expectedStreamSequenceNumber uint64, streamName string) error {
+	panic("implement me")
+}
+
 func (s *levelDbStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	return s.saveEvents(ctx, &expectedStreamSequenceNumber, eventRecords...)
 }
@@ -218,8 +222,8 @@ func (s *levelDbStore) saveEvent(ctx context.Context, transaction *leveldb.Trans
 
 	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber != nextSequenceNumber {
 		return nil, 0, &rangedberror.UnexpectedSequenceNumber{
-			Expected:           *expectedStreamSequenceNumber,
-			NextSequenceNumber: nextSequenceNumber,
+			Expected:             *expectedStreamSequenceNumber,
+			ActualSequenceNumber: nextSequenceNumber,
 		}
 	}
 

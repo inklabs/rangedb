@@ -61,6 +61,6 @@ func Example_optimisticSaveEvents() {
 	// Output:
 	// {
 	//   "status": "OK",
-	//   "lastStreamSequenceNumber": 1
+	//   "streamSequenceNumber": 2
 	// }
 }

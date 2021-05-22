@@ -215,7 +215,7 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	_, _ = fmt.Fprintf(w, `{"status":"OK","lastStreamSequenceNumber":%d}`, lastStreamSequenceNumber)
+	_, _ = fmt.Fprintf(w, `{"status":"OK","streamSequenceNumber":%d}`, lastStreamSequenceNumber)
 }
 
 func writeBadRequest(w http.ResponseWriter, message string) {

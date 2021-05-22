@@ -5,10 +5,10 @@ import (
 	"strings"
 )
 
-// UnexpectedSequenceNumber is an error containing expected and next sequence numbers.
+// UnexpectedSequenceNumber is an error containing expected and actual sequence numbers.
 type UnexpectedSequenceNumber struct {
-	Expected           uint64
-	NextSequenceNumber uint64
+	Expected             uint64
+	ActualSequenceNumber uint64
 }
 
 // NewUnexpectedSequenceNumberFromString constructs an UnexpectedSequenceNumber error.
@@ -18,21 +18,21 @@ func NewUnexpectedSequenceNumberFromString(input string) *UnexpectedSequenceNumb
 		return &UnexpectedSequenceNumber{}
 	}
 
-	var expected, next uint64
-	_, err := fmt.Sscanf(pieces[1], "%d, next: %d", &expected, &next)
+	var expected, actual uint64
+	_, err := fmt.Sscanf(pieces[1], "%d, actual: %d", &expected, &actual)
 	if err != nil {
 		return &UnexpectedSequenceNumber{}
 	}
 
 	return &UnexpectedSequenceNumber{
-		Expected:           expected,
-		NextSequenceNumber: next,
+		Expected:             expected,
+		ActualSequenceNumber: actual,
 	}
 }
 
 func (e UnexpectedSequenceNumber) Error() string {
-	return fmt.Sprintf("unexpected sequence number: %d, next: %d",
+	return fmt.Sprintf("unexpected sequence number: %d, actual: %d",
 		e.Expected,
-		e.NextSequenceNumber,
+		e.ActualSequenceNumber,
 	)
 }
