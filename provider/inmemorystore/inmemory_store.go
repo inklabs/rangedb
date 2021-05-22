@@ -109,7 +109,7 @@ func compareByGlobalSequenceNumber(globalSequenceNumber uint64) func(record *ran
 func (s *inMemoryStore) EventsByStream(ctx context.Context, streamSequenceNumber uint64, stream string) rangedb.RecordIterator {
 	s.mux.RLock()
 
-	if _, ok := s.recordsByStream[stream]; !ok {
+	if _, ok := s.recordsByStream[stream]; !ok || len(s.recordsByStream[stream]) == 0 {
 		s.mux.RUnlock()
 		return rangedb.NewRecordIteratorWithError(rangedb.ErrStreamNotFound)
 	}

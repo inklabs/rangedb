@@ -90,5 +90,5 @@ func (p Pagination) Links(baseURI string, totalRecords uint64) Links {
 
 // FirstRecordPosition returns the first record position.
 func (p Pagination) FirstRecordPosition() int {
-	return (p.Page - 1) * p.ItemsPerPage
+	return ((p.Page - 1) * p.ItemsPerPage) + 1
 }

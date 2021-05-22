@@ -42,7 +42,7 @@ func TestAggregateTypeStats(t *testing.T) {
 		rangedbtest.ReadRecord(t, blockingSubscriber.Records)
 		rangedbtest.ReadRecord(t, blockingSubscriber.Records)
 		assert.Equal(t, uint64(3), aggregateTypeStats.TotalEvents())
-		assert.Equal(t, uint64(2), aggregateTypeStats.LatestGlobalSequenceNumber())
+		assert.Equal(t, uint64(3), aggregateTypeStats.LatestGlobalSequenceNumber())
 		assert.Equal(t, uint64(2), aggregateTypeStats.TotalEventsByAggregateType(event1.AggregateType()))
 		assert.Equal(t, uint64(1), aggregateTypeStats.TotalEventsByAggregateType(event3.AggregateType()))
 		assert.Equal(t, []string{"another", "thing"}, aggregateTypeStats.SortedAggregateTypes())
@@ -79,7 +79,7 @@ func TestAggregateTypeStats(t *testing.T) {
 		// Then
 		assert.Equal(t, "AggregateTypeStats", aggregateTypeStats2.SnapshotName())
 		assert.Equal(t, uint64(3), aggregateTypeStats2.TotalEvents())
-		assert.Equal(t, uint64(2), aggregateTypeStats2.LatestGlobalSequenceNumber())
+		assert.Equal(t, uint64(3), aggregateTypeStats2.LatestGlobalSequenceNumber())
 		assert.Equal(t, uint64(2), aggregateTypeStats2.TotalEventsByAggregateType(event1.AggregateType()))
 		assert.Equal(t, uint64(1), aggregateTypeStats2.TotalEventsByAggregateType(event3.AggregateType()))
 	})

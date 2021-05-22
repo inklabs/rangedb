@@ -881,7 +881,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			allRecordsIter := store.Events(ctx, 0)
 			AssertNoMoreResultsInIterator(t, allRecordsIter)
 			streamRecordsIter := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event1))
-			assert.False(t, streamRecordsIter.Next())
+			require.False(t, streamRecordsIter.Next())
 			assert.Equal(t, rangedb.ErrStreamNotFound, streamRecordsIter.Err())
 			aggregateTypeRecordsIter := store.EventsByAggregateTypes(ctx, 0, event1.AggregateType())
 			AssertNoMoreResultsInIterator(t, aggregateTypeRecordsIter)

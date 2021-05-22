@@ -12,7 +12,7 @@ import (
 func TestUnexpectedSequenceNumber_NewFromString(t *testing.T) {
 	t.Run("normal error", func(t *testing.T) {
 		// Given
-		input := "unable to save to store: unexpected sequence number: 1, next: 0"
+		input := "unable to save to store: unexpected sequence number: 1, actual: 0"
 
 		// When
 		actual := rangedberror.NewUnexpectedSequenceNumberFromString(input)
@@ -21,12 +21,12 @@ func TestUnexpectedSequenceNumber_NewFromString(t *testing.T) {
 		require.NotNil(t, actual)
 		assert.Equal(t, uint64(1), actual.Expected)
 		assert.Equal(t, uint64(0), actual.ActualSequenceNumber)
-		assert.Equal(t, "unexpected sequence number: 1, next: 0", actual.Error())
+		assert.Equal(t, "unexpected sequence number: 1, actual: 0", actual.Error())
 	})
 
 	t.Run("exotic error", func(t *testing.T) {
 		// Given
-		input := "some rpc error: unable to save to store: unexpected sequence number: 1, next: 0"
+		input := "some rpc error: unable to save to store: unexpected sequence number: 1, actual: 0"
 
 		// When
 		actual := rangedberror.NewUnexpectedSequenceNumberFromString(input)
@@ -52,7 +52,7 @@ func TestUnexpectedSequenceNumber_NewFromString(t *testing.T) {
 
 	t.Run("unable to scan", func(t *testing.T) {
 		// Given
-		input := "unable to save to store: unexpected sequence number: xyz, next: !@#"
+		input := "unable to save to store: unexpected sequence number: xyz, actual: !@#"
 
 		// When
 		actual := rangedberror.NewUnexpectedSequenceNumberFromString(input)
