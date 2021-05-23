@@ -69,8 +69,8 @@ func Example_streamAggregateTypeEvents() {
 	// {
 	//   "aggregateType": "thing",
 	//   "aggregateID": "dce275e43137467b92c9f4eb6c9c77a3",
-	//   "globalSequenceNumber": 0,
-	//   "streamSequenceNumber": 0,
+	//   "globalSequenceNumber": 1,
+	//   "streamSequenceNumber": 1,
 	//   "insertTimestamp": 0,
 	//   "eventID": "d2ba8e70072943388203c438d4e94bf3",
 	//   "eventType": "ThingWasDone",
@@ -83,8 +83,8 @@ func Example_streamAggregateTypeEvents() {
 	// {
 	//   "aggregateType": "that",
 	//   "aggregateID": "075d37ae85894093aa818b391442df9b",
-	//   "globalSequenceNumber": 2,
-	//   "streamSequenceNumber": 0,
+	//   "globalSequenceNumber": 3,
+	//   "streamSequenceNumber": 1,
 	//   "insertTimestamp": 2,
 	//   "eventID": "2e9e6918af10498cb7349c89a351fdb7",
 	//   "eventType": "ThatWasDone",

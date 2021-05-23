@@ -21,6 +21,7 @@ https://pkg.go.dev/github.com/inklabs/rangedb/pkg/rangedbapi
 * [Save Events](../pkg/rangedbapi/save_events_test.go)
   * [Optimistic Concurrency](../pkg/rangedbapi/save_events_with_optimistic_concurrency_test.go)
   * [Optimistic Concurrency Failure Response](../pkg/rangedbapi/save_events_with_optimistic_concurrency_failure_test.go)
+* [Delete Stream](../pkg/rangedbapi/delete_stream_test.go)
 
 ### Websocket API
 
