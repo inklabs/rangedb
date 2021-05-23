@@ -117,7 +117,55 @@ func (s *levelDbStore) EventsByStream(ctx context.Context, streamSequenceNumber 
 }
 
 func (s *levelDbStore) OptimisticDeleteStream(ctx context.Context, expectedStreamSequenceNumber uint64, streamName string) error {
-	panic("implement me")
+	select {
+	case <-ctx.Done():
+		return context.Canceled
+
+	default:
+	}
+
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	transaction, err := s.db.OpenTransaction()
+	if err != nil {
+		return err
+	}
+
+	iter := s.db.NewIterator(util.BytesPrefix([]byte(streamName)), nil)
+	defer iter.Release()
+
+	cnt := uint64(0)
+	batch := new(leveldb.Batch)
+	for iter.Next() {
+		cnt++
+		batch.Delete(iter.Key())
+	}
+
+	if cnt == 0 {
+		return rangedb.ErrStreamNotFound
+	}
+
+	if cnt != expectedStreamSequenceNumber {
+		return &rangedberror.UnexpectedSequenceNumber{
+			Expected:             expectedStreamSequenceNumber,
+			ActualSequenceNumber: cnt,
+		}
+	}
+
+	_ = iter.Error()
+
+	err = transaction.Write(batch, nil)
+	if err != nil {
+		return err
+	}
+
+	err = transaction.Commit()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *levelDbStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
@@ -133,13 +181,12 @@ func (s *levelDbStore) saveEvents(ctx context.Context, expectedStreamSequenceNum
 		return 0, fmt.Errorf("missing events")
 	}
 
-	nextExpectedStreamSequenceNumber := expectedStreamSequenceNumber
-
 	var pendingEventsData [][]byte
 	var aggregateType, aggregateID string
 	var lastStreamSequenceNumber uint64
 
 	s.mux.Lock()
+	defer s.mux.Unlock()
 	transaction, err := s.db.OpenTransaction()
 	if err != nil {
 		return 0, err
@@ -148,13 +195,11 @@ func (s *levelDbStore) saveEvents(ctx context.Context, expectedStreamSequenceNum
 	for _, eventRecord := range eventRecords {
 		if aggregateType != "" && aggregateType != eventRecord.Event.AggregateType() {
 			transaction.Discard()
-			s.mux.Unlock()
 			return 0, fmt.Errorf("unmatched aggregate type")
 		}
 
 		if aggregateID != "" && aggregateID != eventRecord.Event.AggregateID() {
 			transaction.Discard()
-			s.mux.Unlock()
 			return 0, fmt.Errorf("unmatched aggregate ID")
 		}
 
@@ -170,27 +215,25 @@ func (s *levelDbStore) saveEvents(ctx context.Context, expectedStreamSequenceNum
 			aggregateID,
 			eventRecord.Event.EventType(),
 			shortuuid.New().String(),
-			nextExpectedStreamSequenceNumber,
+			expectedStreamSequenceNumber,
 			eventRecord.Event,
 			eventRecord.Metadata,
 		)
 		if err != nil {
 			transaction.Discard()
-			s.mux.Unlock()
 			return 0, err
 		}
 
 		pendingEventsData = append(pendingEventsData, data)
 
-		if nextExpectedStreamSequenceNumber != nil {
-			*nextExpectedStreamSequenceNumber++
+		if expectedStreamSequenceNumber != nil {
+			*expectedStreamSequenceNumber++
 		}
 	}
 	err = transaction.Commit()
 	if err != nil {
 		return 0, err
 	}
-	s.mux.Unlock()
 
 	for _, data := range pendingEventsData {
 		deSerializedRecord, err := s.serializer.Deserialize(data)
@@ -218,20 +261,20 @@ func (s *levelDbStore) saveEvent(ctx context.Context, transaction *leveldb.Trans
 	}
 
 	stream := rangedb.GetStream(aggregateType, aggregateID)
-	nextSequenceNumber := s.getNextStreamSequenceNumber(transaction, stream)
+	streamSequenceNumber := s.getStreamSequenceNumber(transaction, stream)
 
-	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber != nextSequenceNumber {
+	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber != streamSequenceNumber {
 		return nil, 0, &rangedberror.UnexpectedSequenceNumber{
 			Expected:             *expectedStreamSequenceNumber,
-			ActualSequenceNumber: nextSequenceNumber,
+			ActualSequenceNumber: streamSequenceNumber,
 		}
 	}
 
 	record := &rangedb.Record{
 		AggregateType:        aggregateType,
 		AggregateID:          aggregateID,
-		GlobalSequenceNumber: s.getNextGlobalSequenceNumber(transaction),
-		StreamSequenceNumber: nextSequenceNumber,
+		GlobalSequenceNumber: s.getGlobalSequenceNumber(transaction) + 1,
+		StreamSequenceNumber: streamSequenceNumber + 1,
 		EventType:            eventType,
 		EventID:              eventID,
 		InsertTimestamp:      uint64(s.clock.Now().Unix()),
@@ -291,7 +334,7 @@ func (s *levelDbStore) TotalEventsInStream(ctx context.Context, streamName strin
 	default:
 	}
 
-	return s.getNextStreamSequenceNumber(s.db, streamName), nil
+	return s.getStreamSequenceNumber(s.db, streamName), nil
 }
 
 func (s *levelDbStore) getEventsByPrefix(ctx context.Context, prefix string, streamSequenceNumber uint64) rangedb.RecordIterator {
@@ -305,7 +348,11 @@ func (s *levelDbStore) getEventsByPrefix(ctx context.Context, prefix string, str
 		iter := s.db.NewIterator(util.BytesPrefix([]byte(prefix)), nil)
 		defer iter.Release()
 
+		cnt := 0
+
 		for iter.Next() {
+			cnt++
+
 			record, err := s.getRecordByValue(iter.Value())
 			if err != nil {
 				resultRecords <- rangedb.ResultRecord{Err: err}
@@ -319,6 +366,11 @@ func (s *levelDbStore) getEventsByPrefix(ctx context.Context, prefix string, str
 			if !rangedb.PublishRecordOrCancel(ctx, resultRecords, record, time.Second) {
 				return
 			}
+		}
+
+		if cnt == 0 {
+			resultRecords <- rangedb.ResultRecord{Err: rangedb.ErrStreamNotFound}
+			return
 		}
 
 		_ = iter.Error()
@@ -412,22 +464,22 @@ type dbNewIterable interface {
 	NewIterator(slice *util.Range, ro *opt.ReadOptions) iterator.Iterator
 }
 
-func (s *levelDbStore) getNextGlobalSequenceNumber(iterable dbNewIterable) uint64 {
-	return s.getNextSequenceNumber(iterable, allEventsPrefix)
+func (s *levelDbStore) getGlobalSequenceNumber(iterable dbNewIterable) uint64 {
+	return s.getSequenceNumber(iterable, allEventsPrefix)
 }
 
-func (s *levelDbStore) getNextStreamSequenceNumber(iterable dbNewIterable, stream string) uint64 {
-	return s.getNextSequenceNumber(iterable, stream+separator)
+func (s *levelDbStore) getStreamSequenceNumber(iterable dbNewIterable, stream string) uint64 {
+	return s.getSequenceNumber(iterable, stream+separator)
 }
 
-func (s *levelDbStore) getNextSequenceNumber(iterable dbNewIterable, key string) uint64 {
+func (s *levelDbStore) getSequenceNumber(iterable dbNewIterable, key string) uint64 {
 	iter := iterable.NewIterator(util.BytesPrefix([]byte(key)), nil)
 	iter.Last()
 
 	keySize := len(key)
 	if len(iter.Key()) > keySize {
 		lastSequenceNumber := bytesToUint64(iter.Key()[keySize:])
-		return lastSequenceNumber + 1
+		return lastSequenceNumber
 	}
 
 	return 0

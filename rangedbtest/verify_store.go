@@ -695,6 +695,29 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			// Then
 			assert.Equal(t, rangedb.ErrStreamNotFound, err)
 		})
+
+		t.Run("deletes a stream with 2 events", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			const aggregateIDA = "17852dae2f9448acb0174419c7634fdf"
+			store := newStore(t, sequentialclock.New())
+			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
+			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
+			ctx := TimeoutContext(t)
+			SaveEvents(t, store,
+				&rangedb.EventRecord{Event: eventA1},
+				&rangedb.EventRecord{Event: eventA2},
+			)
+			streamName := rangedb.GetEventStream(eventA1)
+			ctx, done := context.WithCancel(TimeoutContext(t))
+			done()
+
+			// When
+			err := store.OptimisticDeleteStream(ctx, 2, streamName)
+
+			// Then
+			assert.Equal(t, context.Canceled, err)
+		})
 	})
 
 	t.Run("OptimisticSave", func(t *testing.T) {

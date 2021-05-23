@@ -147,6 +147,13 @@ func (s *inMemoryStore) recordsToIterator(ctx context.Context, serializedRecords
 }
 
 func (s *inMemoryStore) OptimisticDeleteStream(ctx context.Context, expectedStreamSequenceNumber uint64, streamName string) error {
+	select {
+	case <-ctx.Done():
+		return context.Canceled
+
+	default:
+	}
+
 	s.mux.Lock()
 	defer s.mux.Unlock()
 

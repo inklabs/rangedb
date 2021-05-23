@@ -34,7 +34,7 @@ func Test_Private_AllEvents_FailsWhenLookupRecordIsMissing(t *testing.T) {
 	event := rangedbtest.ThingWasDone{ID: "A"}
 	ctx := rangedbtest.TimeoutContext(t)
 	rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event})
-	err = store.db.Delete(getKeyWithNumber("thing!A!", 0), nil)
+	err = store.db.Delete(getKeyWithNumber("thing!A!", 1), nil)
 	require.NoError(t, err)
 
 	// When
@@ -44,7 +44,7 @@ func Test_Private_AllEvents_FailsWhenLookupRecordIsMissing(t *testing.T) {
 	assert.False(t, recordIterator.Next())
 	assert.Nil(t, recordIterator.Record())
 	assert.EqualError(t, recordIterator.Err(), "leveldb: not found")
-	assert.Equal(t, "unable to find lookup record thing!A!\x00\x00\x00\x00\x00\x00\x00\x00 for $all$!\x00\x00\x00\x00\x00\x00\x00\x00: leveldb: not found\n", logBuffer.String())
+	assert.Equal(t, "unable to find lookup record thing!A!\x00\x00\x00\x00\x00\x00\x00\x01 for $all$!\x00\x00\x00\x00\x00\x00\x00\x01: leveldb: not found\n", logBuffer.String())
 }
 
 func Test_Private_AllEvents_FailsWhenLookupRecordIsCorrupt(t *testing.T) {
@@ -79,7 +79,7 @@ func getStoreWithCorruptRecord(t *testing.T) (*bytes.Buffer, *levelDbStore, rang
 	event := rangedbtest.ThingWasDone{ID: "A"}
 	rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event})
 	invalidJSON := []byte(`xyz`)
-	err = store.db.Put(getKeyWithNumber("thing!A!", 0), invalidJSON, nil)
+	err = store.db.Put(getKeyWithNumber("thing!A!", 1), invalidJSON, nil)
 	require.NoError(t, err)
 	return &logBuffer, store, event
 }
