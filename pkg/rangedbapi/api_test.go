@@ -297,6 +297,176 @@ func TestApi_SaveEvents(t *testing.T) {
 	})
 }
 
+func TestApi_DeleteStream(t *testing.T) {
+	t.Run("deletes stream with 2 events", func(t *testing.T) {
+		// Given
+		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+		api, err := rangedbapi.New(rangedbapi.WithStore(store))
+		require.NoError(t, err)
+		const aggregateID = "439b8969c82b43d6bf0ee219b42d93ac"
+		const aggregateType = "thing"
+		shortuuid.SetRand(100)
+		saveEvents(t, api, aggregateType, aggregateID,
+			SaveEventRequest{
+				EventType: "ThingWasDone",
+				Data: rangedbtest.ThingWasDone{
+					ID:     aggregateID,
+					Number: 100,
+				},
+				Metadata: nil,
+			},
+			SaveEventRequest{
+				EventType: "ThingWasDone",
+				Data: rangedbtest.ThingWasDone{
+					ID:     aggregateID,
+					Number: 200,
+				},
+				Metadata: nil,
+			},
+		)
+
+		deleteStreamUri := fmt.Sprintf("/delete-stream/%s/%s", aggregateType, aggregateID)
+		request := httptest.NewRequest(http.MethodPost, deleteStreamUri, nil)
+		request.Header.Set("ExpectedStreamSequenceNumber", "2")
+		response := httptest.NewRecorder()
+
+		// When
+		api.ServeHTTP(response, request)
+
+		// Then
+		assert.Equal(t, http.StatusOK, response.Code)
+		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
+		assert.Equal(t, `{"status":"OK","eventsDeleted":2}`, response.Body.String())
+	})
+
+	t.Run("errors from wrong expected stream sequence number", func(t *testing.T) {
+		// Given
+		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+		api, err := rangedbapi.New(rangedbapi.WithStore(store))
+		require.NoError(t, err)
+		const aggregateID = "439b8969c82b43d6bf0ee219b42d93ac"
+		const aggregateType = "thing"
+		shortuuid.SetRand(100)
+		saveEvents(t, api, aggregateType, aggregateID,
+			SaveEventRequest{
+				EventType: "ThingWasDone",
+				Data: rangedbtest.ThingWasDone{
+					ID:     aggregateID,
+					Number: 100,
+				},
+				Metadata: nil,
+			},
+			SaveEventRequest{
+				EventType: "ThingWasDone",
+				Data: rangedbtest.ThingWasDone{
+					ID:     aggregateID,
+					Number: 200,
+				},
+				Metadata: nil,
+			},
+		)
+
+		deleteStreamUri := fmt.Sprintf("/delete-stream/%s/%s", aggregateType, aggregateID)
+		request := httptest.NewRequest(http.MethodPost, deleteStreamUri, nil)
+		request.Header.Set("ExpectedStreamSequenceNumber", "3")
+		response := httptest.NewRecorder()
+
+		// When
+		api.ServeHTTP(response, request)
+
+		// Then
+		assert.Equal(t, http.StatusBadRequest, response.Code)
+		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
+		assert.Equal(t, `{"status":"Failed", "message": "unexpected sequence number: 3, actual: 2"}`, response.Body.String())
+	})
+
+	t.Run("errors from invalid expected stream sequence number", func(t *testing.T) {
+		// Given
+		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+		api, err := rangedbapi.New(rangedbapi.WithStore(store))
+		require.NoError(t, err)
+		const aggregateID = "439b8969c82b43d6bf0ee219b42d93ac"
+		const aggregateType = "thing"
+		shortuuid.SetRand(100)
+		saveEvents(t, api, aggregateType, aggregateID,
+			SaveEventRequest{
+				EventType: "ThingWasDone",
+				Data: rangedbtest.ThingWasDone{
+					ID:     aggregateID,
+					Number: 100,
+				},
+				Metadata: nil,
+			},
+			SaveEventRequest{
+				EventType: "ThingWasDone",
+				Data: rangedbtest.ThingWasDone{
+					ID:     aggregateID,
+					Number: 200,
+				},
+				Metadata: nil,
+			},
+		)
+
+		deleteStreamUri := fmt.Sprintf("/delete-stream/%s/%s", aggregateType, aggregateID)
+		request := httptest.NewRequest(http.MethodPost, deleteStreamUri, nil)
+		request.Header.Set("ExpectedStreamSequenceNumber", "-1")
+		response := httptest.NewRecorder()
+
+		// When
+		api.ServeHTTP(response, request)
+
+		// Then
+		assert.Equal(t, http.StatusBadRequest, response.Code)
+		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
+		assert.Equal(t, `{"status":"Failed", "message": "invalid ExpectedStreamSequenceNumber"}`, response.Body.String())
+	})
+
+	t.Run("errors when store DeleteStream errors", func(t *testing.T) {
+		// Given
+		store := rangedbtest.NewFailingEventStore()
+		api, err := rangedbapi.New(rangedbapi.WithStore(store))
+		require.NoError(t, err)
+		const aggregateID = "439b8969c82b43d6bf0ee219b42d93ac"
+		const aggregateType = "thing"
+		shortuuid.SetRand(100)
+
+		deleteStreamUri := fmt.Sprintf("/delete-stream/%s/%s", aggregateType, aggregateID)
+		request := httptest.NewRequest(http.MethodPost, deleteStreamUri, nil)
+		request.Header.Set("ExpectedStreamSequenceNumber", "0")
+		response := httptest.NewRecorder()
+
+		// When
+		api.ServeHTTP(response, request)
+
+		// Then
+		assert.Equal(t, http.StatusInternalServerError, response.Code)
+		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
+		assert.Equal(t, `{"status":"Failed"}`, response.Body.String())
+	})
+
+	t.Run("errors from missing stream", func(t *testing.T) {
+		// Given
+		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+		api, err := rangedbapi.New(rangedbapi.WithStore(store))
+		require.NoError(t, err)
+		const aggregateID = "4fb43e659e2743049ae036e5c699c5e5"
+		const aggregateType = "thing"
+		shortuuid.SetRand(100)
+
+		deleteStreamUri := fmt.Sprintf("/delete-stream/%s/%s", aggregateType, aggregateID)
+		request := httptest.NewRequest(http.MethodPost, deleteStreamUri, nil)
+		response := httptest.NewRecorder()
+
+		// When
+		api.ServeHTTP(response, request)
+
+		// Then
+		assert.Equal(t, http.StatusNotFound, response.Code)
+		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
+		assert.Equal(t, `{"status":"Failed", "message": "stream not found"}`, response.Body.String())
+	})
+}
+
 func TestApi_WithFourEventsSaved(t *testing.T) {
 	// Given
 	store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))

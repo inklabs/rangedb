@@ -97,6 +97,7 @@ func (a *api) initRoutes() {
 	const extension = ".{extension:json|ndjson|msgpack}"
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/health-check", a.healthCheck)
+	router.HandleFunc("/delete-stream/"+stream, a.deleteStream)
 	router.HandleFunc("/save-events/"+stream, a.saveEvents)
 	router.HandleFunc("/events"+extension, a.allEvents)
 	router.HandleFunc("/events/"+stream+extension, a.eventsByStream)
@@ -172,6 +173,44 @@ func (a *api) eventsByAggregateType(w http.ResponseWriter, r *http.Request) {
 	events := a.store.EventsByAggregateTypes(r.Context(), 0, aggregateTypes...)
 
 	a.writeEvents(w, events, extension)
+}
+
+func (a *api) deleteStream(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	aggregateType := mux.Vars(r)["aggregateType"]
+	aggregateID := mux.Vars(r)["aggregateID"]
+	streamName := rangedb.GetStream(aggregateType, aggregateID)
+
+	expectedStreamSequenceNumber, err := expectedStreamSequenceNumberFromRequest(r)
+	if err != nil {
+		writeBadRequest(w, "invalid ExpectedStreamSequenceNumber")
+		return
+	}
+
+	deleteErr := a.store.OptimisticDeleteStream(r.Context(), expectedStreamSequenceNumber, streamName)
+	eventsDeleted := expectedStreamSequenceNumber
+
+	if deleteErr != nil {
+		if unexpectedErr, ok := deleteErr.(*rangedberror.UnexpectedSequenceNumber); ok {
+			writeBadRequest(w, unexpectedErr.Error())
+			return
+		}
+
+		if deleteErr == rangedb.ErrStreamNotFound {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = fmt.Fprintf(w, `{"status":"Failed", "message": "%s"}`, deleteErr.Error())
+			return
+		}
+
+		a.logger.Printf("unable to delete: %v", deleteErr)
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = fmt.Fprintf(w, `{"status":"Failed"}`)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_, _ = fmt.Fprintf(w, `{"status":"OK","eventsDeleted":%d}`, eventsDeleted)
 }
 
 func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
@@ -314,4 +353,18 @@ func newInvalidInput(err error) *invalidInput {
 
 func (i invalidInput) Error() string {
 	return fmt.Sprintf("invalid input: %v", i.err)
+}
+
+func expectedStreamSequenceNumberFromRequest(r *http.Request) (uint64, error) {
+	expectedStreamSequenceNumberInput := r.Header.Get("ExpectedStreamSequenceNumber")
+	if expectedStreamSequenceNumberInput != "" {
+		expectedStreamSequenceNumber, err := strconv.ParseUint(expectedStreamSequenceNumberInput, 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("invalid ExpectedStreamSequenceNumber")
+		}
+
+		return expectedStreamSequenceNumber, nil
+	}
+
+	return 0, nil
 }
