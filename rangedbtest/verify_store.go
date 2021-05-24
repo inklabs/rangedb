@@ -718,6 +718,88 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			// Then
 			assert.Equal(t, context.Canceled, err)
 		})
+
+		t.Run("maintains correct global sequence number when deleting the last event", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			const (
+				aggregateIDA = "9fff598582c449f288eef8c3847731a0"
+				aggregateIDB = "5748d5cfe9734eb3bd99aec84f585718"
+				aggregateIDC = "1ede7e475b6c4766972dd95ec544548e"
+			)
+			store := newStore(t, sequentialclock.New())
+			eventA := &ThingWasDone{ID: aggregateIDA, Number: 1}
+			eventB := &AnotherWasComplete{ID: aggregateIDB}
+			eventC := &ThatWasDone{ID: aggregateIDC}
+			ctx := TimeoutContext(t)
+			SaveEvents(t, store, &rangedb.EventRecord{Event: eventA})
+			SaveEvents(t, store, &rangedb.EventRecord{Event: eventB})
+			streamName := rangedb.GetEventStream(eventB)
+
+			// When
+			err := store.OptimisticDeleteStream(ctx, 1, streamName)
+
+			// Then
+			require.NoError(t, err)
+			SaveEvents(t, store, &rangedb.EventRecord{Event: eventC})
+			recordIterator := store.Events(ctx, 0)
+			AssertRecordsInIterator(t, recordIterator,
+				&rangedb.Record{
+					AggregateType:        eventA.AggregateType(),
+					AggregateID:          eventA.AggregateID(),
+					GlobalSequenceNumber: 1,
+					StreamSequenceNumber: 1,
+					EventType:            eventA.EventType(),
+					EventID:              "d2ba8e70072943388203c438d4e94bf3",
+					InsertTimestamp:      0,
+					Data:                 eventA,
+					Metadata:             nil,
+				},
+				&rangedb.Record{
+					AggregateType:        eventC.AggregateType(),
+					AggregateID:          eventC.AggregateID(),
+					GlobalSequenceNumber: 3,
+					StreamSequenceNumber: 1,
+					EventType:            eventC.EventType(),
+					EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+					InsertTimestamp:      2,
+					Data:                 eventC,
+					Metadata:             nil,
+				},
+			)
+			recordIterator = store.EventsByAggregateTypes(ctx, 0,
+				eventA.AggregateType(),
+				eventB.AggregateType(),
+				eventC.AggregateType(),
+			)
+			AssertRecordsInIterator(t, recordIterator,
+				&rangedb.Record{
+					AggregateType:        eventA.AggregateType(),
+					AggregateID:          eventA.AggregateID(),
+					GlobalSequenceNumber: 1,
+					StreamSequenceNumber: 1,
+					EventType:            eventA.EventType(),
+					EventID:              "d2ba8e70072943388203c438d4e94bf3",
+					InsertTimestamp:      0,
+					Data:                 eventA,
+					Metadata:             nil,
+				},
+				&rangedb.Record{
+					AggregateType:        eventC.AggregateType(),
+					AggregateID:          eventC.AggregateID(),
+					GlobalSequenceNumber: 3,
+					StreamSequenceNumber: 1,
+					EventType:            eventC.EventType(),
+					EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+					InsertTimestamp:      2,
+					Data:                 eventC,
+					Metadata:             nil,
+				},
+			)
+			recordIterator = store.EventsByStream(ctx, 0, eventB.AggregateType())
+			require.False(t, recordIterator.Next())
+			assert.Equal(t, rangedb.ErrStreamNotFound, recordIterator.Err())
+		})
 	})
 
 	t.Run("OptimisticSave", func(t *testing.T) {
