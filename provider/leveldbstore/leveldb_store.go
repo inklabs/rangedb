@@ -29,6 +29,7 @@ const (
 	broadcastRecordBuffSize = 100
 	separator               = "!"
 	allEventsPrefix         = "$all$" + separator
+	globalSequenceNumberKey = "$gsn$"
 )
 
 type levelDbStore struct {
@@ -139,7 +140,17 @@ func (s *levelDbStore) OptimisticDeleteStream(ctx context.Context, expectedStrea
 	batch := new(leveldb.Batch)
 	for iter.Next() {
 		cnt++
-		batch.Delete(iter.Key())
+		record, err := s.getRecordByValue(iter.Value())
+		if err != nil {
+			return err
+		}
+		streamKey := iter.Key()
+		allAggregateTypeKey := getKeyWithNumber(getAggregateTypeKeyPrefix(record.AggregateType), record.GlobalSequenceNumber)
+		allEventsKey := getKeyWithNumber(allEventsPrefix, record.GlobalSequenceNumber)
+
+		batch.Delete(streamKey)
+		batch.Delete(allAggregateTypeKey)
+		batch.Delete(allEventsKey)
 	}
 
 	if cnt == 0 {
@@ -270,10 +281,12 @@ func (s *levelDbStore) saveEvent(ctx context.Context, transaction *leveldb.Trans
 		}
 	}
 
+	globalSequenceNumber := s.getGlobalSequenceNumber(transaction) + 1
+
 	record := &rangedb.Record{
 		AggregateType:        aggregateType,
 		AggregateID:          aggregateID,
-		GlobalSequenceNumber: s.getGlobalSequenceNumber(transaction) + 1,
+		GlobalSequenceNumber: globalSequenceNumber,
 		StreamSequenceNumber: streamSequenceNumber + 1,
 		EventType:            eventType,
 		EventID:              eventID,
@@ -282,11 +295,13 @@ func (s *levelDbStore) saveEvent(ctx context.Context, transaction *leveldb.Trans
 		Metadata:             metadata,
 	}
 
-	batch := new(leveldb.Batch)
 	data, err := s.serializer.Serialize(record)
 	if err != nil {
 		return nil, 0, err
 	}
+
+	batch := new(leveldb.Batch)
+	batch.Put([]byte(globalSequenceNumberKey), uint64ToBytes(globalSequenceNumber))
 
 	streamKey := getKeyWithNumber(stream+separator, record.StreamSequenceNumber)
 	batch.Put(streamKey, data)
@@ -464,8 +479,14 @@ type dbNewIterable interface {
 	NewIterator(slice *util.Range, ro *opt.ReadOptions) iterator.Iterator
 }
 
-func (s *levelDbStore) getGlobalSequenceNumber(iterable dbNewIterable) uint64 {
-	return s.getSequenceNumber(iterable, allEventsPrefix)
+func (s *levelDbStore) getGlobalSequenceNumber(transaction *leveldb.Transaction) uint64 {
+	var globalSequenceNumber uint64
+	globalSequenceNumberBytes, err := transaction.Get([]byte(globalSequenceNumberKey), nil)
+	if err == nil {
+		globalSequenceNumber = bytesToUint64(globalSequenceNumberBytes)
+	}
+
+	return globalSequenceNumber
 }
 
 func (s *levelDbStore) getStreamSequenceNumber(iterable dbNewIterable, stream string) uint64 {
