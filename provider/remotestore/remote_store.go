@@ -311,10 +311,12 @@ func (s *remoteStore) readRecords(ctx context.Context, events PbRecordReceiver) 
 
 				if strings.Contains(err.Error(), rpcErrContextCanceled) {
 					resultRecords <- rangedb.ResultRecord{Err: context.Canceled}
+					return
 				}
 
 				if strings.Contains(err.Error(), rpcErrStreamNotFound) {
 					resultRecords <- rangedb.ResultRecord{Err: rangedb.ErrStreamNotFound}
+					return
 				}
 
 				log.Printf("failed to get record: %v", err)
