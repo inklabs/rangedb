@@ -91,4 +91,42 @@ func TestNewDecryptingRecordSubscriber(t *testing.T) {
 		actualRecord := <-records
 		assert.NotEqual(t, email, actualRecord.Data.(*cryptotest.CustomerSignedUp).Email)
 	})
+
+	t.Run("does not fail decrypting twice", func(t *testing.T) {
+		// Given
+		records := make(chan *rangedb.Record, 2)
+		defer close(records)
+		parent := rangedb.RecordSubscriberFunc(func(record *rangedb.Record) {
+			records <- record
+		})
+		aesEncryptor := aes.NewGCM()
+		keyStore := inmemorykeystore.New()
+		eventEncryptor := eventencryptor.New(keyStore, aesEncryptor)
+		decryptingRecordSubscriber := encryptedstore.NewDecryptingRecordSubscriber(parent, eventEncryptor)
+		event := &cryptotest.CustomerSignedUp{
+			ID:     "fa14d796bab84c9f9c2026a5324d6a34",
+			Name:   "test",
+			Email:  "john@example.com",
+			Status: "active",
+		}
+		require.NoError(t, eventEncryptor.Encrypt(event))
+		record := &rangedb.Record{
+			AggregateType:        event.AggregateType(),
+			AggregateID:          event.AggregateID(),
+			GlobalSequenceNumber: 1,
+			StreamSequenceNumber: 1,
+			EventType:            event.EventType(),
+			InsertTimestamp:      0,
+			Data:                 event,
+			Metadata:             nil,
+		}
+
+		// When
+		decryptingRecordSubscriber.Accept(record)
+		decryptingRecordSubscriber.Accept(record)
+
+		// Then
+		assert.Equal(t, event.Name, (<-records).Data.(*cryptotest.CustomerSignedUp).Name)
+		assert.Equal(t, event.Name, (<-records).Data.(*cryptotest.CustomerSignedUp).Name)
+	})
 }

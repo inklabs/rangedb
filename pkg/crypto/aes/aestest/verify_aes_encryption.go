@@ -101,7 +101,17 @@ func VerifyAESEncryption(t *testing.T, encryptor crypto.Encryptor) {
 				decryptedValue, err := encryptor.Decrypt(ValidAES256Base64Key, EmptyBase64CipherText)
 
 				// Then
-				require.EqualError(t, err, "encrypted data empty")
+				require.Equal(t, crypto.ErrInvalidCipherText, err)
+				assert.Equal(t, "", decryptedValue)
+			})
+
+			t.Run("from invalid cipher text", func(t *testing.T) {
+				// Given
+				// When
+				decryptedValue, err := encryptor.Decrypt(ValidAES256Base64Key, "test")
+
+				// Then
+				require.Equal(t, crypto.ErrInvalidCipherText, err)
 				assert.Equal(t, "", decryptedValue)
 			})
 

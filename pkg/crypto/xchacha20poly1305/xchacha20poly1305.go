@@ -3,9 +3,9 @@ package xchacha20poly1305
 import (
 	cryptoRand "crypto/rand"
 	"encoding/base64"
-	"fmt"
 	"io"
 
+	"github.com/inklabs/rangedb/pkg/crypto"
 	"golang.org/x/crypto/chacha20poly1305"
 )
 
@@ -66,7 +66,7 @@ func (x *xChaCha20Poly1305) encrypt(plainText, key []byte) ([]byte, error) {
 
 func (x *xChaCha20Poly1305) decrypt(key, sealedCipherText []byte) ([]byte, error) {
 	if len(sealedCipherText) == 0 {
-		return nil, fmt.Errorf("encrypted data empty")
+		return nil, crypto.ErrInvalidCipherText
 	}
 
 	aead, err := chacha20poly1305.NewX(key)

@@ -6,8 +6,9 @@ import (
 	"crypto/cipher"
 	cryptoRand "crypto/rand"
 	"encoding/base64"
-	"fmt"
 	"io"
+
+	"github.com/inklabs/rangedb/pkg/crypto"
 )
 
 type cbcPKCS5Padding struct{}
@@ -72,7 +73,11 @@ func (e *cbcPKCS5Padding) encrypt(plainText, key []byte) ([]byte, error) {
 
 func (e *cbcPKCS5Padding) decrypt(key, cipherText []byte) ([]byte, error) {
 	if len(cipherText) == 0 {
-		return nil, fmt.Errorf("encrypted data empty")
+		return nil, crypto.ErrInvalidCipherText
+	}
+
+	if len(cipherText) < aes.BlockSize {
+		return nil, crypto.ErrInvalidCipherText
 	}
 
 	cipherBlock, err := aes.NewCipher(key)

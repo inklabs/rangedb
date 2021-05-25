@@ -30,6 +30,10 @@ func (i *decryptingRecordIterator) Next() bool {
 func (i *decryptingRecordIterator) Record() *rangedb.Record {
 	record := i.parent.Record()
 
+	if record == nil {
+		return nil
+	}
+
 	if rangedbEvent, ok := record.Data.(rangedb.Event); ok {
 		err := i.eventEncryptor.Decrypt(rangedbEvent)
 		if err != nil {

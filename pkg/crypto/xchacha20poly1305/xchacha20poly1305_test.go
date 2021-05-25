@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/inklabs/rangedb/pkg/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -106,7 +107,7 @@ func TestXChaCha20Poly1305(t *testing.T) {
 				decryptedValue, err := encryptor.Decrypt(Valid256BitBase64Key, EmptyBase64CipherText)
 
 				// Then
-				require.EqualError(t, err, "encrypted data empty")
+				require.Equal(t, crypto.ErrInvalidCipherText, err)
 				assert.Equal(t, "", decryptedValue)
 			})
 

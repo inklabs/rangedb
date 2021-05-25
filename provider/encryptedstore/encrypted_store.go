@@ -36,6 +36,10 @@ func (e *encryptedStore) EventsByStream(ctx context.Context, streamSequenceNumbe
 	return NewDecryptingRecordIterator(e.parent.EventsByStream(ctx, streamSequenceNumber, streamName), e.eventEncryptor)
 }
 
+func (e *encryptedStore) OptimisticDeleteStream(ctx context.Context, expectedStreamSequenceNumber uint64, streamName string) error {
+	return e.parent.OptimisticDeleteStream(ctx, expectedStreamSequenceNumber, streamName)
+}
+
 func (e *encryptedStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	for _, record := range eventRecords {
 		err := e.eventEncryptor.Encrypt(record.Event)
