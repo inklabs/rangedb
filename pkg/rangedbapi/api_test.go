@@ -291,7 +291,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		api.ServeHTTP(response, request)
 
 		// Then
-		assert.Equal(t, http.StatusConflict, response.Code)
+		assert.Equal(t, http.StatusBadRequest, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
 		assert.Equal(t, `{"status":"Failed","message":"invalid ExpectedStreamSequenceNumber"}`, response.Body.String())
 	})
@@ -416,7 +416,7 @@ func TestApi_DeleteStream(t *testing.T) {
 		api.ServeHTTP(response, request)
 
 		// Then
-		assert.Equal(t, http.StatusConflict, response.Code)
+		assert.Equal(t, http.StatusBadRequest, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
 		assert.Equal(t, `{"status":"Failed","message":"invalid ExpectedStreamSequenceNumber"}`, response.Body.String())
 	})

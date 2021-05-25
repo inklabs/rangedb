@@ -184,7 +184,7 @@ func (a *api) deleteStream(w http.ResponseWriter, r *http.Request) {
 
 	expectedStreamSequenceNumber, err := expectedStreamSequenceNumberFromRequest(r)
 	if err != nil {
-		writeFailedResponse(w, "invalid ExpectedStreamSequenceNumber", http.StatusConflict)
+		writeFailedResponse(w, "invalid ExpectedStreamSequenceNumber", http.StatusBadRequest)
 		return
 	}
 
@@ -231,7 +231,7 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 	if expectedStreamSequenceNumberInput != "" {
 		expectedStreamSequenceNumber, err := strconv.ParseUint(expectedStreamSequenceNumberInput, 10, 64)
 		if err != nil {
-			writeFailedResponse(w, "invalid ExpectedStreamSequenceNumber", http.StatusConflict)
+			writeFailedResponse(w, "invalid ExpectedStreamSequenceNumber", http.StatusBadRequest)
 			return
 		}
 		lastStreamSequenceNumber, saveErr = a.store.OptimisticSave(r.Context(), expectedStreamSequenceNumber, eventRecords...)
