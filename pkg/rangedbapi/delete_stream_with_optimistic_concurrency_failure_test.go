@@ -46,9 +46,11 @@ func Example_optimisticDeleteStream_failure() {
 
 	body, err := ioutil.ReadAll(response.Body)
 	PrintError(err)
+	fmt.Println(response.Status)
 	fmt.Println(jsontools.PrettyJSON(body))
 
 	// Output:
+	// 409 Conflict
 	// {
 	//   "status": "Failed",
 	//   "message": "unexpected sequence number: 2, actual: 1"
