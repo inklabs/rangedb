@@ -16,7 +16,7 @@ import (
 	"github.com/inklabs/rangedb/rangedbtest"
 )
 
-func Example_deleteStream() {
+func Example_optimisticDeleteStream_failure() {
 	// Given
 	inMemoryStore := inmemorystore.New(
 		inmemorystore.WithClock(sequentialclock.New()),
@@ -36,7 +36,7 @@ func Example_deleteStream() {
 	url := fmt.Sprintf("%s/delete-stream/thing/4b9a415c53734b69ac459a7e53eb4c1b", server.URL)
 	request, err := http.NewRequest(http.MethodPost, url, nil)
 	PrintError(err)
-	request.Header.Set("ExpectedStreamSequenceNumber", "1")
+	request.Header.Set("ExpectedStreamSequenceNumber", "2")
 	client := http.DefaultClient
 
 	// When
@@ -50,7 +50,7 @@ func Example_deleteStream() {
 
 	// Output:
 	// {
-	//   "status": "OK",
-	//   "eventsDeleted": 1
+	//   "status": "Failed",
+	//   "message": "unexpected sequence number: 2, actual: 1"
 	// }
 }
