@@ -803,7 +803,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			})
 
 			t.Run("does not exist in stream", func(t *testing.T) {
-				recordIterator := store.EventsByStream(ctx, 0, eventB.AggregateType())
+				recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(eventB))
 				require.False(t, recordIterator.Next())
 				assert.Equal(t, rangedb.ErrStreamNotFound, recordIterator.Err())
 			})

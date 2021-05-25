@@ -81,7 +81,7 @@ func truncateRecords(t require.TestingT, config *postgresstore.Config) {
 
 	sqlStatements := []string{
 		`TRUNCATE record;`,
-		`ALTER SEQUENCE global_sequence_number RESTART WITH 0;`,
+		`ALTER SEQUENCE record_GlobalSequenceNumber_seq RESTART WITH 1;`,
 	}
 	for _, statement := range sqlStatements {
 		_, err = db.Exec(statement)
