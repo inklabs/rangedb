@@ -184,7 +184,7 @@ func (a *api) deleteStream(w http.ResponseWriter, r *http.Request) {
 
 	expectedStreamSequenceNumber, err := expectedStreamSequenceNumberFromRequest(r)
 	if err != nil {
-		writeBadRequest(w, "invalid ExpectedStreamSequenceNumber")
+		writeFailedResponse(w, "invalid ExpectedStreamSequenceNumber", http.StatusConflict)
 		return
 	}
 
@@ -193,19 +193,17 @@ func (a *api) deleteStream(w http.ResponseWriter, r *http.Request) {
 
 	if deleteErr != nil {
 		if unexpectedErr, ok := deleteErr.(*rangedberror.UnexpectedSequenceNumber); ok {
-			writeBadRequest(w, unexpectedErr.Error())
+			writeFailedResponse(w, unexpectedErr.Error(), http.StatusConflict)
 			return
 		}
 
 		if deleteErr == rangedb.ErrStreamNotFound {
-			w.WriteHeader(http.StatusNotFound)
-			_, _ = fmt.Fprintf(w, `{"status":"Failed", "message": "%s"}`, deleteErr.Error())
+			writeFailedResponse(w, deleteErr.Error(), http.StatusNotFound)
 			return
 		}
 
 		a.logger.Printf("unable to delete: %v", deleteErr)
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = fmt.Fprintf(w, `{"status":"Failed"}`)
+		writeFailedResponse(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 
@@ -223,7 +221,7 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 
 	eventRecords, err := getEventRecords(r)
 	if err != nil {
-		writeBadRequest(w, "invalid json request body")
+		writeFailedResponse(w, "invalid json request body", http.StatusBadRequest)
 		return
 	}
 
@@ -233,7 +231,7 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 	if expectedStreamSequenceNumberInput != "" {
 		expectedStreamSequenceNumber, err := strconv.ParseUint(expectedStreamSequenceNumberInput, 10, 64)
 		if err != nil {
-			writeBadRequest(w, "invalid ExpectedStreamSequenceNumber")
+			writeFailedResponse(w, "invalid ExpectedStreamSequenceNumber", http.StatusConflict)
 			return
 		}
 		lastStreamSequenceNumber, saveErr = a.store.OptimisticSave(r.Context(), expectedStreamSequenceNumber, eventRecords...)
@@ -243,13 +241,12 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 
 	if saveErr != nil {
 		if unexpectedErr, ok := saveErr.(*rangedberror.UnexpectedSequenceNumber); ok {
-			writeBadRequest(w, unexpectedErr.Error())
+			writeFailedResponse(w, unexpectedErr.Error(), http.StatusConflict)
 			return
 		}
 
 		a.logger.Printf("unable to save: %v", saveErr)
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = fmt.Fprintf(w, `{"status":"Failed"}`)
+		writeFailedResponse(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 
@@ -257,9 +254,9 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 	_, _ = fmt.Fprintf(w, `{"status":"OK","streamSequenceNumber":%d}`, lastStreamSequenceNumber)
 }
 
-func writeBadRequest(w http.ResponseWriter, message string) {
-	w.WriteHeader(http.StatusBadRequest)
-	_, _ = fmt.Fprintf(w, `{"status":"Failed", "message": "%s"}`, message)
+func writeFailedResponse(w http.ResponseWriter, message string, statusCode int) {
+	w.WriteHeader(statusCode)
+	_, _ = fmt.Fprintf(w, `{"status":"Failed","message":"%s"}`, message)
 }
 
 func getEventRecords(r *http.Request) ([]*rangedb.EventRecord, error) {

@@ -195,9 +195,9 @@ func TestApi_SaveEvents(t *testing.T) {
 		api.ServeHTTP(response, request)
 
 		// Then
-		assert.Equal(t, http.StatusBadRequest, response.Code)
+		assert.Equal(t, http.StatusConflict, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		assert.Equal(t, `{"status":"Failed", "message": "unexpected sequence number: 1, actual: 0"}`, response.Body.String())
+		assert.Equal(t, `{"status":"Failed","message":"unexpected sequence number: 1, actual: 0"}`, response.Body.String())
 	})
 
 	t.Run("errors when content type not set", func(t *testing.T) {
@@ -250,7 +250,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		// Then
 		assert.Equal(t, http.StatusInternalServerError, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		assert.Equal(t, `{"status":"Failed"}`, response.Body.String())
+		assert.Equal(t, `{"status":"Failed","message":"internal server error"}`, response.Body.String())
 		assert.Equal(t, "unable to save: failingEventStore.Save\n", logBuffer.String())
 	})
 
@@ -272,7 +272,7 @@ func TestApi_SaveEvents(t *testing.T) {
 		// Then
 		assert.Equal(t, http.StatusBadRequest, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		assert.Equal(t, `{"status":"Failed", "message": "invalid json request body"}`, response.Body.String())
+		assert.Equal(t, `{"status":"Failed","message":"invalid json request body"}`, response.Body.String())
 	})
 
 	t.Run("errors from invalid expected stream sequence number", func(t *testing.T) {
@@ -291,9 +291,9 @@ func TestApi_SaveEvents(t *testing.T) {
 		api.ServeHTTP(response, request)
 
 		// Then
-		assert.Equal(t, http.StatusBadRequest, response.Code)
+		assert.Equal(t, http.StatusConflict, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		assert.Equal(t, `{"status":"Failed", "message": "invalid ExpectedStreamSequenceNumber"}`, response.Body.String())
+		assert.Equal(t, `{"status":"Failed","message":"invalid ExpectedStreamSequenceNumber"}`, response.Body.String())
 	})
 }
 
@@ -375,9 +375,9 @@ func TestApi_DeleteStream(t *testing.T) {
 		api.ServeHTTP(response, request)
 
 		// Then
-		assert.Equal(t, http.StatusBadRequest, response.Code)
+		assert.Equal(t, http.StatusConflict, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		assert.Equal(t, `{"status":"Failed", "message": "unexpected sequence number: 3, actual: 2"}`, response.Body.String())
+		assert.Equal(t, `{"status":"Failed","message":"unexpected sequence number: 3, actual: 2"}`, response.Body.String())
 	})
 
 	t.Run("errors from invalid expected stream sequence number", func(t *testing.T) {
@@ -416,9 +416,9 @@ func TestApi_DeleteStream(t *testing.T) {
 		api.ServeHTTP(response, request)
 
 		// Then
-		assert.Equal(t, http.StatusBadRequest, response.Code)
+		assert.Equal(t, http.StatusConflict, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		assert.Equal(t, `{"status":"Failed", "message": "invalid ExpectedStreamSequenceNumber"}`, response.Body.String())
+		assert.Equal(t, `{"status":"Failed","message":"invalid ExpectedStreamSequenceNumber"}`, response.Body.String())
 	})
 
 	t.Run("errors when store DeleteStream errors", func(t *testing.T) {
@@ -441,7 +441,7 @@ func TestApi_DeleteStream(t *testing.T) {
 		// Then
 		assert.Equal(t, http.StatusInternalServerError, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		assert.Equal(t, `{"status":"Failed"}`, response.Body.String())
+		assert.Equal(t, `{"status":"Failed","message":"internal server error"}`, response.Body.String())
 	})
 
 	t.Run("errors from missing stream", func(t *testing.T) {
@@ -463,7 +463,7 @@ func TestApi_DeleteStream(t *testing.T) {
 		// Then
 		assert.Equal(t, http.StatusNotFound, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		assert.Equal(t, `{"status":"Failed", "message": "stream not found"}`, response.Body.String())
+		assert.Equal(t, `{"status":"Failed","message":"stream not found"}`, response.Body.String())
 	})
 }
 

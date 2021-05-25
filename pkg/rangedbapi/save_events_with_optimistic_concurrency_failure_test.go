@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/inklabs/rangedb/pkg/clock/provider/sequentialclock"
+	"github.com/inklabs/rangedb/pkg/jsontools"
 	"github.com/inklabs/rangedb/pkg/rangedbapi"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 )
@@ -55,8 +56,13 @@ func Example_optimisticSaveEvents_failure() {
 
 	body, err := ioutil.ReadAll(response.Body)
 	PrintError(err)
-	fmt.Println(string(body))
+	fmt.Println(response.Status)
+	fmt.Println(jsontools.PrettyJSON(body))
 
 	// Output:
-	// {"status":"Failed", "message": "unexpected sequence number: 2, actual: 0"}
+	// 409 Conflict
+	// {
+	//   "status": "Failed",
+	//   "message": "unexpected sequence number: 2, actual: 0"
+	// }
 }
