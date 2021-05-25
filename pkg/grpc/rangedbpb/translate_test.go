@@ -19,7 +19,7 @@ func TestToPbRecord(t *testing.T) {
 		input := &rangedb.Record{
 			AggregateType:        "thing",
 			AggregateID:          "60f01cc527844cde9953c998a2c077a7",
-			GlobalSequenceNumber: 0,
+			GlobalSequenceNumber: 1,
 			StreamSequenceNumber: 1,
 			EventType:            "ThingWasDone",
 			InsertTimestamp:      2,
@@ -34,7 +34,7 @@ func TestToPbRecord(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "thing", actual.AggregateType)
 		assert.Equal(t, "60f01cc527844cde9953c998a2c077a7", actual.AggregateID)
-		assert.Equal(t, uint64(0), actual.GlobalSequenceNumber)
+		assert.Equal(t, uint64(1), actual.GlobalSequenceNumber)
 		assert.Equal(t, uint64(1), actual.StreamSequenceNumber)
 		assert.Equal(t, "ThingWasDone", actual.EventType)
 		assert.Equal(t, uint64(2), actual.InsertTimestamp)
@@ -49,7 +49,7 @@ func TestToPbRecord(t *testing.T) {
 		input := &rangedb.Record{
 			AggregateType:        "thing",
 			AggregateID:          "60f01cc527844cde9953c998a2c077a7",
-			GlobalSequenceNumber: 0,
+			GlobalSequenceNumber: 1,
 			StreamSequenceNumber: 1,
 			EventType:            "ThingWasDone",
 			InsertTimestamp:      2,
@@ -103,7 +103,7 @@ func TestToPbRecord(t *testing.T) {
 		input := &rangedb.Record{
 			AggregateType:        "thing",
 			AggregateID:          "60f01cc527844cde9953c998a2c077a7",
-			GlobalSequenceNumber: 0,
+			GlobalSequenceNumber: 1,
 			StreamSequenceNumber: 1,
 			EventType:            "ThingWasDone",
 			InsertTimestamp:      2,
@@ -124,7 +124,7 @@ func TestToPbRecord(t *testing.T) {
 		input := &rangedb.Record{
 			AggregateType:        "thing",
 			AggregateID:          "60f01cc527844cde9953c998a2c077a7",
-			GlobalSequenceNumber: 0,
+			GlobalSequenceNumber: 1,
 			StreamSequenceNumber: 1,
 			EventType:            "ThingWasDone",
 			InsertTimestamp:      2,

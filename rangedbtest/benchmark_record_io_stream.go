@@ -81,12 +81,12 @@ func getNRecords(n int) rangedb.RecordIterator {
 	go func() {
 		defer close(resultRecords)
 
-		for i := 0; i < n; i++ {
+		for i := 1; i <= n; i++ {
 			record := &rangedb.Record{
 				AggregateType:        "thing",
 				AggregateID:          "c2077176843a49189ae0d746eb131e05",
-				GlobalSequenceNumber: 0,
-				StreamSequenceNumber: 0,
+				GlobalSequenceNumber: uint64(i),
+				StreamSequenceNumber: uint64(i),
 				InsertTimestamp:      0,
 				EventID:              "0899fed048964c2f9c398d7ef623f0c7",
 				EventType:            "ThingWasDone",

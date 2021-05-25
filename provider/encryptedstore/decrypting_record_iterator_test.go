@@ -30,8 +30,8 @@ func TestNewDecryptingRecordIterator(t *testing.T) {
 		record := &rangedb.Record{
 			AggregateType:        encryptedEvent.AggregateType(),
 			AggregateID:          encryptedEvent.AggregateID(),
-			GlobalSequenceNumber: 0,
-			StreamSequenceNumber: 0,
+			GlobalSequenceNumber: 1,
+			StreamSequenceNumber: 1,
 			EventType:            encryptedEvent.EventType(),
 			InsertTimestamp:      0,
 			Data:                 encryptedEvent,
@@ -74,8 +74,8 @@ func TestNewDecryptingRecordIterator(t *testing.T) {
 		record := &rangedb.Record{
 			AggregateType:        encryptedEvent.AggregateType(),
 			AggregateID:          encryptedEvent.AggregateID(),
-			GlobalSequenceNumber: 0,
-			StreamSequenceNumber: 0,
+			GlobalSequenceNumber: 1,
+			StreamSequenceNumber: 1,
 			EventType:            encryptedEvent.EventType(),
 			InsertTimestamp:      0,
 			Data:                 encryptedEvent,

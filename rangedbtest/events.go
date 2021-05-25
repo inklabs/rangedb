@@ -128,8 +128,8 @@ func DummyRecord() *rangedb.Record {
 	return &rangedb.Record{
 		AggregateType:        event.AggregateType(),
 		AggregateID:          event.AggregateID(),
-		GlobalSequenceNumber: 0,
-		StreamSequenceNumber: 0,
+		GlobalSequenceNumber: 1,
+		StreamSequenceNumber: 1,
 		InsertTimestamp:      0,
 		EventID:              "231fdd0542bf48f1abc5d508c16ca66d",
 		EventType:            event.EventType(),
@@ -143,8 +143,8 @@ func DummyRecordFromEvent(event rangedb.Event) *rangedb.Record {
 	return &rangedb.Record{
 		AggregateType:        event.AggregateType(),
 		AggregateID:          event.AggregateID(),
-		GlobalSequenceNumber: 0,
-		StreamSequenceNumber: 0,
+		GlobalSequenceNumber: 1,
+		StreamSequenceNumber: 1,
 		InsertTimestamp:      0,
 		EventID:              "231fdd0542bf48f1abc5d508c16ca66d",
 		EventType:            event.EventType(),

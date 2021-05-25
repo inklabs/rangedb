@@ -51,7 +51,7 @@ func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 		rangeDBClient := getClient(t, store)
 		ctx := rangedbtest.TimeoutContext(t)
 		eventsRequest := &rangedbpb.EventsRequest{
-			GlobalSequenceNumber: 0,
+			GlobalSequenceNumber: 1,
 		}
 
 		// When

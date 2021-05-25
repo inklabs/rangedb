@@ -15,8 +15,8 @@ func TestRecordIterator(t *testing.T) {
 	record := &rangedb.Record{
 		AggregateType:        event.AggregateType(),
 		AggregateID:          event.AggregateID(),
-		GlobalSequenceNumber: 0,
-		StreamSequenceNumber: 0,
+		GlobalSequenceNumber: 1,
+		StreamSequenceNumber: 1,
 		EventType:            event.EventType(),
 		InsertTimestamp:      0,
 		Data:                 event,
