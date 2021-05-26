@@ -47,11 +47,11 @@ func StoreBenchmark(b *testing.B, newStore func(b *testing.B) rangedb.Store) {
 			totalEvents                  = 10000
 			eventsPerStream              = 10
 			totalEventsToRead            = 1000
-			startingGlobalSequenceNumber = totalEvents - totalEventsToRead
+			startingGlobalSequenceNumber = totalEvents - totalEventsToRead + 1
 		)
 
 		aggregateID := ""
-		saveCtx, done := context.WithTimeout(context.Background(), 30*time.Second)
+		saveCtx, done := context.WithTimeout(context.Background(), 2*time.Minute)
 		b.Cleanup(done)
 		for i := 0; i < (totalEvents / eventsPerStream); i++ {
 			aggregateID = uuid.New().String()

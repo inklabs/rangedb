@@ -15,6 +15,7 @@ install:
   - go vet ./...
 
 before_script:
+  - echo "$DOCKER_ACCESS_TOKEN" | docker login -u "$DOCKER_USERNAME --password-stdin
   - docker run -d -p 8200:8200 -e 'VAULT_DEV_ROOT_TOKEN_ID=testroot' vault
   - psql -c 'create database travis_ci_test;' -U postgres
   - curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-0.8.0-linux-amd64 > ./cc-test-reporter
