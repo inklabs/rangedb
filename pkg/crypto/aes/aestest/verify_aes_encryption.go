@@ -1,14 +1,12 @@
 package aestest
 
 import (
-	"log"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/inklabs/rangedb/pkg/crypto"
-	"github.com/inklabs/rangedb/pkg/crypto/aes"
 )
 
 const (
@@ -22,8 +20,6 @@ const (
 )
 
 func VerifyAESEncryption(t *testing.T, encryptor crypto.Encryptor) {
-	encrypt, _ := aes.NewCBCPKCS5Padding().Encrypt(ValidAES256Base64Key, PlainText)
-	log.Print(encrypt)
 	t.Run("encrypt/decrypt string", func(t *testing.T) {
 		tests := []struct {
 			keyLength string

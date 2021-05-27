@@ -336,7 +336,6 @@ func (s *rangeDBServer) TotalEventsInStream(ctx context.Context, request *ranged
 func (s *rangeDBServer) broadcastRecord(stream streamSender, record *rangedb.Record) error {
 	pbRecord, err := rangedbpb.ToPbRecord(record)
 	if err != nil {
-		// s.logger.Printf("unable to marshal record: %v", err)
 		log.Printf("unable to marshal record: %v", err)
 		return err
 	}

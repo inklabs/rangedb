@@ -152,9 +152,9 @@ func TestRangeDBServer_SubscribeToLiveEvents(t *testing.T) {
 
 		// When
 		events, err := rangeDBClient.SubscribeToLiveEvents(ctx, request)
-		require.NoError(t, err)
 
 		// Then
+		require.NoError(t, err)
 		time.Sleep(time.Millisecond * 5)
 		actualRecords := make(chan *rangedbpb.Record, 10)
 
@@ -454,11 +454,10 @@ func TestRangeDBServer_Save(t *testing.T) {
 		}
 
 		// When
-		response, err := rangeDBClient.Save(ctx, request)
+		_, err := rangeDBClient.Save(ctx, request)
 
 		// Then
 		require.EqualError(t, err, "rpc error: code = InvalidArgument desc = unable to read event data: invalid character 'i' looking for beginning of object key string")
-		log.Println(response)
 		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveFailureResponse)
 		require.True(t, ok)
 		assert.Equal(t, "unable to read event data: invalid character 'i' looking for beginning of object key string", errorResponse.Message)
@@ -488,11 +487,10 @@ func TestRangeDBServer_Save(t *testing.T) {
 		}
 
 		// When
-		response, err := rangeDBClient.Save(ctx, request)
+		_, err := rangeDBClient.Save(ctx, request)
 
 		// Then
 		require.EqualError(t, err, "rpc error: code = InvalidArgument desc = unable to read event metadata: invalid character 'i' looking for beginning of object key string")
-		log.Println(response)
 		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveFailureResponse)
 		require.True(t, ok)
 		assert.Equal(t, "unable to read event metadata: invalid character 'i' looking for beginning of object key string", errorResponse.Message)
@@ -522,11 +520,10 @@ func TestRangeDBServer_Save(t *testing.T) {
 		}
 
 		// When
-		response, err := rangeDBClient.Save(ctx, request)
+		_, err := rangeDBClient.Save(ctx, request)
 
 		// Then
 		require.EqualError(t, err, "rpc error: code = Internal desc = unable to save to store: failingEventStore.Save")
-		log.Println(response)
 		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveFailureResponse)
 		require.True(t, ok)
 		assert.Equal(t, "unable to save to store: failingEventStore.Save", errorResponse.Message)
@@ -620,11 +617,10 @@ func TestRangeDBServer_OptimisticSave(t *testing.T) {
 		}
 
 		// When
-		response, err := rangeDBClient.OptimisticSave(ctx, request)
+		_, err := rangeDBClient.OptimisticSave(ctx, request)
 
 		// Then
 		require.EqualError(t, err, "rpc error: code = InvalidArgument desc = unable to read event data: invalid character 'i' looking for beginning of object key string")
-		log.Println(response)
 		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveFailureResponse)
 		require.True(t, ok)
 		assert.Equal(t, "unable to read event data: invalid character 'i' looking for beginning of object key string", errorResponse.Message)
@@ -654,11 +650,10 @@ func TestRangeDBServer_OptimisticSave(t *testing.T) {
 		}
 
 		// When
-		response, err := rangeDBClient.OptimisticSave(ctx, request)
+		_, err := rangeDBClient.OptimisticSave(ctx, request)
 
 		// Then
 		require.EqualError(t, err, "rpc error: code = InvalidArgument desc = unable to read event metadata: invalid character 'i' looking for beginning of object key string")
-		log.Println(response)
 		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveFailureResponse)
 		require.True(t, ok)
 		assert.Equal(t, "unable to read event metadata: invalid character 'i' looking for beginning of object key string", errorResponse.Message)
@@ -688,11 +683,10 @@ func TestRangeDBServer_OptimisticSave(t *testing.T) {
 		}
 
 		// When
-		response, err := rangeDBClient.OptimisticSave(ctx, request)
+		_, err := rangeDBClient.OptimisticSave(ctx, request)
 
 		// Then
 		require.EqualError(t, err, "rpc error: code = Internal desc = unable to save to store: failingEventStore.OptimisticSave")
-		log.Println(response)
 		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveFailureResponse)
 		require.True(t, ok)
 		assert.Equal(t, "unable to save to store: failingEventStore.OptimisticSave", errorResponse.Message)
