@@ -28,6 +28,10 @@ func (f failingEventStore) EventsByStream(_ context.Context, _ uint64, _ string)
 	return getFailingIterator("EventsByStream")
 }
 
+func (f failingEventStore) OptimisticDeleteStream(_ context.Context, _ uint64, _ string) error {
+	return fmt.Errorf("failingEventStore.OptimisitDeleteStream")
+}
+
 func (f failingEventStore) OptimisticSave(_ context.Context, _ uint64, _ ...*rangedb.EventRecord) (uint64, error) {
 	return 0, fmt.Errorf("failingEventStore.OptimisticSave")
 }

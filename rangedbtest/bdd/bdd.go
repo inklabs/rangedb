@@ -81,7 +81,7 @@ func (c *TestCase) Then(expectedEvents ...rangedb.Event) func(*testing.T) {
 		}
 
 		for stream, expectedEventsInStream := range streamExpectedEvents {
-			streamSequenceNumber := streamPreviousEventCounts[stream]
+			streamSequenceNumber := streamPreviousEventCounts[stream] + 1
 			ctx := rangedbtest.TimeoutContext(t)
 			actualEvents, err := recordIteratorToSlice(c.store.EventsByStream(ctx, streamSequenceNumber, stream))
 			assert.NoError(t, err)
@@ -107,7 +107,7 @@ func (c *TestCase) ThenInspectEvents(f func(t *testing.T, events []rangedb.Event
 
 		var events []rangedb.Event
 		for _, stream := range getStreamsFromStore(c.store) {
-			streamSequenceNumber := streamPreviousEventCounts[stream]
+			streamSequenceNumber := streamPreviousEventCounts[stream] + 1
 			actualEvents, err := recordIteratorToSlice(c.store.EventsByStream(ctx, streamSequenceNumber, stream))
 			require.NoError(t, err)
 

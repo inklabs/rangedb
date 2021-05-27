@@ -45,3 +45,6 @@ var ErrKeyAlreadyUsed = fmt.Errorf("encryption key already used")
 
 // ErrInvalidKey encryption key is not valid.
 var ErrInvalidKey = fmt.Errorf("invalid encryption key")
+
+// ErrInvalidCipherText encryption cipher text is not valid.
+var ErrInvalidCipherText = fmt.Errorf("invalid cipher text")

@@ -51,7 +51,7 @@ func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 		rangeDBClient := getClient(t, store)
 		ctx := rangedbtest.TimeoutContext(t)
 		eventsRequest := &rangedbpb.EventsRequest{
-			GlobalSequenceNumber: 0,
+			GlobalSequenceNumber: 1,
 		}
 
 		// When
@@ -70,8 +70,8 @@ func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 		expectedRecord1 := &rangedbpb.Record{
 			AggregateType:        "thing",
 			AggregateID:          "f187760f4d8c4d1c9d9cf17b66766abd",
-			GlobalSequenceNumber: 0,
-			StreamSequenceNumber: 0,
+			GlobalSequenceNumber: 1,
+			StreamSequenceNumber: 1,
 			InsertTimestamp:      0,
 			EventID:              "d2ba8e70072943388203c438d4e94bf3",
 			EventType:            "ThingWasDone",
@@ -81,8 +81,8 @@ func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 		expectedRecord2 := &rangedbpb.Record{
 			AggregateType:        "thing",
 			AggregateID:          "f187760f4d8c4d1c9d9cf17b66766abd",
-			GlobalSequenceNumber: 1,
-			StreamSequenceNumber: 1,
+			GlobalSequenceNumber: 2,
+			StreamSequenceNumber: 2,
 			InsertTimestamp:      1,
 			EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
 			EventType:            "ThingWasDone",
@@ -92,8 +92,8 @@ func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 		expectedRecord3 := &rangedbpb.Record{
 			AggregateType:        "thing",
 			AggregateID:          "5b36ae984b724685917b69ae47968be1",
-			GlobalSequenceNumber: 2,
-			StreamSequenceNumber: 0,
+			GlobalSequenceNumber: 3,
+			StreamSequenceNumber: 1,
 			InsertTimestamp:      2,
 			EventID:              "2e9e6918af10498cb7349c89a351fdb7",
 			EventType:            "ThingWasDone",
@@ -103,8 +103,8 @@ func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 		expectedRecord4 := &rangedbpb.Record{
 			AggregateType:        "another",
 			AggregateID:          "9bc181144cef4fd19da1f32a17363997",
-			GlobalSequenceNumber: 3,
-			StreamSequenceNumber: 0,
+			GlobalSequenceNumber: 4,
+			StreamSequenceNumber: 1,
 			InsertTimestamp:      3,
 			EventID:              "5042958739514c948f776fc9f820bca0",
 			EventType:            "AnotherWasComplete",
@@ -152,9 +152,9 @@ func TestRangeDBServer_SubscribeToLiveEvents(t *testing.T) {
 
 		// When
 		events, err := rangeDBClient.SubscribeToLiveEvents(ctx, request)
-		require.NoError(t, err)
 
 		// Then
+		require.NoError(t, err)
 		time.Sleep(time.Millisecond * 5)
 		actualRecords := make(chan *rangedbpb.Record, 10)
 
@@ -175,8 +175,8 @@ func TestRangeDBServer_SubscribeToLiveEvents(t *testing.T) {
 		expectedRecord1 := &rangedbpb.Record{
 			AggregateType:        "thing",
 			AggregateID:          "f187760f4d8c4d1c9d9cf17b66766abd",
-			GlobalSequenceNumber: 2,
-			StreamSequenceNumber: 2,
+			GlobalSequenceNumber: 3,
+			StreamSequenceNumber: 3,
 			InsertTimestamp:      2,
 			EventID:              "2e9e6918af10498cb7349c89a351fdb7",
 			EventType:            "ThingWasDone",
@@ -186,8 +186,8 @@ func TestRangeDBServer_SubscribeToLiveEvents(t *testing.T) {
 		expectedRecord2 := &rangedbpb.Record{
 			AggregateType:        "another",
 			AggregateID:          "5b36ae984b724685917b69ae47968be1",
-			GlobalSequenceNumber: 3,
-			StreamSequenceNumber: 0,
+			GlobalSequenceNumber: 4,
+			StreamSequenceNumber: 1,
 			InsertTimestamp:      3,
 			EventID:              "5042958739514c948f776fc9f820bca0",
 			EventType:            "AnotherWasComplete",
@@ -214,7 +214,7 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 		)
 		rangeDBClient := getClient(t, store)
 		request := &rangedbpb.SubscribeToEventsRequest{
-			GlobalSequenceNumber: 1,
+			GlobalSequenceNumber: 2,
 		}
 
 		// When
@@ -245,8 +245,8 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 		expectedRecord1 := &rangedbpb.Record{
 			AggregateType:        "thing",
 			AggregateID:          "f187760f4d8c4d1c9d9cf17b66766abd",
-			GlobalSequenceNumber: 1,
-			StreamSequenceNumber: 1,
+			GlobalSequenceNumber: 2,
+			StreamSequenceNumber: 2,
 			InsertTimestamp:      1,
 			EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
 			EventType:            "ThingWasDone",
@@ -256,8 +256,8 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 		expectedRecord2 := &rangedbpb.Record{
 			AggregateType:        "thing",
 			AggregateID:          "f187760f4d8c4d1c9d9cf17b66766abd",
-			GlobalSequenceNumber: 2,
-			StreamSequenceNumber: 2,
+			GlobalSequenceNumber: 3,
+			StreamSequenceNumber: 3,
 			InsertTimestamp:      2,
 			EventID:              "2e9e6918af10498cb7349c89a351fdb7",
 			EventType:            "ThingWasDone",
@@ -267,8 +267,8 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 		expectedRecord3 := &rangedbpb.Record{
 			AggregateType:        "another",
 			AggregateID:          "5b36ae984b724685917b69ae47968be1",
-			GlobalSequenceNumber: 3,
-			StreamSequenceNumber: 0,
+			GlobalSequenceNumber: 4,
+			StreamSequenceNumber: 1,
 			InsertTimestamp:      3,
 			EventID:              "5042958739514c948f776fc9f820bca0",
 			EventType:            "AnotherWasComplete",
@@ -296,7 +296,7 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 		)
 		rangeDBClient := getClient(t, store)
 		request := &rangedbpb.SubscribeToEventsByAggregateTypeRequest{
-			GlobalSequenceNumber: 1,
+			GlobalSequenceNumber: 2,
 			AggregateTypes:       []string{"thing", "another"},
 		}
 
@@ -331,8 +331,8 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 		expectedRecord1 := &rangedbpb.Record{
 			AggregateType:        "thing",
 			AggregateID:          "f187760f4d8c4d1c9d9cf17b66766abd",
-			GlobalSequenceNumber: 1,
-			StreamSequenceNumber: 1,
+			GlobalSequenceNumber: 2,
+			StreamSequenceNumber: 2,
 			InsertTimestamp:      1,
 			EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
 			EventType:            "ThingWasDone",
@@ -342,8 +342,8 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 		expectedRecord2 := &rangedbpb.Record{
 			AggregateType:        "thing",
 			AggregateID:          "f187760f4d8c4d1c9d9cf17b66766abd",
-			GlobalSequenceNumber: 2,
-			StreamSequenceNumber: 2,
+			GlobalSequenceNumber: 3,
+			StreamSequenceNumber: 3,
 			InsertTimestamp:      2,
 			EventID:              "2e9e6918af10498cb7349c89a351fdb7",
 			EventType:            "ThingWasDone",
@@ -353,8 +353,8 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 		expectedRecord3 := &rangedbpb.Record{
 			AggregateType:        "another",
 			AggregateID:          "5b36ae984b724685917b69ae47968be1",
-			GlobalSequenceNumber: 4,
-			StreamSequenceNumber: 0,
+			GlobalSequenceNumber: 5,
+			StreamSequenceNumber: 1,
 			InsertTimestamp:      4,
 			EventID:              "4059365d39ce4f0082f419ba1350d9c0",
 			EventType:            "AnotherWasComplete",
@@ -397,39 +397,37 @@ func TestRangeDBServer_Save(t *testing.T) {
 
 		// Then
 		assert.Equal(t, uint32(2), response.EventsSaved)
-		assert.Equal(t, uint64(1), response.LastStreamSequenceNumber)
+		assert.Equal(t, uint64(2), response.LastStreamSequenceNumber)
 		recordIterator := store.Events(ctx, 0)
-		expectedRecord1 := &rangedb.Record{
-			AggregateType:        "thing",
-			AggregateID:          "b5ef2296339d4ad1887f1deb486f7821",
-			GlobalSequenceNumber: 0,
-			StreamSequenceNumber: 0,
-			InsertTimestamp:      0,
-			EventID:              "d2ba8e70072943388203c438d4e94bf3",
-			EventType:            "ThingWasDone",
-			Data: map[string]interface{}{
-				"id":     "141b39d2b9854f8093ef79dc47dae6af",
-				"number": json.Number("100"),
-			},
-			Metadata: nil,
-		}
-		expectedRecord2 := &rangedb.Record{
-			AggregateType:        "thing",
-			AggregateID:          "b5ef2296339d4ad1887f1deb486f7821",
-			GlobalSequenceNumber: 1,
-			StreamSequenceNumber: 1,
-			InsertTimestamp:      1,
-			EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
-			EventType:            "ThingWasDone",
-			Data: map[string]interface{}{
-				"id":     "141b39d2b9854f8093ef79dc47dae6af",
-				"number": json.Number("200"),
-			},
-			Metadata: nil,
-		}
 		rangedbtest.AssertRecordsInIterator(t, recordIterator,
-			expectedRecord1,
-			expectedRecord2,
+			&rangedb.Record{
+				AggregateType:        "thing",
+				AggregateID:          "b5ef2296339d4ad1887f1deb486f7821",
+				GlobalSequenceNumber: 1,
+				StreamSequenceNumber: 1,
+				InsertTimestamp:      0,
+				EventID:              "d2ba8e70072943388203c438d4e94bf3",
+				EventType:            "ThingWasDone",
+				Data: map[string]interface{}{
+					"id":     "141b39d2b9854f8093ef79dc47dae6af",
+					"number": json.Number("100"),
+				},
+				Metadata: nil,
+			},
+			&rangedb.Record{
+				AggregateType:        "thing",
+				AggregateID:          "b5ef2296339d4ad1887f1deb486f7821",
+				GlobalSequenceNumber: 2,
+				StreamSequenceNumber: 2,
+				InsertTimestamp:      1,
+				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+				EventType:            "ThingWasDone",
+				Data: map[string]interface{}{
+					"id":     "141b39d2b9854f8093ef79dc47dae6af",
+					"number": json.Number("200"),
+				},
+				Metadata: nil,
+			},
 		)
 	})
 
@@ -456,11 +454,10 @@ func TestRangeDBServer_Save(t *testing.T) {
 		}
 
 		// When
-		response, err := rangeDBClient.Save(ctx, request)
+		_, err := rangeDBClient.Save(ctx, request)
 
 		// Then
 		require.EqualError(t, err, "rpc error: code = InvalidArgument desc = unable to read event data: invalid character 'i' looking for beginning of object key string")
-		log.Println(response)
 		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveFailureResponse)
 		require.True(t, ok)
 		assert.Equal(t, "unable to read event data: invalid character 'i' looking for beginning of object key string", errorResponse.Message)
@@ -490,11 +487,10 @@ func TestRangeDBServer_Save(t *testing.T) {
 		}
 
 		// When
-		response, err := rangeDBClient.Save(ctx, request)
+		_, err := rangeDBClient.Save(ctx, request)
 
 		// Then
 		require.EqualError(t, err, "rpc error: code = InvalidArgument desc = unable to read event metadata: invalid character 'i' looking for beginning of object key string")
-		log.Println(response)
 		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveFailureResponse)
 		require.True(t, ok)
 		assert.Equal(t, "unable to read event metadata: invalid character 'i' looking for beginning of object key string", errorResponse.Message)
@@ -524,11 +520,10 @@ func TestRangeDBServer_Save(t *testing.T) {
 		}
 
 		// When
-		response, err := rangeDBClient.Save(ctx, request)
+		_, err := rangeDBClient.Save(ctx, request)
 
 		// Then
 		require.EqualError(t, err, "rpc error: code = Internal desc = unable to save to store: failingEventStore.Save")
-		log.Println(response)
 		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveFailureResponse)
 		require.True(t, ok)
 		assert.Equal(t, "unable to save to store: failingEventStore.Save", errorResponse.Message)
@@ -566,37 +561,35 @@ func TestRangeDBServer_OptimisticSave(t *testing.T) {
 		// Then
 		assert.Equal(t, uint32(2), response.EventsSaved)
 		recordIterator := store.Events(ctx, 0)
-		expectedRecord1 := &rangedb.Record{
-			AggregateType:        "thing",
-			AggregateID:          "b5ef2296339d4ad1887f1deb486f7821",
-			GlobalSequenceNumber: 0,
-			StreamSequenceNumber: 0,
-			InsertTimestamp:      0,
-			EventID:              "d2ba8e70072943388203c438d4e94bf3",
-			EventType:            "ThingWasDone",
-			Data: map[string]interface{}{
-				"id":     "141b39d2b9854f8093ef79dc47dae6af",
-				"number": json.Number("100"),
-			},
-			Metadata: nil,
-		}
-		expectedRecord2 := &rangedb.Record{
-			AggregateType:        "thing",
-			AggregateID:          "b5ef2296339d4ad1887f1deb486f7821",
-			GlobalSequenceNumber: 1,
-			StreamSequenceNumber: 1,
-			InsertTimestamp:      1,
-			EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
-			EventType:            "ThingWasDone",
-			Data: map[string]interface{}{
-				"id":     "141b39d2b9854f8093ef79dc47dae6af",
-				"number": json.Number("200"),
-			},
-			Metadata: nil,
-		}
 		rangedbtest.AssertRecordsInIterator(t, recordIterator,
-			expectedRecord1,
-			expectedRecord2,
+			&rangedb.Record{
+				AggregateType:        "thing",
+				AggregateID:          "b5ef2296339d4ad1887f1deb486f7821",
+				GlobalSequenceNumber: 1,
+				StreamSequenceNumber: 1,
+				InsertTimestamp:      0,
+				EventID:              "d2ba8e70072943388203c438d4e94bf3",
+				EventType:            "ThingWasDone",
+				Data: map[string]interface{}{
+					"id":     "141b39d2b9854f8093ef79dc47dae6af",
+					"number": json.Number("100"),
+				},
+				Metadata: nil,
+			},
+			&rangedb.Record{
+				AggregateType:        "thing",
+				AggregateID:          "b5ef2296339d4ad1887f1deb486f7821",
+				GlobalSequenceNumber: 2,
+				StreamSequenceNumber: 2,
+				InsertTimestamp:      1,
+				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+				EventType:            "ThingWasDone",
+				Data: map[string]interface{}{
+					"id":     "141b39d2b9854f8093ef79dc47dae6af",
+					"number": json.Number("200"),
+				},
+				Metadata: nil,
+			},
 		)
 	})
 
@@ -624,11 +617,10 @@ func TestRangeDBServer_OptimisticSave(t *testing.T) {
 		}
 
 		// When
-		response, err := rangeDBClient.OptimisticSave(ctx, request)
+		_, err := rangeDBClient.OptimisticSave(ctx, request)
 
 		// Then
 		require.EqualError(t, err, "rpc error: code = InvalidArgument desc = unable to read event data: invalid character 'i' looking for beginning of object key string")
-		log.Println(response)
 		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveFailureResponse)
 		require.True(t, ok)
 		assert.Equal(t, "unable to read event data: invalid character 'i' looking for beginning of object key string", errorResponse.Message)
@@ -658,11 +650,10 @@ func TestRangeDBServer_OptimisticSave(t *testing.T) {
 		}
 
 		// When
-		response, err := rangeDBClient.OptimisticSave(ctx, request)
+		_, err := rangeDBClient.OptimisticSave(ctx, request)
 
 		// Then
 		require.EqualError(t, err, "rpc error: code = InvalidArgument desc = unable to read event metadata: invalid character 'i' looking for beginning of object key string")
-		log.Println(response)
 		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveFailureResponse)
 		require.True(t, ok)
 		assert.Equal(t, "unable to read event metadata: invalid character 'i' looking for beginning of object key string", errorResponse.Message)
@@ -692,11 +683,10 @@ func TestRangeDBServer_OptimisticSave(t *testing.T) {
 		}
 
 		// When
-		response, err := rangeDBClient.OptimisticSave(ctx, request)
+		_, err := rangeDBClient.OptimisticSave(ctx, request)
 
 		// Then
 		require.EqualError(t, err, "rpc error: code = Internal desc = unable to save to store: failingEventStore.OptimisticSave")
-		log.Println(response)
 		errorResponse, ok := status.Convert(err).Details()[0].(*rangedbpb.SaveFailureResponse)
 		require.True(t, ok)
 		assert.Equal(t, "unable to save to store: failingEventStore.OptimisticSave", errorResponse.Message)

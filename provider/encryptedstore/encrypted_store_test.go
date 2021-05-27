@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/inklabs/rangedb"
+	"github.com/inklabs/rangedb/pkg/clock"
 	"github.com/inklabs/rangedb/pkg/crypto/aes"
 	"github.com/inklabs/rangedb/pkg/crypto/cryptotest"
 	"github.com/inklabs/rangedb/pkg/crypto/eventencryptor"
@@ -14,6 +15,21 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func Test_EncryptedStore_VerifyStoreInterface(t *testing.T) {
+	rangedbtest.VerifyStore(t, func(t *testing.T, clock clock.Clock) rangedb.Store {
+		inMemoryStore := inmemorystore.New(
+			inmemorystore.WithClock(clock),
+		)
+		encryptor := aes.NewGCM()
+		keyStore := inmemorykeystore.New()
+		eventEncryptor := eventencryptor.New(keyStore, encryptor)
+		encryptedStore := encryptedstore.New(inMemoryStore, eventEncryptor)
+		rangedbtest.BindEvents(encryptedStore)
+
+		return encryptedStore
+	})
+}
 
 func TestEncryptedStore(t *testing.T) {
 	t.Run("OptimisticSave method encrypts, and Events method decrypts", func(t *testing.T) {

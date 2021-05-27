@@ -1,19 +1,22 @@
 package rangedbapi_test
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"strings"
+	"time"
 
+	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock/provider/sequentialclock"
 	"github.com/inklabs/rangedb/pkg/jsontools"
 	"github.com/inklabs/rangedb/pkg/rangedbapi"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
+	"github.com/inklabs/rangedb/rangedbtest"
 )
 
-func Example_optimisticSaveEvents_failure() {
+func Example_optimisticDeleteStream_failure() {
 	// Given
 	inMemoryStore := inmemorystore.New(
 		inmemorystore.WithClock(sequentialclock.New()),
@@ -21,31 +24,18 @@ func Example_optimisticSaveEvents_failure() {
 	api, err := rangedbapi.New(rangedbapi.WithStore(inMemoryStore))
 	PrintError(err)
 
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "4b9a415c53734b69ac459a7e53eb4c1b", Number: 100}},
+	)))
+
 	server := httptest.NewServer(api)
 	defer server.Close()
 
-	const requestBody = `[
-		{
-			"eventType": "ThingWasDone",
-			"data":{
-				"id": "141b39d2b9854f8093ef79dc47dae6af",
-				"number": 100
-			},
-			"metadata":null
-		},
-		{
-			"eventType": "ThingWasDone",
-			"data":{
-				"id": "141b39d2b9854f8093ef79dc47dae6af",
-				"number": 200
-			},
-			"metadata":null
-		}
-	]`
-	url := fmt.Sprintf("%s/save-events/thing/141b39d2b9854f8093ef79dc47dae6af", server.URL)
-	request, err := http.NewRequest(http.MethodPost, url, strings.NewReader(requestBody))
+	url := fmt.Sprintf("%s/delete-stream/thing/4b9a415c53734b69ac459a7e53eb4c1b", server.URL)
+	request, err := http.NewRequest(http.MethodPost, url, nil)
 	PrintError(err)
-	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("ExpectedStreamSequenceNumber", "2")
 	client := http.DefaultClient
 
@@ -63,6 +53,6 @@ func Example_optimisticSaveEvents_failure() {
 	// 409 Conflict
 	// {
 	//   "status": "Failed",
-	//   "message": "unexpected sequence number: 2, actual: 0"
+	//   "message": "unexpected sequence number: 2, actual: 1"
 	// }
 }

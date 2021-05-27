@@ -46,31 +46,29 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(eventA1))
 
 			// Then
-			expectedRecord1 := &rangedb.Record{
-				AggregateType:        eventA1.AggregateType(),
-				AggregateID:          eventA1.AggregateID(),
-				GlobalSequenceNumber: 0,
-				StreamSequenceNumber: 0,
-				EventType:            eventA1.EventType(),
-				EventID:              "d2ba8e70072943388203c438d4e94bf3",
-				InsertTimestamp:      0,
-				Data:                 eventA1,
-				Metadata:             nil,
-			}
-			expectedRecord2 := &rangedb.Record{
-				AggregateType:        eventA2.AggregateType(),
-				AggregateID:          eventA2.AggregateID(),
-				GlobalSequenceNumber: 1,
-				StreamSequenceNumber: 1,
-				EventType:            eventA2.EventType(),
-				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
-				InsertTimestamp:      1,
-				Data:                 eventA2,
-				Metadata:             nil,
-			}
 			AssertRecordsInIterator(t, recordIterator,
-				expectedRecord1,
-				expectedRecord2,
+				&rangedb.Record{
+					AggregateType:        eventA1.AggregateType(),
+					AggregateID:          eventA1.AggregateID(),
+					GlobalSequenceNumber: 1,
+					StreamSequenceNumber: 1,
+					EventType:            eventA1.EventType(),
+					EventID:              "d2ba8e70072943388203c438d4e94bf3",
+					InsertTimestamp:      0,
+					Data:                 eventA1,
+					Metadata:             nil,
+				},
+				&rangedb.Record{
+					AggregateType:        eventA2.AggregateType(),
+					AggregateID:          eventA2.AggregateID(),
+					GlobalSequenceNumber: 2,
+					StreamSequenceNumber: 2,
+					EventType:            eventA2.EventType(),
+					EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+					InsertTimestamp:      1,
+					Data:                 eventA2,
+					Metadata:             nil,
+				},
 			)
 		})
 
@@ -95,34 +93,32 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			)
 
 			// When
-			recordIterator := store.EventsByStream(ctx, 1, rangedb.GetEventStream(eventA1))
+			recordIterator := store.EventsByStream(ctx, 2, rangedb.GetEventStream(eventA1))
 
 			// Then
-			expectedRecord1 := &rangedb.Record{
-				AggregateType:        eventA2.AggregateType(),
-				AggregateID:          eventA2.AggregateID(),
-				GlobalSequenceNumber: 1,
-				StreamSequenceNumber: 1,
-				EventType:            eventA2.EventType(),
-				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
-				InsertTimestamp:      1,
-				Data:                 eventA2,
-				Metadata:             nil,
-			}
-			expectedRecord2 := &rangedb.Record{
-				AggregateType:        eventA3.AggregateType(),
-				AggregateID:          eventA3.AggregateID(),
-				GlobalSequenceNumber: 2,
-				StreamSequenceNumber: 2,
-				EventType:            eventA3.EventType(),
-				EventID:              "2e9e6918af10498cb7349c89a351fdb7",
-				InsertTimestamp:      2,
-				Data:                 eventA3,
-				Metadata:             nil,
-			}
 			AssertRecordsInIterator(t, recordIterator,
-				expectedRecord1,
-				expectedRecord2,
+				&rangedb.Record{
+					AggregateType:        eventA2.AggregateType(),
+					AggregateID:          eventA2.AggregateID(),
+					GlobalSequenceNumber: 2,
+					StreamSequenceNumber: 2,
+					EventType:            eventA2.EventType(),
+					EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+					InsertTimestamp:      1,
+					Data:                 eventA2,
+					Metadata:             nil,
+				},
+				&rangedb.Record{
+					AggregateType:        eventA3.AggregateType(),
+					AggregateID:          eventA3.AggregateID(),
+					GlobalSequenceNumber: 3,
+					StreamSequenceNumber: 3,
+					EventType:            eventA3.EventType(),
+					EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+					InsertTimestamp:      2,
+					Data:                 eventA3,
+					Metadata:             nil,
+				},
 			)
 		})
 
@@ -176,22 +172,21 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			)
 
 			// When
-			recordIterator := store.EventsByStream(ctx, 1, rangedb.GetEventStream(eventA1))
+			recordIterator := store.EventsByStream(ctx, 2, rangedb.GetEventStream(eventA1))
 
 			// Then
-			expectedRecord := &rangedb.Record{
-				AggregateType:        eventA2.AggregateType(),
-				AggregateID:          eventA2.AggregateID(),
-				GlobalSequenceNumber: 1,
-				StreamSequenceNumber: 1,
-				EventType:            eventA2.EventType(),
-				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
-				InsertTimestamp:      1,
-				Data:                 eventA2,
-				Metadata:             nil,
-			}
 			AssertRecordsInIterator(t, recordIterator,
-				expectedRecord,
+				&rangedb.Record{
+					AggregateType:        eventA2.AggregateType(),
+					AggregateID:          eventA2.AggregateID(),
+					GlobalSequenceNumber: 2,
+					StreamSequenceNumber: 2,
+					EventType:            eventA2.EventType(),
+					EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+					InsertTimestamp:      1,
+					Data:                 eventA2,
+					Metadata:             nil,
+				},
 			)
 		})
 
@@ -217,7 +212,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				&rangedb.EventRecord{Event: eventB},
 			)
 			ctx, done := context.WithCancel(TimeoutContext(t))
-			recordIterator := store.EventsByStream(ctx, 1, rangedb.GetEventStream(eventA1))
+			recordIterator := store.EventsByStream(ctx, 2, rangedb.GetEventStream(eventA1))
 
 			// When
 			recordIterator.Next()
@@ -227,8 +222,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			expectedRecord := &rangedb.Record{
 				AggregateType:        eventA2.AggregateType(),
 				AggregateID:          eventA2.AggregateID(),
-				GlobalSequenceNumber: 1,
-				StreamSequenceNumber: 1,
+				GlobalSequenceNumber: 2,
+				StreamSequenceNumber: 2,
 				EventType:            eventA2.EventType(),
 				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
 				InsertTimestamp:      1,
@@ -255,6 +250,21 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			// Then
 			assertCanceledIterator(t, recordIterator)
 		})
+
+		t.Run("errors when stream does not exist", func(t *testing.T) {
+			// Given
+			const aggregateID = "ad62bb76ab5b4bbd8266dfc2c5605fe6"
+			streamName := rangedb.GetStream("thing", aggregateID)
+			store := newStore(t, sequentialclock.New())
+			ctx := TimeoutContext(t)
+
+			// When
+			recordIterator := store.EventsByStream(ctx, 0, streamName)
+
+			// Then
+			assert.False(t, recordIterator.Next())
+			assert.Equal(t, rangedb.ErrStreamNotFound, recordIterator.Err())
+		})
 	})
 
 	t.Run("Events", func(t *testing.T) {
@@ -279,55 +289,51 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			recordIterator := store.Events(ctx, 0)
 
 			// Then
-			expectedRecord1 := &rangedb.Record{
-				AggregateType:        thingWasDoneA0.AggregateType(),
-				AggregateID:          thingWasDoneA0.AggregateID(),
-				GlobalSequenceNumber: 0,
-				StreamSequenceNumber: 0,
-				EventType:            thingWasDoneA0.EventType(),
-				EventID:              "d2ba8e70072943388203c438d4e94bf3",
-				InsertTimestamp:      0,
-				Data:                 thingWasDoneA0,
-				Metadata:             nil,
-			}
-			expectedRecord2 := &rangedb.Record{
-				AggregateType:        thingWasDoneB0.AggregateType(),
-				AggregateID:          thingWasDoneB0.AggregateID(),
-				GlobalSequenceNumber: 1,
-				StreamSequenceNumber: 0,
-				EventType:            thingWasDoneB0.EventType(),
-				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
-				InsertTimestamp:      1,
-				Data:                 thingWasDoneB0,
-				Metadata:             nil,
-			}
-			expectedRecord3 := &rangedb.Record{
-				AggregateType:        thingWasDoneA1.AggregateType(),
-				AggregateID:          thingWasDoneA1.AggregateID(),
-				GlobalSequenceNumber: 2,
-				StreamSequenceNumber: 1,
-				EventType:            thingWasDoneA1.EventType(),
-				EventID:              "2e9e6918af10498cb7349c89a351fdb7",
-				InsertTimestamp:      2,
-				Data:                 thingWasDoneA1,
-				Metadata:             nil,
-			}
-			expectedRecord4 := &rangedb.Record{
-				AggregateType:        AnotherWasCompleteX0.AggregateType(),
-				AggregateID:          AnotherWasCompleteX0.AggregateID(),
-				GlobalSequenceNumber: 3,
-				StreamSequenceNumber: 0,
-				EventType:            AnotherWasCompleteX0.EventType(),
-				EventID:              "5042958739514c948f776fc9f820bca0",
-				InsertTimestamp:      3,
-				Data:                 AnotherWasCompleteX0,
-				Metadata:             nil,
-			}
 			AssertRecordsInIterator(t, recordIterator,
-				expectedRecord1,
-				expectedRecord2,
-				expectedRecord3,
-				expectedRecord4,
+				&rangedb.Record{
+					AggregateType:        thingWasDoneA0.AggregateType(),
+					AggregateID:          thingWasDoneA0.AggregateID(),
+					GlobalSequenceNumber: 1,
+					StreamSequenceNumber: 1,
+					EventType:            thingWasDoneA0.EventType(),
+					EventID:              "d2ba8e70072943388203c438d4e94bf3",
+					InsertTimestamp:      0,
+					Data:                 thingWasDoneA0,
+					Metadata:             nil,
+				},
+				&rangedb.Record{
+					AggregateType:        thingWasDoneB0.AggregateType(),
+					AggregateID:          thingWasDoneB0.AggregateID(),
+					GlobalSequenceNumber: 2,
+					StreamSequenceNumber: 1,
+					EventType:            thingWasDoneB0.EventType(),
+					EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+					InsertTimestamp:      1,
+					Data:                 thingWasDoneB0,
+					Metadata:             nil,
+				},
+				&rangedb.Record{
+					AggregateType:        thingWasDoneA1.AggregateType(),
+					AggregateID:          thingWasDoneA1.AggregateID(),
+					GlobalSequenceNumber: 3,
+					StreamSequenceNumber: 2,
+					EventType:            thingWasDoneA1.EventType(),
+					EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+					InsertTimestamp:      2,
+					Data:                 thingWasDoneA1,
+					Metadata:             nil,
+				},
+				&rangedb.Record{
+					AggregateType:        AnotherWasCompleteX0.AggregateType(),
+					AggregateID:          AnotherWasCompleteX0.AggregateID(),
+					GlobalSequenceNumber: 4,
+					StreamSequenceNumber: 1,
+					EventType:            AnotherWasCompleteX0.EventType(),
+					EventID:              "5042958739514c948f776fc9f820bca0",
+					InsertTimestamp:      3,
+					Data:                 AnotherWasCompleteX0,
+					Metadata:             nil,
+				},
 			)
 		})
 
@@ -345,22 +351,21 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			)
 
 			// When
-			recordIterator := store.Events(ctx, 1)
+			recordIterator := store.Events(ctx, 2)
 
 			// Then
-			expectedRecord := &rangedb.Record{
-				AggregateType:        event2.AggregateType(),
-				AggregateID:          event2.AggregateID(),
-				GlobalSequenceNumber: 1,
-				StreamSequenceNumber: 1,
-				EventType:            event2.EventType(),
-				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
-				InsertTimestamp:      1,
-				Data:                 event2,
-				Metadata:             nil,
-			}
 			AssertRecordsInIterator(t, recordIterator,
-				expectedRecord,
+				&rangedb.Record{
+					AggregateType:        event2.AggregateType(),
+					AggregateID:          event2.AggregateID(),
+					GlobalSequenceNumber: 2,
+					StreamSequenceNumber: 2,
+					EventType:            event2.EventType(),
+					EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+					InsertTimestamp:      1,
+					Data:                 event2,
+					Metadata:             nil,
+				},
 			)
 		})
 
@@ -385,34 +390,32 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			)
 
 			// When
-			recordIterator := store.Events(ctx, 2)
+			recordIterator := store.Events(ctx, 3)
 
 			// Then
-			expectedRecord1 := &rangedb.Record{
-				AggregateType:        eventB1.AggregateType(),
-				AggregateID:          eventB1.AggregateID(),
-				GlobalSequenceNumber: 2,
-				StreamSequenceNumber: 0,
-				EventType:            eventB1.EventType(),
-				EventID:              "2e9e6918af10498cb7349c89a351fdb7",
-				InsertTimestamp:      2,
-				Data:                 eventB1,
-				Metadata:             nil,
-			}
-			expectedRecord2 := &rangedb.Record{
-				AggregateType:        eventB2.AggregateType(),
-				AggregateID:          eventB2.AggregateID(),
-				GlobalSequenceNumber: 3,
-				StreamSequenceNumber: 1,
-				EventType:            eventB2.EventType(),
-				EventID:              "5042958739514c948f776fc9f820bca0",
-				InsertTimestamp:      3,
-				Data:                 eventB2,
-				Metadata:             nil,
-			}
 			AssertRecordsInIterator(t, recordIterator,
-				expectedRecord1,
-				expectedRecord2,
+				&rangedb.Record{
+					AggregateType:        eventB1.AggregateType(),
+					AggregateID:          eventB1.AggregateID(),
+					GlobalSequenceNumber: 3,
+					StreamSequenceNumber: 1,
+					EventType:            eventB1.EventType(),
+					EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+					InsertTimestamp:      2,
+					Data:                 eventB1,
+					Metadata:             nil,
+				},
+				&rangedb.Record{
+					AggregateType:        eventB2.AggregateType(),
+					AggregateID:          eventB2.AggregateID(),
+					GlobalSequenceNumber: 4,
+					StreamSequenceNumber: 2,
+					EventType:            eventB2.EventType(),
+					EventID:              "5042958739514c948f776fc9f820bca0",
+					InsertTimestamp:      3,
+					Data:                 eventB2,
+					Metadata:             nil,
+				},
 			)
 		})
 
@@ -449,7 +452,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				&rangedb.EventRecord{Event: event3},
 				&rangedb.EventRecord{Event: event4},
 			)
-			recordIterator := store.Events(ctx, 1)
+			recordIterator := store.Events(ctx, 2)
 
 			// When
 			recordIterator.Next()
@@ -459,8 +462,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			expectedRecord := &rangedb.Record{
 				AggregateType:        event2.AggregateType(),
 				AggregateID:          event2.AggregateID(),
-				GlobalSequenceNumber: 1,
-				StreamSequenceNumber: 1,
+				GlobalSequenceNumber: 2,
+				StreamSequenceNumber: 2,
 				EventType:            event2.EventType(),
 				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
 				InsertTimestamp:      1,
@@ -489,7 +492,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			SaveEvents(t, store, &rangedb.EventRecord{Event: AnotherWasCompleteX0})
 
 			// When
-			recordIterator := store.Events(ctx, 4)
+			recordIterator := store.Events(ctx, 5)
 
 			// Then
 			AssertNoMoreResultsInIterator(t, recordIterator)
@@ -520,43 +523,40 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			recordIterator := store.EventsByAggregateTypes(ctx, 0, eventA1.AggregateType())
 
 			// Then
-			expectedRecord1 := &rangedb.Record{
-				AggregateType:        eventA1.AggregateType(),
-				AggregateID:          eventA1.AggregateID(),
-				GlobalSequenceNumber: 0,
-				StreamSequenceNumber: 0,
-				EventType:            eventA1.EventType(),
-				EventID:              "d2ba8e70072943388203c438d4e94bf3",
-				InsertTimestamp:      0,
-				Data:                 eventA1,
-				Metadata:             nil,
-			}
-			expectedRecord2 := &rangedb.Record{
-				AggregateType:        eventA2.AggregateType(),
-				AggregateID:          eventA2.AggregateID(),
-				GlobalSequenceNumber: 1,
-				StreamSequenceNumber: 1,
-				EventType:            eventA2.EventType(),
-				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
-				InsertTimestamp:      1,
-				Data:                 eventA2,
-				Metadata:             nil,
-			}
-			expectedRecord3 := &rangedb.Record{
-				AggregateType:        eventB.AggregateType(),
-				AggregateID:          eventB.AggregateID(),
-				GlobalSequenceNumber: 2,
-				StreamSequenceNumber: 0,
-				EventType:            eventB.EventType(),
-				EventID:              "2e9e6918af10498cb7349c89a351fdb7",
-				InsertTimestamp:      2,
-				Data:                 eventB,
-				Metadata:             nil,
-			}
 			AssertRecordsInIterator(t, recordIterator,
-				expectedRecord1,
-				expectedRecord2,
-				expectedRecord3,
+				&rangedb.Record{
+					AggregateType:        eventA1.AggregateType(),
+					AggregateID:          eventA1.AggregateID(),
+					GlobalSequenceNumber: 1,
+					StreamSequenceNumber: 1,
+					EventType:            eventA1.EventType(),
+					EventID:              "d2ba8e70072943388203c438d4e94bf3",
+					InsertTimestamp:      0,
+					Data:                 eventA1,
+					Metadata:             nil,
+				},
+				&rangedb.Record{
+					AggregateType:        eventA2.AggregateType(),
+					AggregateID:          eventA2.AggregateID(),
+					GlobalSequenceNumber: 2,
+					StreamSequenceNumber: 2,
+					EventType:            eventA2.EventType(),
+					EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+					InsertTimestamp:      1,
+					Data:                 eventA2,
+					Metadata:             nil,
+				},
+				&rangedb.Record{
+					AggregateType:        eventB.AggregateType(),
+					AggregateID:          eventB.AggregateID(),
+					GlobalSequenceNumber: 3,
+					StreamSequenceNumber: 1,
+					EventType:            eventB.EventType(),
+					EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+					InsertTimestamp:      2,
+					Data:                 eventB,
+					Metadata:             nil,
+				},
 			)
 		})
 
@@ -581,37 +581,35 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			// When
 			recordIterator := store.EventsByAggregateTypes(
 				ctx,
-				1,
+				2,
 				eventA1.AggregateType(),
 				eventB.AggregateType(),
 			)
 
 			// Then
-			expectedRecord1 := &rangedb.Record{
-				AggregateType:        eventA2.AggregateType(),
-				AggregateID:          eventA2.AggregateID(),
-				GlobalSequenceNumber: 1,
-				StreamSequenceNumber: 1,
-				EventType:            eventA2.EventType(),
-				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
-				InsertTimestamp:      1,
-				Data:                 eventA2,
-				Metadata:             nil,
-			}
-			expectedRecord2 := &rangedb.Record{
-				AggregateType:        eventB.AggregateType(),
-				AggregateID:          eventB.AggregateID(),
-				GlobalSequenceNumber: 2,
-				StreamSequenceNumber: 0,
-				EventType:            eventB.EventType(),
-				EventID:              "2e9e6918af10498cb7349c89a351fdb7",
-				InsertTimestamp:      2,
-				Data:                 eventB,
-				Metadata:             nil,
-			}
 			AssertRecordsInIterator(t, recordIterator,
-				expectedRecord1,
-				expectedRecord2,
+				&rangedb.Record{
+					AggregateType:        eventA2.AggregateType(),
+					AggregateID:          eventA2.AggregateID(),
+					GlobalSequenceNumber: 2,
+					StreamSequenceNumber: 2,
+					EventType:            eventA2.EventType(),
+					EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+					InsertTimestamp:      1,
+					Data:                 eventA2,
+					Metadata:             nil,
+				},
+				&rangedb.Record{
+					AggregateType:        eventB.AggregateType(),
+					AggregateID:          eventB.AggregateID(),
+					GlobalSequenceNumber: 3,
+					StreamSequenceNumber: 1,
+					EventType:            eventB.EventType(),
+					EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+					InsertTimestamp:      2,
+					Data:                 eventB,
+					Metadata:             nil,
+				},
 			)
 		})
 
@@ -633,6 +631,185 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		})
 	})
 
+	t.Run("OptimisticDeleteStream", func(t *testing.T) {
+		t.Run("deletes a stream with 2 events", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			const aggregateIDA = "17852dae2f9448acb0174419c7634fdf"
+			store := newStore(t, sequentialclock.New())
+			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
+			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
+			ctx := TimeoutContext(t)
+			SaveEvents(t, store,
+				&rangedb.EventRecord{Event: eventA1},
+				&rangedb.EventRecord{Event: eventA2},
+			)
+			streamName := rangedb.GetEventStream(eventA1)
+
+			// When
+			err := store.OptimisticDeleteStream(ctx, 2, streamName)
+
+			// Then
+			require.NoError(t, err)
+			recordIterator := store.EventsByStream(ctx, 0, streamName)
+			assert.False(t, recordIterator.Next())
+			assert.Equal(t, rangedb.ErrStreamNotFound, recordIterator.Err())
+		})
+
+		t.Run("errors from wrong expected stream sequence number", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			const aggregateIDA = "17852dae2f9448acb0174419c7634fdf"
+			store := newStore(t, sequentialclock.New())
+			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
+			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
+			ctx := TimeoutContext(t)
+			SaveEvents(t, store,
+				&rangedb.EventRecord{Event: eventA1},
+				&rangedb.EventRecord{Event: eventA2},
+			)
+			streamName := rangedb.GetEventStream(eventA1)
+
+			// When
+			err := store.OptimisticDeleteStream(ctx, 5, streamName)
+
+			// Then
+			require.NotNil(t, err)
+			sequenceNumberErr, ok := err.(*rangedberror.UnexpectedSequenceNumber)
+			require.True(t, ok)
+			assert.Equal(t, 5, int(sequenceNumberErr.Expected))
+			assert.Equal(t, 2, int(sequenceNumberErr.ActualSequenceNumber))
+		})
+
+		t.Run("errors when stream does not exist", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			const aggregateID = "0dec62a37ea048c8affe2d933ef7bb77"
+			store := newStore(t, sequentialclock.New())
+			ctx := TimeoutContext(t)
+			streamName := rangedb.GetStream("thing", aggregateID)
+
+			// When
+			err := store.OptimisticDeleteStream(ctx, 0, streamName)
+
+			// Then
+			assert.Equal(t, rangedb.ErrStreamNotFound, err)
+		})
+
+		t.Run("deletes a stream with 2 events", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			const aggregateIDA = "17852dae2f9448acb0174419c7634fdf"
+			store := newStore(t, sequentialclock.New())
+			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
+			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
+			ctx := TimeoutContext(t)
+			SaveEvents(t, store,
+				&rangedb.EventRecord{Event: eventA1},
+				&rangedb.EventRecord{Event: eventA2},
+			)
+			streamName := rangedb.GetEventStream(eventA1)
+			ctx, done := context.WithCancel(TimeoutContext(t))
+			done()
+
+			// When
+			err := store.OptimisticDeleteStream(ctx, 2, streamName)
+
+			// Then
+			assert.Equal(t, context.Canceled, err)
+		})
+
+		t.Run("maintains correct global sequence number when deleting the last event", func(t *testing.T) {
+			// Given
+			shortuuid.SetRand(100)
+			const (
+				aggregateIDA = "9fff598582c449f288eef8c3847731a0"
+				aggregateIDB = "5748d5cfe9734eb3bd99aec84f585718"
+				aggregateIDC = "1ede7e475b6c4766972dd95ec544548e"
+			)
+			store := newStore(t, sequentialclock.New())
+			eventA := &ThingWasDone{ID: aggregateIDA, Number: 1}
+			eventB := &AnotherWasComplete{ID: aggregateIDB}
+			eventC := &ThatWasDone{ID: aggregateIDC}
+			ctx := TimeoutContext(t)
+			SaveEvents(t, store, &rangedb.EventRecord{Event: eventA})
+			SaveEvents(t, store, &rangedb.EventRecord{Event: eventB})
+			streamName := rangedb.GetEventStream(eventB)
+
+			// When
+			err := store.OptimisticDeleteStream(ctx, 1, streamName)
+
+			// Then
+			require.NoError(t, err)
+			SaveEvents(t, store, &rangedb.EventRecord{Event: eventC})
+			t.Run("can retrieve from all events", func(t *testing.T) {
+				recordIterator := store.Events(ctx, 0)
+				AssertRecordsInIterator(t, recordIterator,
+					&rangedb.Record{
+						AggregateType:        eventA.AggregateType(),
+						AggregateID:          eventA.AggregateID(),
+						GlobalSequenceNumber: 1,
+						StreamSequenceNumber: 1,
+						EventType:            eventA.EventType(),
+						EventID:              "d2ba8e70072943388203c438d4e94bf3",
+						InsertTimestamp:      0,
+						Data:                 eventA,
+						Metadata:             nil,
+					},
+					&rangedb.Record{
+						AggregateType:        eventC.AggregateType(),
+						AggregateID:          eventC.AggregateID(),
+						GlobalSequenceNumber: 3,
+						StreamSequenceNumber: 1,
+						EventType:            eventC.EventType(),
+						EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+						InsertTimestamp:      2,
+						Data:                 eventC,
+						Metadata:             nil,
+					},
+				)
+			})
+
+			t.Run("can retrieve by aggregate types", func(t *testing.T) {
+				recordIterator := store.EventsByAggregateTypes(ctx, 0,
+					eventA.AggregateType(),
+					eventB.AggregateType(),
+					eventC.AggregateType(),
+				)
+				AssertRecordsInIterator(t, recordIterator,
+					&rangedb.Record{
+						AggregateType:        eventA.AggregateType(),
+						AggregateID:          eventA.AggregateID(),
+						GlobalSequenceNumber: 1,
+						StreamSequenceNumber: 1,
+						EventType:            eventA.EventType(),
+						EventID:              "d2ba8e70072943388203c438d4e94bf3",
+						InsertTimestamp:      0,
+						Data:                 eventA,
+						Metadata:             nil,
+					},
+					&rangedb.Record{
+						AggregateType:        eventC.AggregateType(),
+						AggregateID:          eventC.AggregateID(),
+						GlobalSequenceNumber: 3,
+						StreamSequenceNumber: 1,
+						EventType:            eventC.EventType(),
+						EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+						InsertTimestamp:      2,
+						Data:                 eventC,
+						Metadata:             nil,
+					},
+				)
+			})
+
+			t.Run("does not exist in stream", func(t *testing.T) {
+				recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(eventB))
+				require.False(t, recordIterator.Next())
+				assert.Equal(t, rangedb.ErrStreamNotFound, recordIterator.Err())
+			})
+		})
+	})
+
 	t.Run("OptimisticSave", func(t *testing.T) {
 		t.Run("persists 1 event", func(t *testing.T) {
 			// Given
@@ -643,7 +820,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			ctx := TimeoutContext(t)
 
 			// When
-			lastStreamSequenceNumber, err := store.OptimisticSave(
+			newStreamSequenceNumber, err := store.OptimisticSave(
 				ctx,
 				0,
 				&rangedb.EventRecord{Event: event},
@@ -651,21 +828,20 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 			// Then
 			require.NoError(t, err)
-			assert.Equal(t, uint64(0), lastStreamSequenceNumber)
+			assert.Equal(t, 1, int(newStreamSequenceNumber))
 			recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event))
-			expectedRecord := &rangedb.Record{
-				AggregateType:        event.AggregateType(),
-				AggregateID:          event.AggregateID(),
-				GlobalSequenceNumber: 0,
-				StreamSequenceNumber: 0,
-				EventType:            event.EventType(),
-				EventID:              "d2ba8e70072943388203c438d4e94bf3",
-				InsertTimestamp:      0,
-				Data:                 event,
-				Metadata:             nil,
-			}
 			AssertRecordsInIterator(t, recordIterator,
-				expectedRecord,
+				&rangedb.Record{
+					AggregateType:        event.AggregateType(),
+					AggregateID:          event.AggregateID(),
+					GlobalSequenceNumber: 1,
+					StreamSequenceNumber: 1,
+					EventType:            event.EventType(),
+					EventID:              "d2ba8e70072943388203c438d4e94bf3",
+					InsertTimestamp:      0,
+					Data:                 event,
+					Metadata:             nil,
+				},
 			)
 		})
 
@@ -680,7 +856,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			SaveEvents(t, store, &rangedb.EventRecord{Event: event1})
 
 			// When
-			lastStreamSequenceNumber, err := store.OptimisticSave(
+			newStreamSequenceNumber, err := store.OptimisticSave(
 				ctx,
 				1,
 				&rangedb.EventRecord{Event: event2},
@@ -688,33 +864,31 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 			// Then
 			require.NoError(t, err)
-			assert.Equal(t, uint64(1), lastStreamSequenceNumber)
+			assert.Equal(t, 2, int(newStreamSequenceNumber))
 			recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event2))
-			expectedRecord1 := &rangedb.Record{
-				AggregateType:        event1.AggregateType(),
-				AggregateID:          event1.AggregateID(),
-				GlobalSequenceNumber: 0,
-				StreamSequenceNumber: 0,
-				EventType:            event1.EventType(),
-				EventID:              "d2ba8e70072943388203c438d4e94bf3",
-				InsertTimestamp:      0,
-				Data:                 event1,
-				Metadata:             nil,
-			}
-			expectedRecord2 := &rangedb.Record{
-				AggregateType:        event2.AggregateType(),
-				AggregateID:          event2.AggregateID(),
-				GlobalSequenceNumber: 1,
-				StreamSequenceNumber: 1,
-				EventType:            event2.EventType(),
-				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
-				InsertTimestamp:      1,
-				Data:                 event2,
-				Metadata:             nil,
-			}
 			AssertRecordsInIterator(t, recordIterator,
-				expectedRecord1,
-				expectedRecord2,
+				&rangedb.Record{
+					AggregateType:        event1.AggregateType(),
+					AggregateID:          event1.AggregateID(),
+					GlobalSequenceNumber: 1,
+					StreamSequenceNumber: 1,
+					EventType:            event1.EventType(),
+					EventID:              "d2ba8e70072943388203c438d4e94bf3",
+					InsertTimestamp:      0,
+					Data:                 event1,
+					Metadata:             nil,
+				},
+				&rangedb.Record{
+					AggregateType:        event2.AggregateType(),
+					AggregateID:          event2.AggregateID(),
+					GlobalSequenceNumber: 2,
+					StreamSequenceNumber: 2,
+					EventType:            event2.EventType(),
+					EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+					InsertTimestamp:      1,
+					Data:                 event2,
+					Metadata:             nil,
+				},
 			)
 		})
 
@@ -728,7 +902,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			ctx := TimeoutContext(t)
 
 			// When
-			lastStreamSequenceNumber, err := store.OptimisticSave(
+			newStreamSequenceNumber, err := store.OptimisticSave(
 				ctx,
 				0,
 				&rangedb.EventRecord{
@@ -743,37 +917,35 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 			// Then
 			require.NoError(t, err)
-			assert.Equal(t, uint64(1), lastStreamSequenceNumber)
+			assert.Equal(t, 2, int(newStreamSequenceNumber))
 			recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event1))
-			expectedRecord1 := &rangedb.Record{
-				AggregateType:        event1.AggregateType(),
-				AggregateID:          event1.AggregateID(),
-				GlobalSequenceNumber: 0,
-				StreamSequenceNumber: 0,
-				EventType:            event1.EventType(),
-				EventID:              "d2ba8e70072943388203c438d4e94bf3",
-				InsertTimestamp:      0,
-				Data:                 event1,
-				Metadata:             nil,
-			}
-			expectedRecord2 := &rangedb.Record{
-				AggregateType:        event2.AggregateType(),
-				AggregateID:          event2.AggregateID(),
-				GlobalSequenceNumber: 1,
-				StreamSequenceNumber: 1,
-				EventType:            event2.EventType(),
-				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
-				InsertTimestamp:      1,
-				Data:                 event2,
-				Metadata:             nil,
-			}
 			AssertRecordsInIterator(t, recordIterator,
-				expectedRecord1,
-				expectedRecord2,
+				&rangedb.Record{
+					AggregateType:        event1.AggregateType(),
+					AggregateID:          event1.AggregateID(),
+					GlobalSequenceNumber: 1,
+					StreamSequenceNumber: 1,
+					EventType:            event1.EventType(),
+					EventID:              "d2ba8e70072943388203c438d4e94bf3",
+					InsertTimestamp:      0,
+					Data:                 event1,
+					Metadata:             nil,
+				},
+				&rangedb.Record{
+					AggregateType:        event2.AggregateType(),
+					AggregateID:          event2.AggregateID(),
+					GlobalSequenceNumber: 2,
+					StreamSequenceNumber: 2,
+					EventType:            event2.EventType(),
+					EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+					InsertTimestamp:      1,
+					Data:                 event2,
+					Metadata:             nil,
+				},
 			)
 		})
 
-		t.Run("fails to save first event from unexpected sequence number", func(t *testing.T) {
+		t.Run("fails to save first event from wrong expected sequence number", func(t *testing.T) {
 			// Given
 			shortuuid.SetRand(100)
 			store := newStore(t, sequentialclock.New())
@@ -782,17 +954,21 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			ctx := TimeoutContext(t)
 
 			// When
-			lastStreamSequenceNumber, err := store.OptimisticSave(ctx, 1, &rangedb.EventRecord{Event: event})
+			lastStreamSequenceNumber, err := store.OptimisticSave(
+				ctx,
+				1,
+				&rangedb.EventRecord{Event: event},
+			)
 
 			// Then
 			require.NotNil(t, err)
 			assert.Equal(t, uint64(0), lastStreamSequenceNumber)
-			assert.Contains(t, err.Error(), "unexpected sequence number: 1, next: 0")
+			assert.Contains(t, err.Error(), "unexpected sequence number: 1, actual: 0")
 			assert.IsType(t, &rangedberror.UnexpectedSequenceNumber{}, err)
 			sequenceNumberErr, ok := err.(*rangedberror.UnexpectedSequenceNumber)
-			assert.True(t, ok)
+			require.True(t, ok)
 			assert.Equal(t, uint64(1), sequenceNumberErr.Expected)
-			assert.Equal(t, uint64(0), sequenceNumberErr.NextSequenceNumber)
+			assert.Equal(t, uint64(0), sequenceNumberErr.ActualSequenceNumber)
 		})
 
 		t.Run("fails on 2nd event without persisting 1st event", func(t *testing.T) {
@@ -818,7 +994,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			allRecordsIter := store.Events(ctx, 0)
 			AssertNoMoreResultsInIterator(t, allRecordsIter)
 			streamRecordsIter := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event1))
-			AssertNoMoreResultsInIterator(t, streamRecordsIter)
+			require.False(t, streamRecordsIter.Next())
+			assert.Equal(t, rangedb.ErrStreamNotFound, streamRecordsIter.Err())
 			aggregateTypeRecordsIter := store.EventsByAggregateTypes(ctx, 0, event1.AggregateType())
 			AssertNoMoreResultsInIterator(t, aggregateTypeRecordsIter)
 		})
@@ -848,8 +1025,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			expectedRecord := &rangedb.Record{
 				AggregateType:        event1.AggregateType(),
 				AggregateID:          event1.AggregateID(),
-				GlobalSequenceNumber: 0,
-				StreamSequenceNumber: 0,
+				GlobalSequenceNumber: 1,
+				StreamSequenceNumber: 1,
 				EventType:            event1.EventType(),
 				EventID:              "d2ba8e70072943388203c438d4e94bf3",
 				InsertTimestamp:      0,
@@ -959,19 +1136,18 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			// Then
 			require.NoError(t, err)
 			recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event))
-			expectedRecord := &rangedb.Record{
-				AggregateType:        event.AggregateType(),
-				AggregateID:          event.AggregateID(),
-				GlobalSequenceNumber: 0,
-				StreamSequenceNumber: 0,
-				EventType:            event.EventType(),
-				EventID:              "d2ba8e70072943388203c438d4e94bf3",
-				InsertTimestamp:      0,
-				Data:                 event,
-				Metadata:             nil,
-			}
 			AssertRecordsInIterator(t, recordIterator,
-				expectedRecord,
+				&rangedb.Record{
+					AggregateType:        event.AggregateType(),
+					AggregateID:          event.AggregateID(),
+					GlobalSequenceNumber: 1,
+					StreamSequenceNumber: 1,
+					EventType:            event.EventType(),
+					EventID:              "d2ba8e70072943388203c438d4e94bf3",
+					InsertTimestamp:      0,
+					Data:                 event,
+					Metadata:             nil,
+				},
 			)
 		})
 
@@ -1069,8 +1245,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			expectedRecord := &rangedb.Record{
 				AggregateType:        event2.AggregateType(),
 				AggregateID:          event2.AggregateID(),
-				GlobalSequenceNumber: 1,
-				StreamSequenceNumber: 1,
+				GlobalSequenceNumber: 2,
+				StreamSequenceNumber: 2,
 				EventType:            event2.EventType(),
 				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
 				InsertTimestamp:      1,
@@ -1114,7 +1290,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			subscription := store.AllEventsSubscription(ctx, 10, countSubscriber)
 
 			// When
-			err := subscription.StartFrom(2)
+			err := subscription.StartFrom(3)
 
 			// Then
 			require.NoError(t, err)
@@ -1150,8 +1326,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			expectedRecord := &rangedb.Record{
 				AggregateType:        event3.AggregateType(),
 				AggregateID:          event3.AggregateID(),
-				GlobalSequenceNumber: 2,
-				StreamSequenceNumber: 1,
+				GlobalSequenceNumber: 3,
+				StreamSequenceNumber: 2,
 				EventType:            event3.EventType(),
 				EventID:              "2e9e6918af10498cb7349c89a351fdb7",
 				InsertTimestamp:      2,
@@ -1198,34 +1374,32 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		// Then
 		ReadRecord(t, triggerProcessManager.ReceivedRecords)
 		recordIterator := store.Events(TimeoutContext(t), 0)
-		expectedRecord1 := &rangedb.Record{
-			AggregateType:        event.AggregateType(),
-			AggregateID:          event.AggregateID(),
-			GlobalSequenceNumber: 0,
-			StreamSequenceNumber: 0,
-			EventType:            event.EventType(),
-			EventID:              "d2ba8e70072943388203c438d4e94bf3",
-			InsertTimestamp:      0,
-			Data:                 &event,
-			Metadata:             nil,
-		}
 		expectedTriggeredEvent := AnotherWasComplete{
 			ID: "2",
 		}
-		expectedRecord2 := &rangedb.Record{
-			AggregateType:        expectedTriggeredEvent.AggregateType(),
-			AggregateID:          expectedTriggeredEvent.AggregateID(),
-			GlobalSequenceNumber: 1,
-			StreamSequenceNumber: 0,
-			EventType:            expectedTriggeredEvent.EventType(),
-			EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
-			InsertTimestamp:      1,
-			Data:                 &expectedTriggeredEvent,
-			Metadata:             nil,
-		}
 		AssertRecordsInIterator(t, recordIterator,
-			expectedRecord1,
-			expectedRecord2,
+			&rangedb.Record{
+				AggregateType:        event.AggregateType(),
+				AggregateID:          event.AggregateID(),
+				GlobalSequenceNumber: 1,
+				StreamSequenceNumber: 1,
+				EventType:            event.EventType(),
+				EventID:              "d2ba8e70072943388203c438d4e94bf3",
+				InsertTimestamp:      0,
+				Data:                 &event,
+				Metadata:             nil,
+			},
+			&rangedb.Record{
+				AggregateType:        expectedTriggeredEvent.AggregateType(),
+				AggregateID:          expectedTriggeredEvent.AggregateID(),
+				GlobalSequenceNumber: 2,
+				StreamSequenceNumber: 1,
+				EventType:            expectedTriggeredEvent.EventType(),
+				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+				InsertTimestamp:      1,
+				Data:                 &expectedTriggeredEvent,
+				Metadata:             nil,
+			},
 		)
 	})
 
@@ -1242,19 +1416,18 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		recordIterator := store.Events(ctx, 0)
 
 		// Then
-		expectedRecord := &rangedb.Record{
-			AggregateType:        event.AggregateType(),
-			AggregateID:          event.AggregateID(),
-			GlobalSequenceNumber: 0,
-			StreamSequenceNumber: 0,
-			EventType:            event.EventType(),
-			EventID:              "d2ba8e70072943388203c438d4e94bf3",
-			InsertTimestamp:      0,
-			Data:                 &event,
-			Metadata:             nil,
-		}
 		AssertRecordsInIterator(t, recordIterator,
-			expectedRecord,
+			&rangedb.Record{
+				AggregateType:        event.AggregateType(),
+				AggregateID:          event.AggregateID(),
+				GlobalSequenceNumber: 1,
+				StreamSequenceNumber: 1,
+				EventType:            event.EventType(),
+				EventID:              "d2ba8e70072943388203c438d4e94bf3",
+				InsertTimestamp:      0,
+				Data:                 &event,
+				Metadata:             nil,
+			},
 		)
 	})
 

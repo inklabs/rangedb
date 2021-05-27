@@ -26,10 +26,12 @@ type inMemoryStore struct {
 	logger      *log.Logger
 	broadcaster broadcast.Broadcaster
 
-	mux                    sync.RWMutex
-	allRecords             [][]byte
-	recordsByStream        map[string][][]byte
-	recordsByAggregateType map[string][][]byte
+	mux                  sync.RWMutex
+	globalSequenceNumber uint64
+	records              []uint64
+	streams              map[string][]uint64
+	aggregateTypes       map[string][]uint64
+	recordData           map[uint64][]byte
 }
 
 // Option defines functional option parameters for inMemoryStore.
@@ -59,12 +61,13 @@ func WithLogger(logger *log.Logger) Option {
 // New constructs an inMemoryStore.
 func New(options ...Option) *inMemoryStore {
 	s := &inMemoryStore{
-		clock:                  systemclock.New(),
-		serializer:             jsonrecordserializer.New(),
-		logger:                 log.New(ioutil.Discard, "", 0),
-		broadcaster:            broadcast.New(broadcastRecordBuffSize, broadcast.DefaultTimeout),
-		recordsByStream:        make(map[string][][]byte),
-		recordsByAggregateType: make(map[string][][]byte),
+		clock:          systemclock.New(),
+		serializer:     jsonrecordserializer.New(),
+		logger:         log.New(ioutil.Discard, "", 0),
+		broadcaster:    broadcast.New(broadcastRecordBuffSize, broadcast.DefaultTimeout),
+		recordData:     make(map[uint64][]byte),
+		streams:        make(map[string][]uint64),
+		aggregateTypes: make(map[string][]uint64),
 	}
 
 	for _, option := range options {
@@ -80,7 +83,8 @@ func (s *inMemoryStore) Bind(events ...rangedb.Event) {
 
 func (s *inMemoryStore) Events(ctx context.Context, globalSequenceNumber uint64) rangedb.RecordIterator {
 	s.mux.RLock()
-	return s.recordsToIterator(ctx, s.allRecords, func(record *rangedb.Record) bool {
+
+	return s.recordsByIDs(ctx, s.records, func(record *rangedb.Record) bool {
 		return record.GlobalSequenceNumber >= globalSequenceNumber
 	})
 }
@@ -88,13 +92,13 @@ func (s *inMemoryStore) Events(ctx context.Context, globalSequenceNumber uint64)
 func (s *inMemoryStore) EventsByAggregateTypes(ctx context.Context, globalSequenceNumber uint64, aggregateTypes ...string) rangedb.RecordIterator {
 	if len(aggregateTypes) == 1 {
 		s.mux.RLock()
-		return s.recordsToIterator(ctx, s.recordsByAggregateType[aggregateTypes[0]], compareByGlobalSequenceNumber(globalSequenceNumber))
+		return s.recordsByIDs(ctx, s.aggregateTypes[aggregateTypes[0]], compareByGlobalSequenceNumber(globalSequenceNumber))
 	}
 
 	var recordIterators []rangedb.RecordIterator
 	for _, aggregateType := range aggregateTypes {
 		s.mux.RLock()
-		recordIterators = append(recordIterators, s.recordsToIterator(ctx, s.recordsByAggregateType[aggregateType], compareByGlobalSequenceNumber(globalSequenceNumber)))
+		recordIterators = append(recordIterators, s.recordsByIDs(ctx, s.aggregateTypes[aggregateType], compareByGlobalSequenceNumber(globalSequenceNumber)))
 	}
 
 	return rangedb.MergeRecordIteratorsInOrder(recordIterators)
@@ -108,20 +112,32 @@ func compareByGlobalSequenceNumber(globalSequenceNumber uint64) func(record *ran
 
 func (s *inMemoryStore) EventsByStream(ctx context.Context, streamSequenceNumber uint64, stream string) rangedb.RecordIterator {
 	s.mux.RLock()
-	return s.recordsToIterator(ctx, s.recordsByStream[stream], func(record *rangedb.Record) bool {
+
+	if _, ok := s.streams[stream]; !ok || len(s.streams[stream]) == 0 {
+		s.mux.RUnlock()
+		return rangedb.NewRecordIteratorWithError(rangedb.ErrStreamNotFound)
+	}
+
+	return s.recordsByIDs(ctx, s.streams[stream], func(record *rangedb.Record) bool {
 		return record.StreamSequenceNumber >= streamSequenceNumber
 	})
 }
 
-func (s *inMemoryStore) recordsToIterator(ctx context.Context, serializedRecords [][]byte, compare func(record *rangedb.Record) bool) rangedb.RecordIterator {
+func (s *inMemoryStore) recordsByIDs(ctx context.Context, ids []uint64, compare func(record *rangedb.Record) bool) rangedb.RecordIterator {
 	resultRecords := make(chan rangedb.ResultRecord)
 
 	go func() {
 		defer s.mux.RUnlock()
 		defer close(resultRecords)
 
-		for _, data := range serializedRecords {
-			record, err := s.serializer.Deserialize(data)
+		for _, id := range ids {
+			recordData, exists := s.recordData[id]
+			if !exists {
+				resultRecords <- rangedb.ResultRecord{Err: fmt.Errorf("record missing")}
+				return
+			}
+
+			record, err := s.serializer.Deserialize(recordData)
 			if err != nil {
 				deserializeErr := fmt.Errorf("failed to deserialize record: %v", err)
 				s.logger.Printf(deserializeErr.Error())
@@ -140,6 +156,55 @@ func (s *inMemoryStore) recordsToIterator(ctx context.Context, serializedRecords
 	return rangedb.NewRecordIterator(resultRecords)
 }
 
+func (s *inMemoryStore) OptimisticDeleteStream(ctx context.Context, expectedStreamSequenceNumber uint64, streamName string) error {
+	select {
+	case <-ctx.Done():
+		return context.Canceled
+
+	default:
+	}
+
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	if _, ok := s.streams[streamName]; !ok {
+		return rangedb.ErrStreamNotFound
+	}
+
+	currentStreamSequenceNumber := s.getStreamSequenceNumber(streamName)
+	if expectedStreamSequenceNumber != currentStreamSequenceNumber {
+		return &rangedberror.UnexpectedSequenceNumber{
+			Expected:             expectedStreamSequenceNumber,
+			ActualSequenceNumber: currentStreamSequenceNumber,
+		}
+	}
+
+	for _, globalSequenceNumberInStream := range s.streams[streamName] {
+		for i, globalSequenceNumber := range s.records {
+			if globalSequenceNumber == globalSequenceNumberInStream {
+				s.records = RemoveIndex(s.records, i)
+				delete(s.recordData, globalSequenceNumber)
+			}
+		}
+
+		for aggregateType, globalSequenceNumbers := range s.aggregateTypes {
+			for i, globalSequenceNumber := range globalSequenceNumbers {
+				if globalSequenceNumber == globalSequenceNumberInStream {
+					s.aggregateTypes[aggregateType] = RemoveIndex(s.aggregateTypes[aggregateType], i)
+				}
+			}
+		}
+	}
+
+	delete(s.streams, streamName)
+
+	return nil
+}
+
+func RemoveIndex(s []uint64, index int) []uint64 {
+	return append(s[:index], s[index+1:]...)
+}
+
 func (s *inMemoryStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	return s.saveEvents(ctx, &expectedStreamSequenceNumber, eventRecords...)
 }
@@ -154,12 +219,11 @@ func (s *inMemoryStore) saveEvents(ctx context.Context, expectedStreamSequenceNu
 		return 0, fmt.Errorf("missing events")
 	}
 
-	nextExpectedStreamSequenceNumber := expectedStreamSequenceNumber
-
 	var pendingEventsData [][]byte
 	var totalSavedEvents int
 	var aggregateType, aggregateID string
 	var lastStreamSequenceNumber uint64
+	var createdGlobalSequenceNumbers []uint64
 
 	s.mux.Lock()
 	for _, eventRecord := range eventRecords {
@@ -184,28 +248,29 @@ func (s *inMemoryStore) saveEvents(ctx context.Context, expectedStreamSequenceNu
 		default:
 		}
 
-		var data []byte
-		var err error
-		data, lastStreamSequenceNumber, err = s.saveEvent(
+		data, record, err := s.saveEvent(
 			aggregateType,
 			aggregateID,
 			eventRecord.Event.EventType(),
 			shortuuid.New().String(),
-			nextExpectedStreamSequenceNumber,
+			expectedStreamSequenceNumber,
 			eventRecord.Event,
 			eventRecord.Metadata,
 		)
 		if err != nil {
-			s.removeEvents(totalSavedEvents, eventRecord.Event.AggregateType(), eventRecord.Event.AggregateID())
+			s.removeRecentEvents(createdGlobalSequenceNumbers, eventRecord.Event.AggregateType(), eventRecord.Event.AggregateID())
 			s.mux.Unlock()
 			return 0, err
 		}
 
+		createdGlobalSequenceNumbers = append(createdGlobalSequenceNumbers, record.GlobalSequenceNumber)
+		lastStreamSequenceNumber = record.StreamSequenceNumber
+
 		totalSavedEvents++
 		pendingEventsData = append(pendingEventsData, data)
 
-		if nextExpectedStreamSequenceNumber != nil {
-			*nextExpectedStreamSequenceNumber++
+		if expectedStreamSequenceNumber != nil {
+			*expectedStreamSequenceNumber++
 		}
 	}
 	s.mux.Unlock()
@@ -226,23 +291,26 @@ func (s *inMemoryStore) saveEvents(ctx context.Context, expectedStreamSequenceNu
 func (s *inMemoryStore) saveEvent(
 	aggregateType, aggregateID, eventType, eventID string,
 	expectedStreamSequenceNumber *uint64,
-	event interface{}, metadata interface{}) ([]byte, uint64, error) {
+	event interface{}, metadata interface{}) ([]byte, *rangedb.Record, error) {
 
 	stream := rangedb.GetStream(aggregateType, aggregateID)
-	nextSequenceNumber := s.getNextStreamSequenceNumber(stream)
+	streamSequenceNumber := s.getStreamSequenceNumber(stream)
 
-	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber != nextSequenceNumber {
-		return nil, 0, &rangedberror.UnexpectedSequenceNumber{
-			Expected:           *expectedStreamSequenceNumber,
-			NextSequenceNumber: nextSequenceNumber,
+	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber != streamSequenceNumber {
+		return nil, nil, &rangedberror.UnexpectedSequenceNumber{
+			Expected:             *expectedStreamSequenceNumber,
+			ActualSequenceNumber: streamSequenceNumber,
 		}
 	}
+
+	s.globalSequenceNumber++
+	globalSequenceNumber := s.globalSequenceNumber
 
 	record := &rangedb.Record{
 		AggregateType:        aggregateType,
 		AggregateID:          aggregateID,
-		GlobalSequenceNumber: s.getNextGlobalSequenceNumber(),
-		StreamSequenceNumber: nextSequenceNumber,
+		GlobalSequenceNumber: globalSequenceNumber,
+		StreamSequenceNumber: streamSequenceNumber + 1,
 		EventType:            eventType,
 		EventID:              eventID,
 		InsertTimestamp:      uint64(s.clock.Now().Unix()),
@@ -252,24 +320,33 @@ func (s *inMemoryStore) saveEvent(
 
 	data, err := s.serializer.Serialize(record)
 	if err != nil {
-		return nil, 0, err
+		return nil, nil, err
 	}
 
-	s.allRecords = append(s.allRecords, data)
-	s.recordsByStream[stream] = append(s.recordsByStream[stream], data)
-	s.recordsByAggregateType[aggregateType] = append(s.recordsByAggregateType[aggregateType], data)
+	s.records = append(s.records, globalSequenceNumber)
+	s.recordData[globalSequenceNumber] = data
+	s.streams[stream] = append(s.streams[stream], globalSequenceNumber)
+	s.aggregateTypes[aggregateType] = append(s.aggregateTypes[aggregateType], globalSequenceNumber)
 
-	return data, record.StreamSequenceNumber, nil
+	return data, record, nil
 }
 
-func (s *inMemoryStore) removeEvents(total int, aggregateType, aggregateID string) {
+func (s *inMemoryStore) removeRecentEvents(globalSequenceNumbers []uint64, aggregateType, aggregateID string) {
 	stream := rangedb.GetStream(aggregateType, aggregateID)
-	s.allRecords = rTrimFromByteSlice(s.allRecords, total)
-	s.recordsByStream[stream] = rTrimFromByteSlice(s.recordsByStream[stream], total)
-	s.recordsByAggregateType[aggregateType] = rTrimFromByteSlice(s.recordsByAggregateType[aggregateType], total)
+
+	for _, globalSequenceNumber := range globalSequenceNumbers {
+		delete(s.recordData, globalSequenceNumber)
+	}
+
+	total := len(globalSequenceNumbers)
+
+	s.globalSequenceNumber -= uint64(total)
+	s.records = rTrimFromUint64Slice(s.records, total)
+	s.streams[stream] = rTrimFromUint64Slice(s.streams[stream], total)
+	s.aggregateTypes[aggregateType] = rTrimFromUint64Slice(s.aggregateTypes[aggregateType], total)
 }
 
-func rTrimFromByteSlice(slice [][]byte, total int) [][]byte {
+func rTrimFromUint64Slice(slice []uint64, total int) []uint64 {
 	return slice[:len(slice)-total]
 }
 
@@ -304,13 +381,15 @@ func (s *inMemoryStore) TotalEventsInStream(ctx context.Context, streamName stri
 
 	s.mux.RLock()
 	defer s.mux.RUnlock()
-	return uint64(len(s.recordsByStream[streamName])), nil
+	return uint64(len(s.streams[streamName])), nil
 }
 
-func (s *inMemoryStore) getNextStreamSequenceNumber(stream string) uint64 {
-	return uint64(len(s.recordsByStream[stream]))
+func (s *inMemoryStore) getStreamSequenceNumber(stream string) uint64 {
+	return uint64(len(s.streams[stream]))
 }
 
-func (s *inMemoryStore) getNextGlobalSequenceNumber() uint64 {
-	return uint64(len(s.allRecords))
+func (s *inMemoryStore) getGlobalSequenceNumber() uint64 {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.globalSequenceNumber
 }

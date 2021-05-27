@@ -2,30 +2,38 @@ package rangedbserver_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net"
 	"time"
 
+	"github.com/inklabs/rangedb/pkg/grpc/rangedbserver"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 
+	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock/provider/sequentialclock"
 	"github.com/inklabs/rangedb/pkg/grpc/rangedbpb"
-	"github.com/inklabs/rangedb/pkg/grpc/rangedbserver"
-	"github.com/inklabs/rangedb/pkg/jsontools"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/rangedbtest"
 )
 
-func ExampleRangeDBServer_OptimisticSave() {
+func ExampleRangeDBServer_OptimisticDeleteStream() {
 	// Given
 	shortuuid.SetRand(100)
 	inMemoryStore := inmemorystore.New(
 		inmemorystore.WithClock(sequentialclock.New()),
 	)
 	rangedbtest.BindEvents(inMemoryStore)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	const aggregateID = "605f20348fb940e386c171d51c877bf1"
+	event1 := rangedbtest.ThingWasDone{ID: aggregateID, Number: 100}
+	event2 := rangedbtest.ThingWasDone{ID: aggregateID, Number: 200}
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+		&rangedb.EventRecord{Event: event1},
+		&rangedb.EventRecord{Event: event2},
+	)))
 
 	// Setup gRPC server
 	bufListener := bufconn.Listen(7)
@@ -43,46 +51,22 @@ func ExampleRangeDBServer_OptimisticSave() {
 	dialer := grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
 		return bufListener.Dial()
 	})
-	connCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	conn, err := grpc.DialContext(connCtx, "bufnet", dialer, grpc.WithInsecure(), grpc.WithBlock())
-	PrintError(err)
+	conn, err := grpc.DialContext(ctx, "bufnet", dialer, grpc.WithInsecure(), grpc.WithBlock())
 	defer Close(conn)
+	PrintError(err)
 
 	// Setup gRPC client
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
-	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
-	defer done()
-	request := &rangedbpb.OptimisticSaveRequest{
-		AggregateType:                "thing",
-		AggregateID:                  "141b39d2b9854f8093ef79dc47dae6af",
-		ExpectedStreamSequenceNumber: 0,
-		Events: []*rangedbpb.Event{
-			{
-				Type:     "ThingWasDone",
-				Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
-				Metadata: "",
-			},
-			{
-				Type:     "ThingWasDone",
-				Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":200}`,
-				Metadata: "",
-			},
-		},
+	optimisticDeleteStream := &rangedbpb.OptimisticDeleteStreamRequest{
+		ExpectedStreamSequenceNumber: 2,
+		StreamName:                   rangedb.GetEventStream(event1),
 	}
 
 	// When
-	response, err := rangeDBClient.OptimisticSave(ctx, request)
+	response, err := rangeDBClient.OptimisticDeleteStream(ctx, optimisticDeleteStream)
 	PrintError(err)
-
-	body, err := json.Marshal(response)
-	PrintError(err)
-
-	fmt.Println(jsontools.PrettyJSON(body))
+	fmt.Printf("Events Deleted: %d", response.EventsDeleted)
 
 	// Output:
-	// {
-	//   "EventsSaved": 2,
-	//   "LastStreamSequenceNumber": 2
-	// }
+	// Events Deleted: 2
 }

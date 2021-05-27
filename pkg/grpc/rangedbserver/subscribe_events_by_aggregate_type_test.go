@@ -57,7 +57,7 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 	// Setup gRPC client
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
 	request := &rangedbpb.SubscribeToEventsByAggregateTypeRequest{
-		GlobalSequenceNumber: 0,
+		GlobalSequenceNumber: 1,
 		AggregateTypes:       []string{"thing", "another"},
 	}
 
@@ -97,6 +97,8 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 	// {
 	//   "AggregateType": "thing",
 	//   "AggregateID": "9f5b723b51fe4703883bde0d6d6f3fa9",
+	//   "GlobalSequenceNumber": 1,
+	//   "StreamSequenceNumber": 1,
 	//   "EventID": "d2ba8e70072943388203c438d4e94bf3",
 	//   "EventType": "ThingWasDone",
 	//   "Data": "{\"id\":\"9f5b723b51fe4703883bde0d6d6f3fa9\",\"number\":1}",
@@ -105,7 +107,8 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 	// {
 	//   "AggregateType": "thing",
 	//   "AggregateID": "52e247a7c0a54a65906e006dac9be108",
-	//   "GlobalSequenceNumber": 1,
+	//   "GlobalSequenceNumber": 2,
+	//   "StreamSequenceNumber": 1,
 	//   "InsertTimestamp": 1,
 	//   "EventID": "99cbd88bbcaf482ba1cc96ed12541707",
 	//   "EventType": "ThingWasDone",
@@ -115,7 +118,8 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 	// {
 	//   "AggregateType": "another",
 	//   "AggregateID": "a3d9faa7614a46b388c6dce9984b6620",
-	//   "GlobalSequenceNumber": 3,
+	//   "GlobalSequenceNumber": 4,
+	//   "StreamSequenceNumber": 1,
 	//   "InsertTimestamp": 3,
 	//   "EventID": "5042958739514c948f776fc9f820bca0",
 	//   "EventType": "AnotherWasComplete",

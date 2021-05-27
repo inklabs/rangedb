@@ -97,6 +97,7 @@ func (a *api) initRoutes() {
 	const extension = ".{extension:json|ndjson|msgpack}"
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/health-check", a.healthCheck)
+	router.HandleFunc("/delete-stream/"+stream, a.deleteStream)
 	router.HandleFunc("/save-events/"+stream, a.saveEvents)
 	router.HandleFunc("/events"+extension, a.allEvents)
 	router.HandleFunc("/events/"+stream+extension, a.eventsByStream)
@@ -174,6 +175,42 @@ func (a *api) eventsByAggregateType(w http.ResponseWriter, r *http.Request) {
 	a.writeEvents(w, events, extension)
 }
 
+func (a *api) deleteStream(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	aggregateType := mux.Vars(r)["aggregateType"]
+	aggregateID := mux.Vars(r)["aggregateID"]
+	streamName := rangedb.GetStream(aggregateType, aggregateID)
+
+	expectedStreamSequenceNumber, err := expectedStreamSequenceNumberFromRequest(r)
+	if err != nil {
+		writeFailedResponse(w, "invalid ExpectedStreamSequenceNumber", http.StatusBadRequest)
+		return
+	}
+
+	deleteErr := a.store.OptimisticDeleteStream(r.Context(), expectedStreamSequenceNumber, streamName)
+	eventsDeleted := expectedStreamSequenceNumber
+
+	if deleteErr != nil {
+		if unexpectedErr, ok := deleteErr.(*rangedberror.UnexpectedSequenceNumber); ok {
+			writeFailedResponse(w, unexpectedErr.Error(), http.StatusConflict)
+			return
+		}
+
+		if deleteErr == rangedb.ErrStreamNotFound {
+			writeFailedResponse(w, deleteErr.Error(), http.StatusNotFound)
+			return
+		}
+
+		a.logger.Printf("unable to delete: %v", deleteErr)
+		writeFailedResponse(w, "internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_, _ = fmt.Fprintf(w, `{"status":"OK","eventsDeleted":%d}`, eventsDeleted)
+}
+
 func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Content-Type") != "application/json" {
 		http.Error(w, "invalid content type", http.StatusBadRequest)
@@ -184,7 +221,7 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 
 	eventRecords, err := getEventRecords(r)
 	if err != nil {
-		writeBadRequest(w, "invalid json request body")
+		writeFailedResponse(w, "invalid json request body", http.StatusBadRequest)
 		return
 	}
 
@@ -194,7 +231,7 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 	if expectedStreamSequenceNumberInput != "" {
 		expectedStreamSequenceNumber, err := strconv.ParseUint(expectedStreamSequenceNumberInput, 10, 64)
 		if err != nil {
-			writeBadRequest(w, "invalid ExpectedStreamSequenceNumber")
+			writeFailedResponse(w, "invalid ExpectedStreamSequenceNumber", http.StatusBadRequest)
 			return
 		}
 		lastStreamSequenceNumber, saveErr = a.store.OptimisticSave(r.Context(), expectedStreamSequenceNumber, eventRecords...)
@@ -204,23 +241,22 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 
 	if saveErr != nil {
 		if unexpectedErr, ok := saveErr.(*rangedberror.UnexpectedSequenceNumber); ok {
-			writeBadRequest(w, unexpectedErr.Error())
+			writeFailedResponse(w, unexpectedErr.Error(), http.StatusConflict)
 			return
 		}
 
 		a.logger.Printf("unable to save: %v", saveErr)
-		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = fmt.Fprintf(w, `{"status":"Failed"}`)
+		writeFailedResponse(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
-	_, _ = fmt.Fprintf(w, `{"status":"OK","lastStreamSequenceNumber":%d}`, lastStreamSequenceNumber)
+	_, _ = fmt.Fprintf(w, `{"status":"OK","streamSequenceNumber":%d}`, lastStreamSequenceNumber)
 }
 
-func writeBadRequest(w http.ResponseWriter, message string) {
-	w.WriteHeader(http.StatusBadRequest)
-	_, _ = fmt.Fprintf(w, `{"status":"Failed", "message": "%s"}`, message)
+func writeFailedResponse(w http.ResponseWriter, message string, statusCode int) {
+	w.WriteHeader(statusCode)
+	_, _ = fmt.Fprintf(w, `{"status":"Failed","message":"%s"}`, message)
 }
 
 func getEventRecords(r *http.Request) ([]*rangedb.EventRecord, error) {
@@ -314,4 +350,18 @@ func newInvalidInput(err error) *invalidInput {
 
 func (i invalidInput) Error() string {
 	return fmt.Sprintf("invalid input: %v", i.err)
+}
+
+func expectedStreamSequenceNumberFromRequest(r *http.Request) (uint64, error) {
+	expectedStreamSequenceNumberInput := r.Header.Get("ExpectedStreamSequenceNumber")
+	if expectedStreamSequenceNumberInput != "" {
+		expectedStreamSequenceNumber, err := strconv.ParseUint(expectedStreamSequenceNumberInput, 10, 64)
+		if err != nil {
+			return 0, fmt.Errorf("invalid ExpectedStreamSequenceNumber")
+		}
+
+		return expectedStreamSequenceNumber, nil
+	}
+
+	return 0, nil
 }

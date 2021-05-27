@@ -5,8 +5,9 @@ import (
 	"crypto/cipher"
 	cryptoRand "crypto/rand"
 	"encoding/base64"
-	"fmt"
 	"io"
+
+	"github.com/inklabs/rangedb/pkg/crypto"
 )
 
 type gcm struct {
@@ -73,7 +74,7 @@ func (e *gcm) encrypt(plainText, key []byte) ([]byte, error) {
 
 func (e *gcm) decrypt(key, sealedCipherText []byte) ([]byte, error) {
 	if len(sealedCipherText) == 0 {
-		return nil, fmt.Errorf("encrypted data empty")
+		return nil, crypto.ErrInvalidCipherText
 	}
 
 	cipherBlock, err := aes.NewCipher(key)
@@ -84,6 +85,10 @@ func (e *gcm) decrypt(key, sealedCipherText []byte) ([]byte, error) {
 	gcm, err := cipher.NewGCM(cipherBlock)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(sealedCipherText) < gcm.NonceSize() {
+		return nil, crypto.ErrInvalidCipherText
 	}
 
 	nonceSize := gcm.NonceSize()

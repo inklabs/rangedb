@@ -1,14 +1,12 @@
 package aestest
 
 import (
-	"log"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/inklabs/rangedb/pkg/crypto"
-	"github.com/inklabs/rangedb/pkg/crypto/aes"
 )
 
 const (
@@ -22,8 +20,6 @@ const (
 )
 
 func VerifyAESEncryption(t *testing.T, encryptor crypto.Encryptor) {
-	encrypt, _ := aes.NewCBCPKCS5Padding().Encrypt(ValidAES256Base64Key, PlainText)
-	log.Print(encrypt)
 	t.Run("encrypt/decrypt string", func(t *testing.T) {
 		tests := []struct {
 			keyLength string
@@ -101,7 +97,17 @@ func VerifyAESEncryption(t *testing.T, encryptor crypto.Encryptor) {
 				decryptedValue, err := encryptor.Decrypt(ValidAES256Base64Key, EmptyBase64CipherText)
 
 				// Then
-				require.EqualError(t, err, "encrypted data empty")
+				require.Equal(t, crypto.ErrInvalidCipherText, err)
+				assert.Equal(t, "", decryptedValue)
+			})
+
+			t.Run("from invalid cipher text", func(t *testing.T) {
+				// Given
+				// When
+				decryptedValue, err := encryptor.Decrypt(ValidAES256Base64Key, "test")
+
+				// Then
+				require.Equal(t, crypto.ErrInvalidCipherText, err)
 				assert.Equal(t, "", decryptedValue)
 			})
 

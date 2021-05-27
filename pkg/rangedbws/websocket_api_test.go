@@ -54,8 +54,8 @@ func Test_WebsocketApi(t *testing.T) {
 			expectedEvent1 := `{
 				"aggregateType": "thing",
 				"aggregateID": "6595a5c206c746c3a9d9006c7df5784e",
-				"globalSequenceNumber":0,
-				"streamSequenceNumber":0,
+				"globalSequenceNumber":1,
+				"streamSequenceNumber":1,
 				"insertTimestamp":0,
 				"eventID": "d2ba8e70072943388203c438d4e94bf3",
 				"eventType": "ThingWasDone",
@@ -68,8 +68,8 @@ func Test_WebsocketApi(t *testing.T) {
 			expectedEvent2 := `{
 				"aggregateType": "thing",
 				"aggregateID": "8cc839e1fd3545b7a0fe67808d84cbd4",
-				"globalSequenceNumber":1,
-				"streamSequenceNumber":0,
+				"globalSequenceNumber":2,
+				"streamSequenceNumber":1,
 				"insertTimestamp":1,
 				"eventID": "99cbd88bbcaf482ba1cc96ed12541707",
 				"eventType": "ThingWasDone",
@@ -99,7 +99,7 @@ func Test_WebsocketApi(t *testing.T) {
 			t.Cleanup(api.Stop)
 			server := httptest.NewServer(api)
 			t.Cleanup(server.Close)
-			const globalSequenceNumber = 1
+			const globalSequenceNumber = 2
 			url := fmt.Sprintf("ws://%s/events?global-sequence-number=%d", strings.TrimPrefix(server.URL, "http://"), globalSequenceNumber)
 
 			// When
@@ -116,8 +116,8 @@ func Test_WebsocketApi(t *testing.T) {
 			expectedEvent1 := `{
 				"aggregateType": "thing",
 				"aggregateID": "b75064a917054396a9bb3a6b46d7bd4c",
-				"globalSequenceNumber":1,
-				"streamSequenceNumber":0,
+				"globalSequenceNumber":2,
+				"streamSequenceNumber":1,
 				"insertTimestamp":1,
 				"eventID": "99cbd88bbcaf482ba1cc96ed12541707",
 				"eventType": "ThingWasDone",
@@ -130,8 +130,8 @@ func Test_WebsocketApi(t *testing.T) {
 			expectedEvent2 := `{
 				"aggregateType": "thing",
 				"aggregateID": "d8e3d651d1e9477d9af18893a2e337b9",
-				"globalSequenceNumber":2,
-				"streamSequenceNumber":0,
+				"globalSequenceNumber":3,
+				"streamSequenceNumber":1,
 				"insertTimestamp":2,
 				"eventID": "2e9e6918af10498cb7349c89a351fdb7",
 				"eventType": "ThingWasDone",
@@ -243,8 +243,8 @@ func Test_WebsocketApi(t *testing.T) {
 			expectedEvent1 := `{
 				"aggregateType": "thing",
 				"aggregateID": "c0f61ffbe61a418383244277e9ee6084",
-				"globalSequenceNumber":0,
-				"streamSequenceNumber":0,
+				"globalSequenceNumber":1,
+				"streamSequenceNumber":1,
 				"insertTimestamp":0,
 				"eventID": "d2ba8e70072943388203c438d4e94bf3",
 				"eventType": "ThingWasDone",
@@ -257,8 +257,8 @@ func Test_WebsocketApi(t *testing.T) {
 			expectedEvent2 := `{
 				"aggregateType": "that",
 				"aggregateID": "14d50d2cbf8d4b2cbdac21308a4f8155",
-				"globalSequenceNumber":2,
-				"streamSequenceNumber":0,
+				"globalSequenceNumber":3,
+				"streamSequenceNumber":1,
 				"insertTimestamp":2,
 				"eventID": "2e9e6918af10498cb7349c89a351fdb7",
 				"eventType": "ThatWasDone",

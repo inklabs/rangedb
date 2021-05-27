@@ -46,16 +46,16 @@ func main() {
 }
 
 type grpcEventSubscriber struct {
-	host                     string
-	aggregateTypes           []string
-	nextGlobalSequenceNumber uint64
+	host                 string
+	aggregateTypes       []string
+	globalSequenceNumber uint64
 }
 
 func NewGRPCEventSubscriber(host string, aggregateTypes ...string) *grpcEventSubscriber {
 	return &grpcEventSubscriber{
-		host:                     host,
-		aggregateTypes:           aggregateTypes,
-		nextGlobalSequenceNumber: 0,
+		host:                 host,
+		aggregateTypes:       aggregateTypes,
+		globalSequenceNumber: 0,
 	}
 }
 
@@ -82,14 +82,14 @@ func (s *grpcEventSubscriber) connectAndListen(ctx context.Context) {
 	var events recordReceiver
 	var err error
 
-	log.Printf("Subscribing from GlobalSequenceNumber: %d", s.nextGlobalSequenceNumber)
+	log.Printf("Subscribing from GlobalSequenceNumber: %d", s.globalSequenceNumber)
 	if len(s.aggregateTypes) < 1 {
 		events, err = rangeDBClient.SubscribeToEvents(subscribeCtx, &rangedbpb.SubscribeToEventsRequest{
-			GlobalSequenceNumber: s.nextGlobalSequenceNumber,
+			GlobalSequenceNumber: s.globalSequenceNumber,
 		})
 	} else {
 		events, err = rangeDBClient.SubscribeToEventsByAggregateType(subscribeCtx, &rangedbpb.SubscribeToEventsByAggregateTypeRequest{
-			GlobalSequenceNumber: s.nextGlobalSequenceNumber,
+			GlobalSequenceNumber: s.globalSequenceNumber,
 			AggregateTypes:       s.aggregateTypes,
 		})
 	}
@@ -104,7 +104,7 @@ func (s *grpcEventSubscriber) connectAndListen(ctx context.Context) {
 			log.Printf("error received: %v", err)
 			return
 		}
-		s.nextGlobalSequenceNumber = record.GlobalSequenceNumber + 1
+		s.globalSequenceNumber = record.GlobalSequenceNumber
 		fmt.Println(record)
 	}
 }

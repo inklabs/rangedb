@@ -28,8 +28,8 @@ func (e *eventEncryptor) Encrypt(event rangedb.Event) error {
 }
 
 func (e *eventEncryptor) Decrypt(event rangedb.Event) error {
-	if event, ok := event.(crypto.SelfEncryptor); ok {
-		return event.Decrypt(e.engine)
+	if selfEncryptingEvent, ok := event.(crypto.SelfEncryptor); ok {
+		return selfEncryptingEvent.Decrypt(e.engine)
 	}
 
 	return nil

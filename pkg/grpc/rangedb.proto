@@ -8,6 +8,7 @@ service RangeDB {
   rpc Events(EventsRequest) returns (stream Record) {}
   rpc EventsByAggregateType(EventsByAggregateTypeRequest) returns (stream Record) {}
   rpc EventsByStream(EventsByStreamRequest) returns (stream Record) {}
+  rpc OptimisticDeleteStream(OptimisticDeleteStreamRequest) returns (OptimisticDeleteStreamResponse) {}
   rpc OptimisticSave(OptimisticSaveRequest) returns (SaveResponse) {}
   rpc Save(SaveRequest) returns (SaveResponse) {}
   rpc SubscribeToLiveEvents(SubscribeToLiveEventsRequest) returns (stream Record) {}
@@ -39,6 +40,15 @@ message SubscribeToEventsRequest {
 message SubscribeToEventsByAggregateTypeRequest {
   repeated string aggregateTypes = 1;
   uint64 globalSequenceNumber = 2;
+}
+
+message OptimisticDeleteStreamRequest {
+  uint64 ExpectedStreamSequenceNumber = 1;
+  string StreamName = 2;
+}
+
+message OptimisticDeleteStreamResponse {
+  uint32 EventsDeleted = 1;
 }
 
 message OptimisticSaveRequest {

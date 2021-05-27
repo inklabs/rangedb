@@ -128,24 +128,31 @@ func (e CustomerSignedUp) AggregateID() string   { return e.ID }
 func (e CustomerSignedUp) AggregateType() string { return "customer" }
 func (e CustomerSignedUp) EventType() string     { return "CustomerSignedUp" }
 func (e *CustomerSignedUp) Encrypt(encryptor crypto.Encryptor) error {
-	var err error
-	e.Email, err = encryptor.Encrypt(e.ID, e.Email)
+	email, err := encryptor.Encrypt(e.ID, e.Email)
 	if err != nil {
-		e.Email = ""
+		if err == crypto.ErrKeyWasDeleted {
+			e.redactPersonalData("")
+		}
 		return err
 	}
 
+	e.Email = email
 	return nil
 }
 func (e *CustomerSignedUp) Decrypt(encryptor crypto.Encryptor) error {
-	var err error
-	e.Email, err = encryptor.Decrypt(e.ID, e.Email)
+	email, err := encryptor.Decrypt(e.ID, e.Email)
 	if err != nil {
-		e.Email = ""
+		if err == crypto.ErrKeyWasDeleted {
+			e.redactPersonalData("")
+		}
 		return err
 	}
 
+	e.Email = email
 	return nil
+}
+func (e *CustomerSignedUp) redactPersonalData(redactTo string) {
+	e.Email = redactTo
 }
 `
 		assert.Equal(t, expectedOut, out.String())
@@ -184,40 +191,50 @@ func (e CustomerSignedUp) AggregateID() string   { return e.ID }
 func (e CustomerSignedUp) AggregateType() string { return "customer" }
 func (e CustomerSignedUp) EventType() string     { return "CustomerSignedUp" }
 func (e *CustomerSignedUp) Encrypt(encryptor crypto.Encryptor) error {
-	var err error
-	e.Name, err = encryptor.Encrypt(e.ID, e.Name)
+	name, err := encryptor.Encrypt(e.ID, e.Name)
 	if err != nil {
-		e.Name = ""
-		e.Email = ""
+		if err == crypto.ErrKeyWasDeleted {
+			e.redactPersonalData("")
+		}
 		return err
 	}
 
-	e.Email, err = encryptor.Encrypt(e.ID, e.Email)
+	email, err := encryptor.Encrypt(e.ID, e.Email)
 	if err != nil {
-		e.Name = ""
-		e.Email = ""
+		if err == crypto.ErrKeyWasDeleted {
+			e.redactPersonalData("")
+		}
 		return err
 	}
 
+	e.Name = name
+	e.Email = email
 	return nil
 }
 func (e *CustomerSignedUp) Decrypt(encryptor crypto.Encryptor) error {
-	var err error
-	e.Name, err = encryptor.Decrypt(e.ID, e.Name)
+	name, err := encryptor.Decrypt(e.ID, e.Name)
 	if err != nil {
-		e.Name = ""
-		e.Email = ""
+		if err == crypto.ErrKeyWasDeleted {
+			e.redactPersonalData("")
+		}
 		return err
 	}
 
-	e.Email, err = encryptor.Decrypt(e.ID, e.Email)
+	email, err := encryptor.Decrypt(e.ID, e.Email)
 	if err != nil {
-		e.Name = ""
-		e.Email = ""
+		if err == crypto.ErrKeyWasDeleted {
+			e.redactPersonalData("")
+		}
 		return err
 	}
 
+	e.Name = name
+	e.Email = email
 	return nil
+}
+func (e *CustomerSignedUp) redactPersonalData(redactTo string) {
+	e.Name = redactTo
+	e.Email = redactTo
 }
 `
 		assert.Equal(t, expectedOut, out.String())
@@ -260,32 +277,38 @@ func (e CustomerAddedBirthYear) AggregateID() string   { return e.ID }
 func (e CustomerAddedBirthYear) AggregateType() string { return "customer" }
 func (e CustomerAddedBirthYear) EventType() string     { return "CustomerAddedBirthYear" }
 func (e *CustomerAddedBirthYear) Encrypt(encryptor crypto.Encryptor) error {
-	var err error
 	stringBirthYear := strconv.Itoa(e.BirthYear)
-	e.BirthYearEncrypted, err = encryptor.Encrypt(e.ID, stringBirthYear)
+	birthYearEncrypted, err := encryptor.Encrypt(e.ID, stringBirthYear)
 	if err != nil {
-		e.BirthYear = 0
+		if err == crypto.ErrKeyWasDeleted {
+			e.redactPersonalData("")
+		}
 		return err
 	}
-	e.BirthYear = 0
 
+	e.BirthYear = 0
+	e.BirthYearEncrypted = birthYearEncrypted
 	return nil
 }
 func (e *CustomerAddedBirthYear) Decrypt(encryptor crypto.Encryptor) error {
-	var err error
 	decryptedBirthYear, err := encryptor.Decrypt(e.ID, e.BirthYearEncrypted)
 	if err != nil {
-		e.BirthYear = 0
+		if err == crypto.ErrKeyWasDeleted {
+			e.redactPersonalData("")
+		}
 		return err
 	}
-	e.BirthYear, err = strconv.Atoi(decryptedBirthYear)
+	birthYear, err := strconv.Atoi(decryptedBirthYear)
 	if err != nil {
-		e.BirthYear = 0
 		return err
 	}
-	e.BirthYearEncrypted = ""
 
+	e.BirthYear = birthYear
+	e.BirthYearEncrypted = ""
 	return nil
+}
+func (e *CustomerAddedBirthYear) redactPersonalData(redactTo string) {
+	e.BirthYear = 0
 }
 `
 		assert.Equal(t, expectedOut, out.String())
@@ -329,58 +352,64 @@ func (e CustomerAddedBirth) AggregateID() string   { return e.ID }
 func (e CustomerAddedBirth) AggregateType() string { return "customer" }
 func (e CustomerAddedBirth) EventType() string     { return "CustomerAddedBirth" }
 func (e *CustomerAddedBirth) Encrypt(encryptor crypto.Encryptor) error {
-	var err error
 	stringBirthMonth := strconv.Itoa(e.BirthMonth)
-	e.BirthMonthEncrypted, err = encryptor.Encrypt(e.ID, stringBirthMonth)
+	birthMonthEncrypted, err := encryptor.Encrypt(e.ID, stringBirthMonth)
 	if err != nil {
-		e.BirthMonth = 0
-		e.BirthYear = 0
+		if err == crypto.ErrKeyWasDeleted {
+			e.redactPersonalData("")
+		}
 		return err
 	}
-	e.BirthMonth = 0
 
 	stringBirthYear := strconv.Itoa(e.BirthYear)
-	e.BirthYearEncrypted, err = encryptor.Encrypt(e.ID, stringBirthYear)
+	birthYearEncrypted, err := encryptor.Encrypt(e.ID, stringBirthYear)
 	if err != nil {
-		e.BirthMonth = 0
-		e.BirthYear = 0
+		if err == crypto.ErrKeyWasDeleted {
+			e.redactPersonalData("")
+		}
 		return err
 	}
-	e.BirthYear = 0
 
+	e.BirthMonth = 0
+	e.BirthYear = 0
+	e.BirthMonthEncrypted = birthMonthEncrypted
+	e.BirthYearEncrypted = birthYearEncrypted
 	return nil
 }
 func (e *CustomerAddedBirth) Decrypt(encryptor crypto.Encryptor) error {
-	var err error
 	decryptedBirthMonth, err := encryptor.Decrypt(e.ID, e.BirthMonthEncrypted)
 	if err != nil {
-		e.BirthMonth = 0
-		e.BirthYear = 0
+		if err == crypto.ErrKeyWasDeleted {
+			e.redactPersonalData("")
+		}
 		return err
 	}
-	e.BirthMonth, err = strconv.Atoi(decryptedBirthMonth)
+	birthMonth, err := strconv.Atoi(decryptedBirthMonth)
 	if err != nil {
-		e.BirthMonth = 0
-		e.BirthYear = 0
 		return err
 	}
-	e.BirthMonthEncrypted = ""
 
 	decryptedBirthYear, err := encryptor.Decrypt(e.ID, e.BirthYearEncrypted)
 	if err != nil {
-		e.BirthMonth = 0
-		e.BirthYear = 0
+		if err == crypto.ErrKeyWasDeleted {
+			e.redactPersonalData("")
+		}
 		return err
 	}
-	e.BirthYear, err = strconv.Atoi(decryptedBirthYear)
+	birthYear, err := strconv.Atoi(decryptedBirthYear)
 	if err != nil {
-		e.BirthMonth = 0
-		e.BirthYear = 0
 		return err
 	}
-	e.BirthYearEncrypted = ""
 
+	e.BirthMonth = birthMonth
+	e.BirthYear = birthYear
+	e.BirthMonthEncrypted = ""
+	e.BirthYearEncrypted = ""
 	return nil
+}
+func (e *CustomerAddedBirth) redactPersonalData(redactTo string) {
+	e.BirthMonth = 0
+	e.BirthYear = 0
 }
 `
 		assert.Equal(t, expectedOut, out.String())
@@ -424,86 +453,102 @@ func (e CustomerAddedBirth) AggregateID() string   { return e.ID }
 func (e CustomerAddedBirth) AggregateType() string { return "customer" }
 func (e CustomerAddedBirth) EventType() string     { return "CustomerAddedBirth" }
 func (e *CustomerAddedBirth) Encrypt(encryptor crypto.Encryptor) error {
-	var err error
-	e.Name, err = encryptor.Encrypt(e.ID, e.Name)
+	name, err := encryptor.Encrypt(e.ID, e.Name)
 	if err != nil {
-		e.Name = ""
-		e.Email = ""
+		if err == crypto.ErrKeyWasDeleted {
+			e.redactPersonalData("")
+		}
 		return err
 	}
 
-	e.Email, err = encryptor.Encrypt(e.ID, e.Email)
+	email, err := encryptor.Encrypt(e.ID, e.Email)
 	if err != nil {
-		e.Name = ""
-		e.Email = ""
+		if err == crypto.ErrKeyWasDeleted {
+			e.redactPersonalData("")
+		}
 		return err
 	}
 
 	stringBirthMonth := strconv.Itoa(e.BirthMonth)
-	e.BirthMonthEncrypted, err = encryptor.Encrypt(e.ID, stringBirthMonth)
+	birthMonthEncrypted, err := encryptor.Encrypt(e.ID, stringBirthMonth)
 	if err != nil {
-		e.BirthMonth = 0
-		e.BirthYear = 0
+		if err == crypto.ErrKeyWasDeleted {
+			e.redactPersonalData("")
+		}
 		return err
 	}
-	e.BirthMonth = 0
 
 	stringBirthYear := strconv.Itoa(e.BirthYear)
-	e.BirthYearEncrypted, err = encryptor.Encrypt(e.ID, stringBirthYear)
+	birthYearEncrypted, err := encryptor.Encrypt(e.ID, stringBirthYear)
 	if err != nil {
-		e.BirthMonth = 0
-		e.BirthYear = 0
+		if err == crypto.ErrKeyWasDeleted {
+			e.redactPersonalData("")
+		}
 		return err
 	}
-	e.BirthYear = 0
 
+	e.Name = name
+	e.Email = email
+	e.BirthMonth = 0
+	e.BirthYear = 0
+	e.BirthMonthEncrypted = birthMonthEncrypted
+	e.BirthYearEncrypted = birthYearEncrypted
 	return nil
 }
 func (e *CustomerAddedBirth) Decrypt(encryptor crypto.Encryptor) error {
-	var err error
-	e.Name, err = encryptor.Decrypt(e.ID, e.Name)
+	name, err := encryptor.Decrypt(e.ID, e.Name)
 	if err != nil {
-		e.Name = ""
-		e.Email = ""
+		if err == crypto.ErrKeyWasDeleted {
+			e.redactPersonalData("")
+		}
 		return err
 	}
 
-	e.Email, err = encryptor.Decrypt(e.ID, e.Email)
+	email, err := encryptor.Decrypt(e.ID, e.Email)
 	if err != nil {
-		e.Name = ""
-		e.Email = ""
+		if err == crypto.ErrKeyWasDeleted {
+			e.redactPersonalData("")
+		}
 		return err
 	}
 
 	decryptedBirthMonth, err := encryptor.Decrypt(e.ID, e.BirthMonthEncrypted)
 	if err != nil {
-		e.BirthMonth = 0
-		e.BirthYear = 0
+		if err == crypto.ErrKeyWasDeleted {
+			e.redactPersonalData("")
+		}
 		return err
 	}
-	e.BirthMonth, err = strconv.Atoi(decryptedBirthMonth)
+	birthMonth, err := strconv.Atoi(decryptedBirthMonth)
 	if err != nil {
-		e.BirthMonth = 0
-		e.BirthYear = 0
 		return err
 	}
-	e.BirthMonthEncrypted = ""
 
 	decryptedBirthYear, err := encryptor.Decrypt(e.ID, e.BirthYearEncrypted)
 	if err != nil {
-		e.BirthMonth = 0
-		e.BirthYear = 0
+		if err == crypto.ErrKeyWasDeleted {
+			e.redactPersonalData("")
+		}
 		return err
 	}
-	e.BirthYear, err = strconv.Atoi(decryptedBirthYear)
+	birthYear, err := strconv.Atoi(decryptedBirthYear)
 	if err != nil {
-		e.BirthMonth = 0
-		e.BirthYear = 0
 		return err
 	}
-	e.BirthYearEncrypted = ""
 
+	e.Name = name
+	e.Email = email
+	e.BirthMonth = birthMonth
+	e.BirthYear = birthYear
+	e.BirthMonthEncrypted = ""
+	e.BirthYearEncrypted = ""
 	return nil
+}
+func (e *CustomerAddedBirth) redactPersonalData(redactTo string) {
+	e.Name = redactTo
+	e.Email = redactTo
+	e.BirthMonth = 0
+	e.BirthYear = 0
 }
 `
 		assert.Equal(t, expectedOut, out.String())
