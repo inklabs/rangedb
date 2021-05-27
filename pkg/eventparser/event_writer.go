@@ -86,7 +86,7 @@ func (e *{{ .Name }}) Encrypt(encryptor crypto.Encryptor) error {
 	{{ . | LcFirst }}, err := encryptor.Encrypt(e.{{ $event.PersonalData.SubjectID }}, e.{{ . }})
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -96,7 +96,7 @@ func (e *{{ .Name }}) Encrypt(encryptor crypto.Encryptor) error {
 	{{ $key | LcFirst }}, err := encryptor.Encrypt(e.{{ $event.PersonalData.SubjectID }}, string{{ $value }})
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -117,7 +117,7 @@ func (e *{{ .Name }}) Decrypt(encryptor crypto.Encryptor) error {
 	{{ . | LcFirst }}, err := encryptor.Decrypt(e.{{ $event.PersonalData.SubjectID }}, e.{{ . }})
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -126,7 +126,7 @@ func (e *{{ .Name }}) Decrypt(encryptor crypto.Encryptor) error {
 	decrypted{{ $value }}, err := encryptor.Decrypt(e.{{ $event.PersonalData.SubjectID }}, e.{{ $key }})
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -146,7 +146,7 @@ func (e *{{ .Name }}) Decrypt(encryptor crypto.Encryptor) error {
 	{{- end }}
 	return nil
 }
-func (e *{{ .Name }}) RedactPersonalData(redactTo string) {
+func (e *{{ .Name }}) redactPersonalData(redactTo string) {
 	{{- range $event.PersonalData.Fields }}
 	e.{{ . }} = redactTo
 	{{- end }}

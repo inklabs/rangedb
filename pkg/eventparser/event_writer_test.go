@@ -131,7 +131,7 @@ func (e *CustomerSignedUp) Encrypt(encryptor crypto.Encryptor) error {
 	email, err := encryptor.Encrypt(e.ID, e.Email)
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -143,7 +143,7 @@ func (e *CustomerSignedUp) Decrypt(encryptor crypto.Encryptor) error {
 	email, err := encryptor.Decrypt(e.ID, e.Email)
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -151,7 +151,7 @@ func (e *CustomerSignedUp) Decrypt(encryptor crypto.Encryptor) error {
 	e.Email = email
 	return nil
 }
-func (e *CustomerSignedUp) RedactPersonalData(redactTo string) {
+func (e *CustomerSignedUp) redactPersonalData(redactTo string) {
 	e.Email = redactTo
 }
 `
@@ -194,7 +194,7 @@ func (e *CustomerSignedUp) Encrypt(encryptor crypto.Encryptor) error {
 	name, err := encryptor.Encrypt(e.ID, e.Name)
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -202,7 +202,7 @@ func (e *CustomerSignedUp) Encrypt(encryptor crypto.Encryptor) error {
 	email, err := encryptor.Encrypt(e.ID, e.Email)
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -215,7 +215,7 @@ func (e *CustomerSignedUp) Decrypt(encryptor crypto.Encryptor) error {
 	name, err := encryptor.Decrypt(e.ID, e.Name)
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -223,7 +223,7 @@ func (e *CustomerSignedUp) Decrypt(encryptor crypto.Encryptor) error {
 	email, err := encryptor.Decrypt(e.ID, e.Email)
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -232,7 +232,7 @@ func (e *CustomerSignedUp) Decrypt(encryptor crypto.Encryptor) error {
 	e.Email = email
 	return nil
 }
-func (e *CustomerSignedUp) RedactPersonalData(redactTo string) {
+func (e *CustomerSignedUp) redactPersonalData(redactTo string) {
 	e.Name = redactTo
 	e.Email = redactTo
 }
@@ -281,7 +281,7 @@ func (e *CustomerAddedBirthYear) Encrypt(encryptor crypto.Encryptor) error {
 	birthYearEncrypted, err := encryptor.Encrypt(e.ID, stringBirthYear)
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -294,7 +294,7 @@ func (e *CustomerAddedBirthYear) Decrypt(encryptor crypto.Encryptor) error {
 	decryptedBirthYear, err := encryptor.Decrypt(e.ID, e.BirthYearEncrypted)
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -307,7 +307,7 @@ func (e *CustomerAddedBirthYear) Decrypt(encryptor crypto.Encryptor) error {
 	e.BirthYearEncrypted = ""
 	return nil
 }
-func (e *CustomerAddedBirthYear) RedactPersonalData(redactTo string) {
+func (e *CustomerAddedBirthYear) redactPersonalData(redactTo string) {
 	e.BirthYear = 0
 }
 `
@@ -356,7 +356,7 @@ func (e *CustomerAddedBirth) Encrypt(encryptor crypto.Encryptor) error {
 	birthMonthEncrypted, err := encryptor.Encrypt(e.ID, stringBirthMonth)
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -365,7 +365,7 @@ func (e *CustomerAddedBirth) Encrypt(encryptor crypto.Encryptor) error {
 	birthYearEncrypted, err := encryptor.Encrypt(e.ID, stringBirthYear)
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -380,7 +380,7 @@ func (e *CustomerAddedBirth) Decrypt(encryptor crypto.Encryptor) error {
 	decryptedBirthMonth, err := encryptor.Decrypt(e.ID, e.BirthMonthEncrypted)
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -392,7 +392,7 @@ func (e *CustomerAddedBirth) Decrypt(encryptor crypto.Encryptor) error {
 	decryptedBirthYear, err := encryptor.Decrypt(e.ID, e.BirthYearEncrypted)
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -407,7 +407,7 @@ func (e *CustomerAddedBirth) Decrypt(encryptor crypto.Encryptor) error {
 	e.BirthYearEncrypted = ""
 	return nil
 }
-func (e *CustomerAddedBirth) RedactPersonalData(redactTo string) {
+func (e *CustomerAddedBirth) redactPersonalData(redactTo string) {
 	e.BirthMonth = 0
 	e.BirthYear = 0
 }
@@ -456,7 +456,7 @@ func (e *CustomerAddedBirth) Encrypt(encryptor crypto.Encryptor) error {
 	name, err := encryptor.Encrypt(e.ID, e.Name)
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -464,7 +464,7 @@ func (e *CustomerAddedBirth) Encrypt(encryptor crypto.Encryptor) error {
 	email, err := encryptor.Encrypt(e.ID, e.Email)
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -473,7 +473,7 @@ func (e *CustomerAddedBirth) Encrypt(encryptor crypto.Encryptor) error {
 	birthMonthEncrypted, err := encryptor.Encrypt(e.ID, stringBirthMonth)
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -482,7 +482,7 @@ func (e *CustomerAddedBirth) Encrypt(encryptor crypto.Encryptor) error {
 	birthYearEncrypted, err := encryptor.Encrypt(e.ID, stringBirthYear)
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -499,7 +499,7 @@ func (e *CustomerAddedBirth) Decrypt(encryptor crypto.Encryptor) error {
 	name, err := encryptor.Decrypt(e.ID, e.Name)
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -507,7 +507,7 @@ func (e *CustomerAddedBirth) Decrypt(encryptor crypto.Encryptor) error {
 	email, err := encryptor.Decrypt(e.ID, e.Email)
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -515,7 +515,7 @@ func (e *CustomerAddedBirth) Decrypt(encryptor crypto.Encryptor) error {
 	decryptedBirthMonth, err := encryptor.Decrypt(e.ID, e.BirthMonthEncrypted)
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -527,7 +527,7 @@ func (e *CustomerAddedBirth) Decrypt(encryptor crypto.Encryptor) error {
 	decryptedBirthYear, err := encryptor.Decrypt(e.ID, e.BirthYearEncrypted)
 	if err != nil {
 		if err == crypto.ErrKeyWasDeleted {
-			e.RedactPersonalData("")
+			e.redactPersonalData("")
 		}
 		return err
 	}
@@ -544,7 +544,7 @@ func (e *CustomerAddedBirth) Decrypt(encryptor crypto.Encryptor) error {
 	e.BirthYearEncrypted = ""
 	return nil
 }
-func (e *CustomerAddedBirth) RedactPersonalData(redactTo string) {
+func (e *CustomerAddedBirth) redactPersonalData(redactTo string) {
 	e.Name = redactTo
 	e.Email = redactTo
 	e.BirthMonth = 0
