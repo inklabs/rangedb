@@ -44,6 +44,9 @@ func main() {
 
 	logger := log.New(os.Stderr, "", 0)
 	store, snapshotName, closeStore, err := getStore(*dbPath, logger)
+	if err != nil {
+		log.Fatalf("unable to get store: %v", err)
+	}
 
 	api, err := rangedbapi.New(
 		rangedbapi.WithStore(store),

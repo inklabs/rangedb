@@ -198,7 +198,6 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			eventA3 := &ThingWasDone{ID: aggregateIDA, Number: 3}
 			eventA4 := &ThingWasDone{ID: aggregateIDA, Number: 4}
 			eventB := &ThingWasDone{ID: aggregateIDB, Number: 4}
-			ctx := TimeoutContext(t)
 			SaveEvents(t, store,
 				&rangedb.EventRecord{Event: eventA1},
 				&rangedb.EventRecord{Event: eventA2},
@@ -698,7 +697,6 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			store := newStore(t, sequentialclock.New(), uuid)
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
-			ctx := TimeoutContext(t)
 			SaveEvents(t, store,
 				&rangedb.EventRecord{Event: eventA1},
 				&rangedb.EventRecord{Event: eventA2},
@@ -1256,7 +1254,6 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			// Given
 			uuid := NewSeededUUIDGenerator()
 			store := newStore(t, sequentialclock.New(), uuid)
-			ctx := TimeoutContext(t)
 			countSubscriber := NewCountSubscriber()
 			ctx, done := context.WithCancel(TimeoutContext(t))
 			done()
@@ -1337,7 +1334,6 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			// Given
 			uuid := NewSeededUUIDGenerator()
 			store := newStore(t, sequentialclock.New(), uuid)
-			ctx := TimeoutContext(t)
 			countSubscriber := NewCountSubscriber()
 			ctx, done := context.WithCancel(TimeoutContext(t))
 			done()

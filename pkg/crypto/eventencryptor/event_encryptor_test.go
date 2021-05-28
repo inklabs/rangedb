@@ -39,6 +39,7 @@ func TestEventEncryptor(t *testing.T) {
 		err = eventEncryptor.Decrypt(event)
 
 		// Then
+		require.NoError(t, err)
 		assert.Equal(t, id, event.ID)
 		assert.Equal(t, "John Doe", event.Name)
 		assert.Equal(t, "john@example.com", event.Email)
@@ -62,6 +63,7 @@ func TestEventEncryptor(t *testing.T) {
 		err = eventEncryptor.Decrypt(event)
 
 		// Then
+		require.NoError(t, err)
 		assert.Equal(t, id, event.ID)
 		assert.Equal(t, 12, event.BirthMonth)
 		assert.Equal(t, 1977, event.BirthYear)
@@ -141,6 +143,7 @@ func TestEventEncryptor(t *testing.T) {
 			keyStore := inmemorykeystore.New()
 			eventEncryptor := eventencryptor.New(keyStore, aesEncryptor)
 			err := eventEncryptor.Encrypt(event)
+			require.NoError(t, err)
 			require.NoError(t, keyStore.Delete(id))
 
 			// When

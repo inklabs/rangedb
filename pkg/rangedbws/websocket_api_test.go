@@ -218,7 +218,6 @@ func Test_WebsocketApi(t *testing.T) {
 		t.Run("unable to send first event from failing store", func(t *testing.T) {
 			// Given
 			failingStore := rangedbtest.NewFailingEventStore()
-			ctx := rangedbtest.TimeoutContext(t)
 			api, err := rangedbws.New(rangedbws.WithStore(failingStore))
 			require.NoError(t, err)
 			t.Cleanup(api.Stop)

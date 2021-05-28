@@ -250,6 +250,9 @@ func (s *postgresStore) transactionalSaveEvents(ctx context.Context, expectedStr
 
 	if !s.pgNotifyIsEnabled {
 		err = s.batchNotifySubscribers(saveResult)
+		if err != nil {
+			return 0, err
+		}
 	}
 
 	return saveResult.LastStreamSequenceNumber, nil
