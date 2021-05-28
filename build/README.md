@@ -15,3 +15,15 @@ docker build -f build/Dockerfile -t inklabs/rangedb:local .
 ```
 docker run -p 8080:8080 inklabs/rangedb:local
 ```
+
+## Using docker-compose to build & run locally in one step
+
+### RangeDB InMemory
+* From root dir
+    * docker-compose -f build/docker-compose.yml up --build
+
+### RangeDB with Postgres
+* From root dir
+    * docker-compose -f build/docker-compose-pg.yml up --build
+
+*remove **--build** to not rebuild image*
