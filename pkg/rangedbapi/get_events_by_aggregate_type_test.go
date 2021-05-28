@@ -18,6 +18,7 @@ import (
 
 func Example_getEventsByAggregateType() {
 	// Given
+	rangedbtest.SetRand(100)
 	inMemoryStore := inmemorystore.New(
 		inmemorystore.WithClock(sequentialclock.New()),
 		inmemorystore.WithUUIDGenerator(rangedbtest.NewSeededUUIDGenerator()),

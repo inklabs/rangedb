@@ -19,7 +19,11 @@ func NewSeededUUIDGenerator() *seededUUIDGenerator {
 
 func (g *seededUUIDGenerator) New() string {
 	newUUID := shortuuid.New().String()
+
+	g.mux.Lock()
 	g.generatedUUIDs = append(g.generatedUUIDs, newUUID)
+	g.mux.Unlock()
+
 	return newUUID
 }
 

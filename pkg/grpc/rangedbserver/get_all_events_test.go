@@ -22,6 +22,7 @@ import (
 
 func ExampleRangeDBServer_Events() {
 	// Given
+	rangedbtest.SetRand(100)
 	inMemoryStore := inmemorystore.New(
 		inmemorystore.WithClock(sequentialclock.New()),
 	)

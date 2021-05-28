@@ -24,7 +24,7 @@ func Test_NewToString(t *testing.T) {
 
 func ExampleShortUUID_String() {
 	// Given
-	rangedbtest.SetRand(100)
+	rangedbtest.SetRand(101)
 	u := shortuuid.New()
 
 	// When

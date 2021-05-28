@@ -17,6 +17,7 @@ import (
 
 func Example_getEventsByStreamNdJson() {
 	// Given
+	rangedbtest.SetRand(100)
 	inMemoryStore := inmemorystore.New(
 		inmemorystore.WithClock(sequentialclock.New()),
 		inmemorystore.WithUUIDGenerator(rangedbtest.NewSeededUUIDGenerator()),
