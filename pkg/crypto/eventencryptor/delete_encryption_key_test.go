@@ -8,12 +8,10 @@ import (
 	"github.com/inklabs/rangedb/pkg/crypto/cryptotest"
 	"github.com/inklabs/rangedb/pkg/crypto/eventencryptor"
 	"github.com/inklabs/rangedb/pkg/crypto/provider/inmemorykeystore"
-	"github.com/inklabs/rangedb/pkg/shortuuid"
 )
 
 func ExampleKeyStore_Delete() {
 	// Given
-	shortuuid.SetRand(100)
 	seededRandReader := rand.New(rand.NewSource(100))
 	aesEncryptor := aes.NewGCM()
 	aesEncryptor.SetRandReader(seededRandReader)

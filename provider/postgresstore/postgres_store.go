@@ -49,6 +49,7 @@ type postgresStore struct {
 	config            *Config
 	db                *sql.DB
 	clock             clock.Clock
+	uuidGenerator     shortuuid.Generator
 	serializer        JsonSerializer
 	broadcaster       broadcast.Broadcaster
 	pgNotifyIsEnabled bool
@@ -61,6 +62,13 @@ type Option func(*postgresStore)
 func WithClock(clock clock.Clock) Option {
 	return func(store *postgresStore) {
 		store.clock = clock
+	}
+}
+
+// WithUUIDGenerator is a functional option to inject a shortuuid.Generator.
+func WithUUIDGenerator(uuidGenerator shortuuid.Generator) Option {
+	return func(store *postgresStore) {
+		store.uuidGenerator = uuidGenerator
 	}
 }
 
@@ -388,14 +396,12 @@ func (s *postgresStore) eventRecordsToBatchRecords(eventRecords []*rangedb.Event
 			return nil, err
 		}
 
-		eventID := shortuuid.New().String()
-
 		streamSequenceNumber++
 		batchEvents = append(batchEvents, &batchSQLRecord{
 			AggregateType:        aggregateType,
 			AggregateID:          aggregateID,
 			StreamSequenceNumber: streamSequenceNumber,
-			EventID:              eventID,
+			EventID:              s.uuidGenerator.New(),
 			EventType:            eventRecord.Event.EventType(),
 			Data:                 string(jsonData),
 			Metadata:             string(jsonMetadata),

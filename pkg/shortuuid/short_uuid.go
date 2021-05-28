@@ -2,7 +2,6 @@ package shortuuid
 
 import (
 	"encoding/hex"
-	"math/rand"
 
 	"github.com/google/uuid"
 )
@@ -21,7 +20,17 @@ func (u ShortUUID) String() string {
 	return string(buf)
 }
 
-// SetRand sets the random number generator to seed.
-func SetRand(seed int64) {
-	uuid.SetRand(rand.New(rand.NewSource(seed)))
+type Generator interface {
+	// New returns a new ShortUUID string
+	New() string
+}
+
+type uuidGenerator struct{}
+
+func NewUUIDGenerator() *uuidGenerator {
+	return &uuidGenerator{}
+}
+
+func (g *uuidGenerator) New() string {
+	return New().String()
 }

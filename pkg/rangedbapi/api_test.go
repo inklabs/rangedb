@@ -22,7 +22,6 @@ import (
 	"github.com/inklabs/rangedb/pkg/jsontools"
 	"github.com/inklabs/rangedb/pkg/projection"
 	"github.com/inklabs/rangedb/pkg/rangedbapi"
-	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/provider/msgpackrecordiostream"
 	"github.com/inklabs/rangedb/rangedbtest"
@@ -305,7 +304,6 @@ func TestApi_DeleteStream(t *testing.T) {
 		require.NoError(t, err)
 		const aggregateID = "439b8969c82b43d6bf0ee219b42d93ac"
 		const aggregateType = "thing"
-		shortuuid.SetRand(100)
 		saveEvents(t, api, aggregateType, aggregateID,
 			SaveEventRequest{
 				EventType: "ThingWasDone",
@@ -346,7 +344,6 @@ func TestApi_DeleteStream(t *testing.T) {
 		require.NoError(t, err)
 		const aggregateID = "439b8969c82b43d6bf0ee219b42d93ac"
 		const aggregateType = "thing"
-		shortuuid.SetRand(100)
 		saveEvents(t, api, aggregateType, aggregateID,
 			SaveEventRequest{
 				EventType: "ThingWasDone",
@@ -387,7 +384,6 @@ func TestApi_DeleteStream(t *testing.T) {
 		require.NoError(t, err)
 		const aggregateID = "439b8969c82b43d6bf0ee219b42d93ac"
 		const aggregateType = "thing"
-		shortuuid.SetRand(100)
 		saveEvents(t, api, aggregateType, aggregateID,
 			SaveEventRequest{
 				EventType: "ThingWasDone",
@@ -428,7 +424,6 @@ func TestApi_DeleteStream(t *testing.T) {
 		require.NoError(t, err)
 		const aggregateID = "439b8969c82b43d6bf0ee219b42d93ac"
 		const aggregateType = "thing"
-		shortuuid.SetRand(100)
 
 		deleteStreamUri := fmt.Sprintf("/delete-stream/%s/%s", aggregateType, aggregateID)
 		request := httptest.NewRequest(http.MethodPost, deleteStreamUri, nil)
@@ -451,7 +446,6 @@ func TestApi_DeleteStream(t *testing.T) {
 		require.NoError(t, err)
 		const aggregateID = "4fb43e659e2743049ae036e5c699c5e5"
 		const aggregateType = "thing"
-		shortuuid.SetRand(100)
 
 		deleteStreamUri := fmt.Sprintf("/delete-stream/%s/%s", aggregateType, aggregateID)
 		request := httptest.NewRequest(http.MethodPost, deleteStreamUri, nil)
@@ -469,14 +463,17 @@ func TestApi_DeleteStream(t *testing.T) {
 
 func TestApi_WithFourEventsSaved(t *testing.T) {
 	// Given
-	store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+	uuid := rangedbtest.NewSeededUUIDGenerator()
+	store := inmemorystore.New(
+		inmemorystore.WithClock(sequentialclock.New()),
+		inmemorystore.WithUUIDGenerator(uuid),
+	)
 	api, err := rangedbapi.New(rangedbapi.WithStore(store))
 	require.NoError(t, err)
 	const aggregateID1 = "f187760f4d8c4d1c9d9cf17b66766abd"
 	const aggregateID2 = "5b36ae984b724685917b69ae47968be1"
 	const aggregateID3 = "9bc181144cef4fd19da1f32a17363997"
 
-	shortuuid.SetRand(100)
 	saveEvents(t, api, "thing", aggregateID1,
 		SaveEventRequest{
 			EventType: "ThingWasDone",
@@ -526,14 +523,14 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 		// Then
 		assert.Equal(t, http.StatusOK, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		expectedJson := `[
+		expectedJson := fmt.Sprintf(`[
 			{
 				"aggregateType": "thing",
 				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
 				"globalSequenceNumber": 1,
 				"streamSequenceNumber": 1,
 				"insertTimestamp": 0,
-				"eventID": "d2ba8e70072943388203c438d4e94bf3",
+				"eventID": "%s",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -547,7 +544,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber": 2,
 				"streamSequenceNumber": 2,
 				"insertTimestamp": 1,
-				"eventID": "99cbd88bbcaf482ba1cc96ed12541707",
+				"eventID": "%s",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -561,7 +558,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber": 3,
 				"streamSequenceNumber": 1,
 				"insertTimestamp": 2,
-				"eventID": "2e9e6918af10498cb7349c89a351fdb7",
+				"eventID": "%s",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "5b36ae984b724685917b69ae47968be1",
@@ -575,14 +572,19 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber": 4,
 				"streamSequenceNumber": 1,
 				"insertTimestamp": 3,
-				"eventID": "5042958739514c948f776fc9f820bca0",
+				"eventID": "%s",
 				"eventType": "AnotherWasComplete",
 				"data":{
 					"id": "9bc181144cef4fd19da1f32a17363997"
 				},
 				"metadata":null
 			}
-		]`
+		]`,
+			uuid.Get(1),
+			uuid.Get(2),
+			uuid.Get(3),
+			uuid.Get(4),
+		)
 		assertJsonEqual(t, expectedJson, response.Body.String())
 	})
 
@@ -644,7 +646,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 			GlobalSequenceNumber: 1,
 			StreamSequenceNumber: 1,
 			InsertTimestamp:      0,
-			EventID:              "d2ba8e70072943388203c438d4e94bf3",
+			EventID:              uuid.Get(1),
 			EventType:            "ThingWasDone",
 			Data: map[string]interface{}{
 				"id":     aggregateID1,
@@ -658,7 +660,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 			GlobalSequenceNumber: 2,
 			StreamSequenceNumber: 2,
 			InsertTimestamp:      1,
-			EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+			EventID:              uuid.Get(2),
 			EventType:            "ThingWasDone",
 			Data: map[string]interface{}{
 				"id":     aggregateID1,
@@ -685,14 +687,14 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 		// Then
 		assert.Equal(t, http.StatusOK, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		expectedJson := `[
+		expectedJson := fmt.Sprintf(`[
 			{
 				"aggregateType": "thing",
 				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
 				"globalSequenceNumber":1,
 				"streamSequenceNumber":1,
 				"insertTimestamp":0,
-				"eventID": "d2ba8e70072943388203c438d4e94bf3",
+				"eventID": "%s",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -706,7 +708,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber":2,
 				"streamSequenceNumber":2,
 				"insertTimestamp":1,
-				"eventID": "99cbd88bbcaf482ba1cc96ed12541707",
+				"eventID": "%s",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -720,7 +722,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber": 3,
 				"streamSequenceNumber": 1,
 				"insertTimestamp": 2,
-				"eventID": "2e9e6918af10498cb7349c89a351fdb7",
+				"eventID": "%s",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "5b36ae984b724685917b69ae47968be1",
@@ -728,7 +730,11 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				},
 				"metadata":null
 			}
-		]`
+		]`,
+			uuid.Get(1),
+			uuid.Get(2),
+			uuid.Get(3),
+		)
 		assertJsonEqual(t, expectedJson, response.Body.String())
 	})
 
@@ -743,14 +749,14 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 		// Then
 		assert.Equal(t, http.StatusOK, response.Code)
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
-		expectedJson := `[
+		expectedJson := fmt.Sprintf(`[
 			{
 				"aggregateType": "thing",
 				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
 				"globalSequenceNumber":1,
 				"streamSequenceNumber":1,
 				"insertTimestamp":0,
-				"eventID": "d2ba8e70072943388203c438d4e94bf3",
+				"eventID": "%s",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -764,7 +770,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber":2,
 				"streamSequenceNumber":2,
 				"insertTimestamp":1,
-				"eventID": "99cbd88bbcaf482ba1cc96ed12541707",
+				"eventID": "%s",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "f187760f4d8c4d1c9d9cf17b66766abd",
@@ -778,7 +784,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber": 3,
 				"streamSequenceNumber": 1,
 				"insertTimestamp": 2,
-				"eventID": "2e9e6918af10498cb7349c89a351fdb7",
+				"eventID": "%s",
 				"eventType": "ThingWasDone",
 				"data":{
 					"id": "5b36ae984b724685917b69ae47968be1",
@@ -792,14 +798,19 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"globalSequenceNumber": 4,
 				"streamSequenceNumber": 1,
 				"insertTimestamp": 3,
-				"eventID": "5042958739514c948f776fc9f820bca0",
+				"eventID": "%s",
 				"eventType": "AnotherWasComplete",
 				"data":{
 					"id": "9bc181144cef4fd19da1f32a17363997"
 				},
 				"metadata":null
 			}
-		]`
+		]`,
+			uuid.Get(1),
+			uuid.Get(2),
+			uuid.Get(3),
+			uuid.Get(4),
+		)
 		assertJsonEqual(t, expectedJson, response.Body.String())
 	})
 }

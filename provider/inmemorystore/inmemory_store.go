@@ -21,10 +21,11 @@ import (
 const broadcastRecordBuffSize = 100
 
 type inMemoryStore struct {
-	clock       clock.Clock
-	serializer  rangedb.RecordSerializer
-	logger      *log.Logger
-	broadcaster broadcast.Broadcaster
+	clock         clock.Clock
+	uuidGenerator shortuuid.Generator
+	serializer    rangedb.RecordSerializer
+	logger        *log.Logger
+	broadcaster   broadcast.Broadcaster
 
 	mux                  sync.RWMutex
 	globalSequenceNumber uint64
@@ -58,10 +59,18 @@ func WithLogger(logger *log.Logger) Option {
 	}
 }
 
+// WithUUIDGenerator is a functional option to inject a shortuuid.Generator.
+func WithUUIDGenerator(uuidGenerator shortuuid.Generator) Option {
+	return func(store *inMemoryStore) {
+		store.uuidGenerator = uuidGenerator
+	}
+}
+
 // New constructs an inMemoryStore.
 func New(options ...Option) *inMemoryStore {
 	s := &inMemoryStore{
 		clock:          systemclock.New(),
+		uuidGenerator:  shortuuid.NewUUIDGenerator(),
 		serializer:     jsonrecordserializer.New(),
 		logger:         log.New(ioutil.Discard, "", 0),
 		broadcaster:    broadcast.New(broadcastRecordBuffSize, broadcast.DefaultTimeout),
@@ -252,7 +261,7 @@ func (s *inMemoryStore) saveEvents(ctx context.Context, expectedStreamSequenceNu
 			aggregateType,
 			aggregateID,
 			eventRecord.Event.EventType(),
-			shortuuid.New().String(),
+			s.uuidGenerator.New(),
 			expectedStreamSequenceNumber,
 			eventRecord.Event,
 			eventRecord.Metadata,

@@ -14,15 +14,17 @@ import (
 	"github.com/inklabs/rangedb/pkg/clock/provider/sequentialclock"
 	"github.com/inklabs/rangedb/pkg/jsontools"
 	"github.com/inklabs/rangedb/pkg/rangedbws"
-	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/rangedbtest"
 )
 
 func Example_streamAllEvents() {
 	// Given
-	shortuuid.SetRand(100)
-	inMemoryStore := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+	rangedbtest.SetRand(100)
+	inMemoryStore := inmemorystore.New(
+		inmemorystore.WithClock(sequentialclock.New()),
+		inmemorystore.WithUUIDGenerator(rangedbtest.NewSeededUUIDGenerator()),
+	)
 	websocketApi, err := rangedbws.New(rangedbws.WithStore(inMemoryStore))
 	PrintError(err)
 	defer websocketApi.Stop()

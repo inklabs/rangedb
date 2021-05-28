@@ -33,13 +33,14 @@ const (
 )
 
 type levelDbStore struct {
-	clock       clock.Clock
-	serializer  rangedb.RecordSerializer
-	broadcaster broadcast.Broadcaster
-	logger      *log.Logger
+	clock         clock.Clock
+	uuidGenerator shortuuid.Generator
+	serializer    rangedb.RecordSerializer
+	broadcaster   broadcast.Broadcaster
 
-	mux sync.RWMutex
-	db  *leveldb.DB
+	logger *log.Logger
+	mux    sync.RWMutex
+	db     *leveldb.DB
 }
 
 // Option defines functional option parameters for levelDbStore.
@@ -66,6 +67,13 @@ func WithLogger(logger *log.Logger) Option {
 	}
 }
 
+// WithUUIDGenerator is a functional option to inject a shortuuid.Generator.
+func WithUUIDGenerator(uuidGenerator shortuuid.Generator) Option {
+	return func(store *levelDbStore) {
+		store.uuidGenerator = uuidGenerator
+	}
+}
+
 // New constructs a levelDbStore.
 func New(dbFilePath string, options ...Option) (*levelDbStore, error) {
 	db, err := leveldb.OpenFile(dbFilePath, nil)
@@ -74,11 +82,12 @@ func New(dbFilePath string, options ...Option) (*levelDbStore, error) {
 	}
 
 	s := &levelDbStore{
-		clock:       systemclock.New(),
-		serializer:  jsonrecordserializer.New(),
-		logger:      log.New(ioutil.Discard, "", 0),
-		broadcaster: broadcast.New(broadcastRecordBuffSize, broadcast.DefaultTimeout),
-		db:          db,
+		clock:         systemclock.New(),
+		uuidGenerator: shortuuid.NewUUIDGenerator(),
+		serializer:    jsonrecordserializer.New(),
+		logger:        log.New(ioutil.Discard, "", 0),
+		broadcaster:   broadcast.New(broadcastRecordBuffSize, broadcast.DefaultTimeout),
+		db:            db,
 	}
 
 	for _, option := range options {
@@ -225,7 +234,7 @@ func (s *levelDbStore) saveEvents(ctx context.Context, expectedStreamSequenceNum
 			aggregateType,
 			aggregateID,
 			eventRecord.Event.EventType(),
-			shortuuid.New().String(),
+			s.uuidGenerator.New(),
 			expectedStreamSequenceNumber,
 			eventRecord.Event,
 			eventRecord.Metadata,

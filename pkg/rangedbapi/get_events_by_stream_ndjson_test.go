@@ -11,16 +11,15 @@ import (
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock/provider/sequentialclock"
 	"github.com/inklabs/rangedb/pkg/rangedbapi"
-	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/rangedbtest"
 )
 
 func Example_getEventsByStreamNdJson() {
 	// Given
-	shortuuid.SetRand(100)
 	inMemoryStore := inmemorystore.New(
 		inmemorystore.WithClock(sequentialclock.New()),
+		inmemorystore.WithUUIDGenerator(rangedbtest.NewSeededUUIDGenerator()),
 	)
 	api, err := rangedbapi.New(rangedbapi.WithStore(inMemoryStore))
 	PrintError(err)

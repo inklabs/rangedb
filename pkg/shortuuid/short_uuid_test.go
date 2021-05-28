@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/inklabs/rangedb/rangedbtest"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/inklabs/rangedb/pkg/shortuuid"
@@ -11,7 +12,7 @@ import (
 
 func Test_NewToString(t *testing.T) {
 	// Given
-	shortuuid.SetRand(100)
+	rangedbtest.SetRand(100)
 	u := shortuuid.New()
 
 	// When
@@ -23,7 +24,7 @@ func Test_NewToString(t *testing.T) {
 
 func ExampleShortUUID_String() {
 	// Given
-	shortuuid.SetRand(101)
+	rangedbtest.SetRand(100)
 	u := shortuuid.New()
 
 	// When

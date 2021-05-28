@@ -5,6 +5,7 @@ import (
 	"log"
 	"testing"
 
+	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/inklabs/rangedb"
@@ -14,9 +15,10 @@ import (
 )
 
 func Test_InMemory_VerifyStoreInterface(t *testing.T) {
-	rangedbtest.VerifyStore(t, func(t *testing.T, clock clock.Clock) rangedb.Store {
+	rangedbtest.VerifyStore(t, func(t *testing.T, clock clock.Clock, uuidGenerator shortuuid.Generator) rangedb.Store {
 		store := inmemorystore.New(
 			inmemorystore.WithClock(clock),
+			inmemorystore.WithUUIDGenerator(uuidGenerator),
 		)
 		rangedbtest.BindEvents(store)
 

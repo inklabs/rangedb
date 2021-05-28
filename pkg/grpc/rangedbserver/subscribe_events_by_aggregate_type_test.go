@@ -16,16 +16,15 @@ import (
 	"github.com/inklabs/rangedb/pkg/grpc/rangedbpb"
 	"github.com/inklabs/rangedb/pkg/grpc/rangedbserver"
 	"github.com/inklabs/rangedb/pkg/jsontools"
-	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/rangedbtest"
 )
 
 func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 	// Given
-	shortuuid.SetRand(100)
 	inMemoryStore := inmemorystore.New(
 		inmemorystore.WithClock(sequentialclock.New()),
+		inmemorystore.WithUUIDGenerator(rangedbtest.NewSeededUUIDGenerator()),
 	)
 	rangedbtest.BindEvents(inMemoryStore)
 	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)

@@ -3,12 +3,10 @@ package rangedbtest
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -20,16 +18,16 @@ import (
 )
 
 // VerifyStore verifies the rangedb.Store interface.
-func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) rangedb.Store) {
+func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.Generator) rangedb.Store) {
 	t.Helper()
 
 	t.Run("EventsByStream", func(t *testing.T) {
 		t.Run("returns 2 events", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
+			uuid := NewSeededUUIDGenerator()
 			const aggregateIDA = "e332c377d5874a1d884033dac45dedab"
 			const aggregateIDB = "7188fc63d29a4f58a007406160139320"
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), uuid)
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
 			eventB := &ThingWasDone{ID: aggregateIDB, Number: 3}
@@ -53,7 +51,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 1,
 					StreamSequenceNumber: 1,
 					EventType:            eventA1.EventType(),
-					EventID:              "d2ba8e70072943388203c438d4e94bf3",
+					EventID:              uuid.Get(1),
 					InsertTimestamp:      0,
 					Data:                 eventA1,
 					Metadata:             nil,
@@ -64,7 +62,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 2,
 					StreamSequenceNumber: 2,
 					EventType:            eventA2.EventType(),
-					EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+					EventID:              uuid.Get(2),
 					InsertTimestamp:      1,
 					Data:                 eventA2,
 					Metadata:             nil,
@@ -74,10 +72,10 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("returns 2 events from stream with 3 events", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
+			uuid := NewSeededUUIDGenerator()
 			const aggregateIDA = "f6ff053bcdf44cb89f59ec7008d4f590"
 			const aggregateIDB = "615d189413ba44a79ff3946bd4a8b1b4"
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), uuid)
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
 			eventA3 := &ThingWasDone{ID: aggregateIDA, Number: 3}
@@ -103,7 +101,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 2,
 					StreamSequenceNumber: 2,
 					EventType:            eventA2.EventType(),
-					EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+					EventID:              uuid.Get(2),
 					InsertTimestamp:      1,
 					Data:                 eventA2,
 					Metadata:             nil,
@@ -114,7 +112,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 3,
 					StreamSequenceNumber: 3,
 					EventType:            eventA3.EventType(),
-					EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+					EventID:              uuid.Get(3),
 					InsertTimestamp:      2,
 					Data:                 eventA3,
 					Metadata:             nil,
@@ -125,8 +123,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 		t.Run("ordered by sequence number lexicographically", func(t *testing.T) {
 			// Given
 			const totalEventsToRequireBigEndian = 257
-			shortuuid.SetRand(100)
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), NewSeededUUIDGenerator())
 			const totalEvents = totalEventsToRequireBigEndian
 			events := make([]rangedb.Event, totalEvents)
 			const aggregateID = "e3f7e647d2c946f2a8c4c52966dcdc6e"
@@ -155,10 +152,10 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("starting with second entry", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
+			uuid := NewSeededUUIDGenerator()
 			const aggregateIDA = "bf663fe7adb74174bc316b2d7e2bc487"
 			const aggregateIDB = "ffc6f7262085461c9cd24ba843f4aab4"
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), uuid)
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
 			eventB := &ThingWasDone{ID: aggregateIDB, Number: 3}
@@ -182,7 +179,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 2,
 					StreamSequenceNumber: 2,
 					EventType:            eventA2.EventType(),
-					EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+					EventID:              uuid.Get(2),
 					InsertTimestamp:      1,
 					Data:                 eventA2,
 					Metadata:             nil,
@@ -192,10 +189,10 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("starting with second entry, stops from context.Done", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
+			uuid := NewSeededUUIDGenerator()
 			const aggregateIDA = "1e0d21ef42b640f3b83043d6c46d3130"
 			const aggregateIDB = "4b7b691baaa4494bb0254baf8f69c665"
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), uuid)
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
 			eventA3 := &ThingWasDone{ID: aggregateIDA, Number: 3}
@@ -225,7 +222,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				GlobalSequenceNumber: 2,
 				StreamSequenceNumber: 2,
 				EventType:            eventA2.EventType(),
-				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+				EventID:              uuid.Get(2),
 				InsertTimestamp:      1,
 				Data:                 eventA2,
 				Metadata:             nil,
@@ -236,8 +233,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("stops before sending with context.Done", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
-			store := newStore(t, sequentialclock.New())
+			uuid := NewSeededUUIDGenerator()
+			store := newStore(t, sequentialclock.New(), uuid)
 			const aggregateID = "a1a112b026cc4ee287df2b201ebeae31"
 			event := &ThingWasDone{ID: aggregateID, Number: 1}
 			SaveEvents(t, store, &rangedb.EventRecord{Event: event})
@@ -255,7 +252,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 			// Given
 			const aggregateID = "ad62bb76ab5b4bbd8266dfc2c5605fe6"
 			streamName := rangedb.GetStream("thing", aggregateID)
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), NewSeededUUIDGenerator())
 			ctx := TimeoutContext(t)
 
 			// When
@@ -270,8 +267,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 	t.Run("Events", func(t *testing.T) {
 		t.Run("all events ordered by global sequence number", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
-			store := newStore(t, sequentialclock.New())
+			uuid := NewSeededUUIDGenerator()
+			store := newStore(t, sequentialclock.New(), uuid)
 			const aggregateIDA = "1b017406ea1045ddbdaa4f78df23f720"
 			const aggregateIDB = "3357a70d698f432aa53eb261d7806049"
 			const aggregateIDX = "14935d12e38747ffb98070e72e1386b7"
@@ -296,7 +293,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 1,
 					StreamSequenceNumber: 1,
 					EventType:            thingWasDoneA0.EventType(),
-					EventID:              "d2ba8e70072943388203c438d4e94bf3",
+					EventID:              uuid.Get(1),
 					InsertTimestamp:      0,
 					Data:                 thingWasDoneA0,
 					Metadata:             nil,
@@ -307,7 +304,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 2,
 					StreamSequenceNumber: 1,
 					EventType:            thingWasDoneB0.EventType(),
-					EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+					EventID:              uuid.Get(2),
 					InsertTimestamp:      1,
 					Data:                 thingWasDoneB0,
 					Metadata:             nil,
@@ -318,7 +315,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 3,
 					StreamSequenceNumber: 2,
 					EventType:            thingWasDoneA1.EventType(),
-					EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+					EventID:              uuid.Get(3),
 					InsertTimestamp:      2,
 					Data:                 thingWasDoneA1,
 					Metadata:             nil,
@@ -329,7 +326,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 4,
 					StreamSequenceNumber: 1,
 					EventType:            AnotherWasCompleteX0.EventType(),
-					EventID:              "5042958739514c948f776fc9f820bca0",
+					EventID:              uuid.Get(4),
 					InsertTimestamp:      3,
 					Data:                 AnotherWasCompleteX0,
 					Metadata:             nil,
@@ -339,8 +336,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("all events starting with second entry", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
-			store := newStore(t, sequentialclock.New())
+			uuid := NewSeededUUIDGenerator()
+			store := newStore(t, sequentialclock.New(), uuid)
 			const aggregateID = "796ad1e510d043fab6a4134efc4a841c"
 			event1 := &ThingWasDone{ID: aggregateID, Number: 1}
 			event2 := &ThingWasDone{ID: aggregateID, Number: 2}
@@ -361,7 +358,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 2,
 					StreamSequenceNumber: 2,
 					EventType:            event2.EventType(),
-					EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+					EventID:              uuid.Get(2),
 					InsertTimestamp:      1,
 					Data:                 event2,
 					Metadata:             nil,
@@ -371,8 +368,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("all events starting with 3rd global entry", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
-			store := newStore(t, sequentialclock.New())
+			uuid := NewSeededUUIDGenerator()
+			store := newStore(t, sequentialclock.New(), uuid)
 			const aggregateIDA = "af6e43e45b284fb2b8e3e8cf055acd93"
 			const aggregateIDB = "800f8ee98ae04a98868f45e777c66158"
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
@@ -400,7 +397,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 3,
 					StreamSequenceNumber: 1,
 					EventType:            eventB1.EventType(),
-					EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+					EventID:              uuid.Get(3),
 					InsertTimestamp:      2,
 					Data:                 eventB1,
 					Metadata:             nil,
@@ -411,7 +408,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 4,
 					StreamSequenceNumber: 2,
 					EventType:            eventB2.EventType(),
-					EventID:              "5042958739514c948f776fc9f820bca0",
+					EventID:              uuid.Get(4),
 					InsertTimestamp:      3,
 					Data:                 eventB2,
 					Metadata:             nil,
@@ -421,8 +418,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("stops before sending with context.Done", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
-			store := newStore(t, sequentialclock.New())
+			uuid := NewSeededUUIDGenerator()
+			store := newStore(t, sequentialclock.New(), uuid)
 			const aggregateID = "af6e43e45b284fb2b8e3e8cf055acd93"
 			event := &ThingWasDone{ID: aggregateID, Number: 1}
 			SaveEvents(t, store, &rangedb.EventRecord{Event: event})
@@ -438,8 +435,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("all events starting with second entry, stops from context.Done", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
-			store := newStore(t, sequentialclock.New())
+			uuid := NewSeededUUIDGenerator()
+			store := newStore(t, sequentialclock.New(), uuid)
 			const aggregateID = "af6e43e45b284fb2b8e3e8cf055acd93"
 			event1 := &ThingWasDone{ID: aggregateID, Number: 1}
 			event2 := &ThingWasDone{ID: aggregateID, Number: 2}
@@ -465,7 +462,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				GlobalSequenceNumber: 2,
 				StreamSequenceNumber: 2,
 				EventType:            event2.EventType(),
-				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+				EventID:              uuid.Get(2),
 				InsertTimestamp:      1,
 				Data:                 event2,
 				Metadata:             nil,
@@ -476,9 +473,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("returns no events when global sequence number out of range", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
-			store := newStore(t, sequentialclock.New())
-			const aggregateIDA = "1b017406ea1045ddbdaa4f78df23f720"
+			store := newStore(t, sequentialclock.New(), NewSeededUUIDGenerator())
+			const aggregateIDA = "ac8185900da04af28f49e749c01494c5"
 			const aggregateIDB = "3357a70d698f432aa53eb261d7806049"
 			const aggregateIDX = "14935d12e38747ffb98070e72e1386b7"
 			thingWasDoneA0 := &ThingWasDone{ID: aggregateIDA, Number: 100}
@@ -502,11 +498,10 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 	t.Run("EventsByAggregateTypes", func(t *testing.T) {
 		t.Run("returns 3 events", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
-			uuid.SetRand(rand.New(rand.NewSource(100)))
-			store := newStore(t, sequentialclock.New())
-			const aggregateIDA = "0424d9c5e1b448019cdfe81f0bffb958"
-			const aggregateIDB = "843abc79c02d4480be96b3dcedea7ebd"
+			uuid := NewSeededUUIDGenerator()
+			store := newStore(t, sequentialclock.New(), uuid)
+			const aggregateIDA = "68619bdf6d4f401793dee71d313a8fa6"
+			const aggregateIDB = "592b21138c024f1dbd626c24b00b8b4e"
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
 			eventB := &ThingWasDone{ID: aggregateIDB, Number: 3}
@@ -530,7 +525,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 1,
 					StreamSequenceNumber: 1,
 					EventType:            eventA1.EventType(),
-					EventID:              "d2ba8e70072943388203c438d4e94bf3",
+					EventID:              uuid.Get(1),
 					InsertTimestamp:      0,
 					Data:                 eventA1,
 					Metadata:             nil,
@@ -541,7 +536,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 2,
 					StreamSequenceNumber: 2,
 					EventType:            eventA2.EventType(),
-					EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+					EventID:              uuid.Get(2),
 					InsertTimestamp:      1,
 					Data:                 eventA2,
 					Metadata:             nil,
@@ -552,7 +547,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 3,
 					StreamSequenceNumber: 1,
 					EventType:            eventB.EventType(),
-					EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+					EventID:              uuid.Get(3),
 					InsertTimestamp:      2,
 					Data:                 eventB,
 					Metadata:             nil,
@@ -562,8 +557,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("starting with second entry", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
-			store := newStore(t, sequentialclock.New())
+			uuid := NewSeededUUIDGenerator()
+			store := newStore(t, sequentialclock.New(), uuid)
 			const aggregateIDA = "d1ddf3a1965447feb5e7d3d35ed6973c"
 			const aggregateIDB = "04761d396e1d4d44b9b6534927b0dd2d"
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
@@ -594,7 +589,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 2,
 					StreamSequenceNumber: 2,
 					EventType:            eventA2.EventType(),
-					EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+					EventID:              uuid.Get(2),
 					InsertTimestamp:      1,
 					Data:                 eventA2,
 					Metadata:             nil,
@@ -605,7 +600,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 3,
 					StreamSequenceNumber: 1,
 					EventType:            eventB.EventType(),
-					EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+					EventID:              uuid.Get(3),
 					InsertTimestamp:      2,
 					Data:                 eventB,
 					Metadata:             nil,
@@ -615,8 +610,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("stops before sending with context.Done", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
-			store := newStore(t, sequentialclock.New())
+			uuid := NewSeededUUIDGenerator()
+			store := newStore(t, sequentialclock.New(), uuid)
 			const aggregateID = "7af380caca144040bcf3636c44ef0697"
 			event := &ThingWasDone{ID: aggregateID, Number: 1}
 			ctx, done := context.WithCancel(TimeoutContext(t))
@@ -634,9 +629,9 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 	t.Run("OptimisticDeleteStream", func(t *testing.T) {
 		t.Run("deletes a stream with 2 events", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
+			uuid := NewSeededUUIDGenerator()
 			const aggregateIDA = "17852dae2f9448acb0174419c7634fdf"
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), uuid)
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
 			ctx := TimeoutContext(t)
@@ -658,9 +653,9 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("errors from wrong expected stream sequence number", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
+			uuid := NewSeededUUIDGenerator()
 			const aggregateIDA = "17852dae2f9448acb0174419c7634fdf"
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), uuid)
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
 			ctx := TimeoutContext(t)
@@ -683,9 +678,9 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("errors when stream does not exist", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
+			uuid := NewSeededUUIDGenerator()
 			const aggregateID = "0dec62a37ea048c8affe2d933ef7bb77"
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), uuid)
 			ctx := TimeoutContext(t)
 			streamName := rangedb.GetStream("thing", aggregateID)
 
@@ -698,9 +693,9 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("deletes a stream with 2 events", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
+			uuid := NewSeededUUIDGenerator()
 			const aggregateIDA = "17852dae2f9448acb0174419c7634fdf"
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), uuid)
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
 			ctx := TimeoutContext(t)
@@ -721,13 +716,13 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("maintains correct global sequence number when deleting the last event", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
+			uuid := NewSeededUUIDGenerator()
 			const (
 				aggregateIDA = "9fff598582c449f288eef8c3847731a0"
 				aggregateIDB = "5748d5cfe9734eb3bd99aec84f585718"
 				aggregateIDC = "1ede7e475b6c4766972dd95ec544548e"
 			)
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), uuid)
 			eventA := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventB := &AnotherWasComplete{ID: aggregateIDB}
 			eventC := &ThatWasDone{ID: aggregateIDC}
@@ -751,7 +746,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 						GlobalSequenceNumber: 1,
 						StreamSequenceNumber: 1,
 						EventType:            eventA.EventType(),
-						EventID:              "d2ba8e70072943388203c438d4e94bf3",
+						EventID:              uuid.Get(1),
 						InsertTimestamp:      0,
 						Data:                 eventA,
 						Metadata:             nil,
@@ -762,7 +757,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 						GlobalSequenceNumber: 3,
 						StreamSequenceNumber: 1,
 						EventType:            eventC.EventType(),
-						EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+						EventID:              uuid.Get(3),
 						InsertTimestamp:      2,
 						Data:                 eventC,
 						Metadata:             nil,
@@ -783,7 +778,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 						GlobalSequenceNumber: 1,
 						StreamSequenceNumber: 1,
 						EventType:            eventA.EventType(),
-						EventID:              "d2ba8e70072943388203c438d4e94bf3",
+						EventID:              uuid.Get(1),
 						InsertTimestamp:      0,
 						Data:                 eventA,
 						Metadata:             nil,
@@ -794,7 +789,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 						GlobalSequenceNumber: 3,
 						StreamSequenceNumber: 1,
 						EventType:            eventC.EventType(),
-						EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+						EventID:              uuid.Get(3),
 						InsertTimestamp:      2,
 						Data:                 eventC,
 						Metadata:             nil,
@@ -813,9 +808,9 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 	t.Run("OptimisticSave", func(t *testing.T) {
 		t.Run("persists 1 event", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
+			uuid := NewSeededUUIDGenerator()
 			const aggregateID = "dea1755baf824f618888ec11785fc11c"
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), uuid)
 			event := &ThingWasDone{ID: aggregateID, Number: 1}
 			ctx := TimeoutContext(t)
 
@@ -837,7 +832,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 1,
 					StreamSequenceNumber: 1,
 					EventType:            event.EventType(),
-					EventID:              "d2ba8e70072943388203c438d4e94bf3",
+					EventID:              uuid.Get(1),
 					InsertTimestamp:      0,
 					Data:                 event,
 					Metadata:             nil,
@@ -847,9 +842,9 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("persists 2nd event after 1st", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
+			uuid := NewSeededUUIDGenerator()
 			const aggregateID = "0e421791334146a7a0576c5b9f6649c9"
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), uuid)
 			event1 := &ThingWasDone{ID: aggregateID, Number: 1}
 			event2 := &ThingWasDone{ID: aggregateID, Number: 2}
 			ctx := TimeoutContext(t)
@@ -873,7 +868,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 1,
 					StreamSequenceNumber: 1,
 					EventType:            event1.EventType(),
-					EventID:              "d2ba8e70072943388203c438d4e94bf3",
+					EventID:              uuid.Get(1),
 					InsertTimestamp:      0,
 					Data:                 event1,
 					Metadata:             nil,
@@ -884,7 +879,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 2,
 					StreamSequenceNumber: 2,
 					EventType:            event2.EventType(),
-					EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+					EventID:              uuid.Get(2),
 					InsertTimestamp:      1,
 					Data:                 event2,
 					Metadata:             nil,
@@ -894,9 +889,9 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("persists 2 events", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
+			uuid := NewSeededUUIDGenerator()
 			const aggregateID = "cd02dfa51e7f484d9c3336ac7ea7ae44"
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), uuid)
 			event1 := &ThingWasDone{ID: aggregateID, Number: 1}
 			event2 := &ThingWasDone{ID: aggregateID, Number: 2}
 			ctx := TimeoutContext(t)
@@ -926,7 +921,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 1,
 					StreamSequenceNumber: 1,
 					EventType:            event1.EventType(),
-					EventID:              "d2ba8e70072943388203c438d4e94bf3",
+					EventID:              uuid.Get(1),
 					InsertTimestamp:      0,
 					Data:                 event1,
 					Metadata:             nil,
@@ -937,7 +932,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 2,
 					StreamSequenceNumber: 2,
 					EventType:            event2.EventType(),
-					EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+					EventID:              uuid.Get(2),
 					InsertTimestamp:      1,
 					Data:                 event2,
 					Metadata:             nil,
@@ -947,8 +942,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("fails to save first event from wrong expected sequence number", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
-			store := newStore(t, sequentialclock.New())
+			uuid := NewSeededUUIDGenerator()
+			store := newStore(t, sequentialclock.New(), uuid)
 			const aggregateID = "e332c377d5874a1d884033dac45dedab"
 			event := ThingWasDone{ID: aggregateID, Number: 1}
 			ctx := TimeoutContext(t)
@@ -973,8 +968,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("fails on 2nd event without persisting 1st event", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
-			store := newStore(t, sequentialclock.New())
+			uuid := NewSeededUUIDGenerator()
+			store := newStore(t, sequentialclock.New(), uuid)
 			const aggregateID = "db6625707734412ab530dd8818cc1e5b"
 			event1 := ThingWasDone{ID: aggregateID, Number: 1}
 			failingEvent := NewEventThatWillFailUnmarshal("thing", aggregateID)
@@ -1002,8 +997,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("fails on 2nd event without persisting 1st event, with one previously saved event", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
-			store := newStore(t, sequentialclock.New())
+			uuid := NewSeededUUIDGenerator()
+			store := newStore(t, sequentialclock.New(), uuid)
 			const aggregateID = "db6625707734412ab530dd8818cc1e5b"
 			event1 := &ThingWasDone{ID: aggregateID, Number: 1}
 			event2 := &ThingWasDone{ID: aggregateID, Number: 2}
@@ -1028,7 +1023,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				GlobalSequenceNumber: 1,
 				StreamSequenceNumber: 1,
 				EventType:            event1.EventType(),
-				EventID:              "d2ba8e70072943388203c438d4e94bf3",
+				EventID:              uuid.Get(1),
 				InsertTimestamp:      0,
 				Data:                 event1,
 				Metadata:             nil,
@@ -1043,8 +1038,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("does not allow saving multiple events from different aggregate types", func(t *testing.T) {
 			// Given
-			store := newStore(t, sequentialclock.New())
-			const aggregateIDA = "913ea23d2b824ccea0f924f26ca2c179"
+			store := newStore(t, sequentialclock.New(), NewSeededUUIDGenerator())
+			const aggregateIDA = "fc071388f13847b095f8ff40e21e9c6a"
 			const aggregateIDB = "16f623eae8ec492aa83b081abd63415d"
 			eventA := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventB := &AnotherWasComplete{ID: aggregateIDB}
@@ -1065,7 +1060,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("does not allow saving multiple events from different streams", func(t *testing.T) {
 			// Given
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), NewSeededUUIDGenerator())
 			const aggregateIDA = "59ad4a670c644687a28cea140398283c"
 			const aggregateIDB = "28c28e267ea9455cb3b43ab8067824b3"
 			eventA := &ThingWasDone{ID: aggregateIDA, Number: 1}
@@ -1087,8 +1082,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("stops before saving with context.Done", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
-			store := newStore(t, sequentialclock.New())
+			uuid := NewSeededUUIDGenerator()
+			store := newStore(t, sequentialclock.New(), uuid)
 			const aggregateID = "6a073d2113544c37a8ae3cfdef78b164"
 			event := &ThingWasDone{ID: aggregateID, Number: 1}
 			ctx, done := context.WithCancel(TimeoutContext(t))
@@ -1108,8 +1103,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("errors from missing events", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
-			store := newStore(t, sequentialclock.New())
+			uuid := NewSeededUUIDGenerator()
+			store := newStore(t, sequentialclock.New(), uuid)
 			ctx := TimeoutContext(t)
 
 			// When
@@ -1124,9 +1119,9 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 	t.Run("Save", func(t *testing.T) {
 		t.Run("generates eventID if empty", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
+			uuid := NewSeededUUIDGenerator()
 			const aggregateID = "3d28f73abf2c40fea57aa0a3de2bd7b9"
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), uuid)
 			event := &ThingWasDone{ID: aggregateID, Number: 1}
 			ctx := TimeoutContext(t)
 
@@ -1143,7 +1138,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 					GlobalSequenceNumber: 1,
 					StreamSequenceNumber: 1,
 					EventType:            event.EventType(),
-					EventID:              "d2ba8e70072943388203c438d4e94bf3",
+					EventID:              uuid.Get(1),
 					InsertTimestamp:      0,
 					Data:                 event,
 					Metadata:             nil,
@@ -1153,7 +1148,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("does not allow saving multiple events from different aggregate types", func(t *testing.T) {
 			// Given
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), NewSeededUUIDGenerator())
 			const aggregateIDA = "ea455c7c9eee4e2a9a6c6cbe14532d0d"
 			const aggregateIDB = "03b2db3441164859a8c1a111af0d38b8"
 			eventA := &ThingWasDone{ID: aggregateIDA, Number: 1}
@@ -1172,7 +1167,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("does not allow saving multiple events from different streams", func(t *testing.T) {
 			// Given
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), NewSeededUUIDGenerator())
 			const aggregateIDA = "30afca29f919413d849f83e201e47e05"
 			const aggregateIDB = "463bfd65d0944e7f877ed5294bc842d3"
 			eventA := &ThingWasDone{ID: aggregateIDA, Number: 1}
@@ -1191,8 +1186,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("stops before saving with context.Done", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
-			store := newStore(t, sequentialclock.New())
+			uuid := NewSeededUUIDGenerator()
+			store := newStore(t, sequentialclock.New(), uuid)
 			const aggregateID = "6a073d2113544c37a8ae3cfdef78b164"
 			event := &ThingWasDone{ID: aggregateID, Number: 1}
 			ctx, done := context.WithCancel(TimeoutContext(t))
@@ -1207,8 +1202,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("errors from missing events", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
-			store := newStore(t, sequentialclock.New())
+			uuid := NewSeededUUIDGenerator()
+			store := newStore(t, sequentialclock.New(), uuid)
 			ctx := TimeoutContext(t)
 
 			// When
@@ -1222,9 +1217,9 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 	t.Run("AllEventsSubscription", func(t *testing.T) {
 		t.Run("Save sends new events to subscriber on save", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
+			uuid := NewSeededUUIDGenerator()
 			const aggregateID = "fe7a973d57bb4693a997bb445776da6a"
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), uuid)
 			event1 := &ThingWasDone{ID: aggregateID, Number: 2}
 			event2 := &ThingWasDone{ID: aggregateID, Number: 3}
 			countSubscriber := NewCountSubscriber()
@@ -1248,7 +1243,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				GlobalSequenceNumber: 2,
 				StreamSequenceNumber: 2,
 				EventType:            event2.EventType(),
-				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+				EventID:              uuid.Get(2),
 				InsertTimestamp:      1,
 				Data:                 event2,
 				Metadata:             nil,
@@ -1259,8 +1254,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("stops before subscribing with context.Done", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
-			store := newStore(t, sequentialclock.New())
+			uuid := NewSeededUUIDGenerator()
+			store := newStore(t, sequentialclock.New(), uuid)
 			ctx := TimeoutContext(t)
 			countSubscriber := NewCountSubscriber()
 			ctx, done := context.WithCancel(TimeoutContext(t))
@@ -1276,9 +1271,9 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("returns no events when global sequence number out of range", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
+			uuid := NewSeededUUIDGenerator()
 			const aggregateID = "fe7a973d57bb4693a997bb445776da6a"
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), uuid)
 			event1 := &ThingWasDone{ID: aggregateID, Number: 2}
 			event2 := &ThingWasDone{ID: aggregateID, Number: 3}
 			ctx := TimeoutContext(t)
@@ -1301,10 +1296,10 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 	t.Run("AggregateTypesSubscription", func(t *testing.T) {
 		t.Run("Save sends new events by aggregate type to subscriber on save", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
+			uuid := NewSeededUUIDGenerator()
 			const aggregateID1 = "db353641085f462ca2d18b0baa9b0e66"
 			const aggregateID2 = "b14ae3514a5d4a28b5be23567faa3c67"
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), uuid)
 			event1 := &ThingWasDone{ID: aggregateID1, Number: 2}
 			event2 := &AnotherWasComplete{ID: aggregateID2}
 			event3 := &ThingWasDone{ID: aggregateID1, Number: 3}
@@ -1329,7 +1324,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				GlobalSequenceNumber: 3,
 				StreamSequenceNumber: 2,
 				EventType:            event3.EventType(),
-				EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+				EventID:              uuid.Get(3),
 				InsertTimestamp:      2,
 				Data:                 event3,
 				Metadata:             nil,
@@ -1340,8 +1335,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("stops before subscribing with context.Done", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
-			store := newStore(t, sequentialclock.New())
+			uuid := NewSeededUUIDGenerator()
+			store := newStore(t, sequentialclock.New(), uuid)
 			ctx := TimeoutContext(t)
 			countSubscriber := NewCountSubscriber()
 			ctx, done := context.WithCancel(TimeoutContext(t))
@@ -1358,9 +1353,9 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 	t.Run("Subscriber dispatches command that results in saving another event", func(t *testing.T) {
 		// Given
-		shortuuid.SetRand(100)
+		uuid := NewSeededUUIDGenerator()
 		const aggregateID = "b0ec7e41cf56445382ce7d823937abef"
-		store := newStore(t, sequentialclock.New())
+		store := newStore(t, sequentialclock.New(), uuid)
 		event := ThingWasDone{ID: aggregateID, Number: 2}
 		triggerProcessManager := newTriggerProcessManager(store.Save)
 		ctx := TimeoutContext(t)
@@ -1384,7 +1379,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				GlobalSequenceNumber: 1,
 				StreamSequenceNumber: 1,
 				EventType:            event.EventType(),
-				EventID:              "d2ba8e70072943388203c438d4e94bf3",
+				EventID:              uuid.Get(1),
 				InsertTimestamp:      0,
 				Data:                 &event,
 				Metadata:             nil,
@@ -1395,7 +1390,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				GlobalSequenceNumber: 2,
 				StreamSequenceNumber: 1,
 				EventType:            expectedTriggeredEvent.EventType(),
-				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+				EventID:              uuid.Get(2),
 				InsertTimestamp:      1,
 				Data:                 &expectedTriggeredEvent,
 				Metadata:             nil,
@@ -1405,8 +1400,8 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 	t.Run("save event by value and get event by pointer from store", func(t *testing.T) {
 		// Given
-		shortuuid.SetRand(100)
-		store := newStore(t, sequentialclock.New())
+		uuid := NewSeededUUIDGenerator()
+		store := newStore(t, sequentialclock.New(), uuid)
 		const aggregateID = "30d438b5214740259761acc015ad7af8"
 		event := ThingWasDone{ID: aggregateID, Number: 1}
 		ctx := TimeoutContext(t)
@@ -1423,7 +1418,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 				GlobalSequenceNumber: 1,
 				StreamSequenceNumber: 1,
 				EventType:            event.EventType(),
-				EventID:              "d2ba8e70072943388203c438d4e94bf3",
+				EventID:              uuid.Get(1),
 				InsertTimestamp:      0,
 				Data:                 &event,
 				Metadata:             nil,
@@ -1434,7 +1429,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 	t.Run("TotalEventsInStream", func(t *testing.T) {
 		t.Run("with 2 events in a stream", func(t *testing.T) {
 			// Given
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), NewSeededUUIDGenerator())
 			const aggregateIDA = "a3df4f9f7cb44803a638dedb2ee92ff8"
 			const aggregateIDB = "fa02fbd78a8b4d5a9a7aaaf9edae8216"
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
@@ -1459,8 +1454,7 @@ func VerifyStore(t *testing.T, newStore func(t *testing.T, clock clock.Clock) ra
 
 		t.Run("stops before returning with context.Done", func(t *testing.T) {
 			// Given
-			shortuuid.SetRand(100)
-			store := newStore(t, sequentialclock.New())
+			store := newStore(t, sequentialclock.New(), NewSeededUUIDGenerator())
 			const aggregateID = "6a073d2113544c37a8ae3cfdef78b164"
 			event := &ThingWasDone{ID: aggregateID, Number: 1}
 			ctx, done := context.WithCancel(TimeoutContext(t))

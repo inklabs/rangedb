@@ -5,6 +5,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -17,10 +18,11 @@ import (
 func Test_Postgres_VerifyStoreInterface(t *testing.T) {
 	config := configFromEnvironment(t)
 
-	rangedbtest.VerifyStore(t, func(t *testing.T, clock clock.Clock) rangedb.Store {
+	rangedbtest.VerifyStore(t, func(t *testing.T, clock clock.Clock, uuidGenerator shortuuid.Generator) rangedb.Store {
 		store, err := postgresstore.New(
 			config,
 			postgresstore.WithClock(clock),
+			postgresstore.WithUUIDGenerator(uuidGenerator),
 		)
 		require.NoError(t, err)
 		rangedbtest.BindEvents(store)
@@ -38,10 +40,11 @@ func Test_Postgres_VerifyStoreInterface(t *testing.T) {
 func Test_Postgres_WithPgNotify_VerifyStoreInterface(t *testing.T) {
 	config := configFromEnvironment(t)
 
-	rangedbtest.VerifyStore(t, func(t *testing.T, clock clock.Clock) rangedb.Store {
+	rangedbtest.VerifyStore(t, func(t *testing.T, clock clock.Clock, uuidGenerator shortuuid.Generator) rangedb.Store {
 		store, err := postgresstore.New(
 			config,
 			postgresstore.WithClock(clock),
+			postgresstore.WithUUIDGenerator(uuidGenerator),
 			postgresstore.WithPgNotify(),
 		)
 		require.NoError(t, err)
@@ -283,6 +286,7 @@ type testSkipper interface {
 func configFromEnvironment(t testSkipper) *postgresstore.Config {
 	config, err := postgresstore.NewConfigFromEnvironment()
 	if err != nil {
+		// docker run -e POSTGRES_HOST_AUTH_METHOD=trust -p5432:5432 postgre
 		t.Skip("Postgres DB has not been configured via environment variables to run integration tests")
 	}
 

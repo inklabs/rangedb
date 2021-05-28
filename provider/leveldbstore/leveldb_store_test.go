@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -19,12 +20,13 @@ import (
 )
 
 func Test_LevelDB_VerifyStoreInterface(t *testing.T) {
-	rangedbtest.VerifyStore(t, func(t *testing.T, clk clock.Clock) rangedb.Store {
+	rangedbtest.VerifyStore(t, func(t *testing.T, clk clock.Clock, uuidGenerator shortuuid.Generator) rangedb.Store {
 		dbPath, err := ioutil.TempDir("", "test-events-")
 		require.NoError(t, err)
 
 		store, err := leveldbstore.New(dbPath,
 			leveldbstore.WithClock(clk),
+			leveldbstore.WithUUIDGenerator(uuidGenerator),
 		)
 		require.NoError(t, err)
 		rangedbtest.BindEvents(store)

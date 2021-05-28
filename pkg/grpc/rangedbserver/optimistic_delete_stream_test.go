@@ -13,14 +13,12 @@ import (
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock/provider/sequentialclock"
 	"github.com/inklabs/rangedb/pkg/grpc/rangedbpb"
-	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/rangedbtest"
 )
 
 func ExampleRangeDBServer_OptimisticDeleteStream() {
 	// Given
-	shortuuid.SetRand(100)
 	inMemoryStore := inmemorystore.New(
 		inmemorystore.WithClock(sequentialclock.New()),
 	)

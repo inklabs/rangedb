@@ -18,18 +18,22 @@ import (
 	"github.com/inklabs/rangedb/pkg/clock/provider/sequentialclock"
 	"github.com/inklabs/rangedb/pkg/grpc/rangedbpb"
 	"github.com/inklabs/rangedb/pkg/grpc/rangedbserver"
-	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/rangedbtest"
 )
 
 func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 	// Given
-	shortuuid.SetRand(100)
-	store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
-	const aggregateID1 = "f187760f4d8c4d1c9d9cf17b66766abd"
-	const aggregateID2 = "5b36ae984b724685917b69ae47968be1"
-	const aggregateID3 = "9bc181144cef4fd19da1f32a17363997"
+	uuid := rangedbtest.NewSeededUUIDGenerator()
+	store := inmemorystore.New(
+		inmemorystore.WithClock(sequentialclock.New()),
+		inmemorystore.WithUUIDGenerator(uuid),
+	)
+	const (
+		aggregateID1 = "f187760f4d8c4d1c9d9cf17b66766abd"
+		aggregateID2 = "5b36ae984b724685917b69ae47968be1"
+		aggregateID3 = "9bc181144cef4fd19da1f32a17363997"
+	)
 
 	event1 := rangedbtest.ThingWasDone{ID: aggregateID1, Number: 100}
 	event2 := rangedbtest.ThingWasDone{ID: aggregateID1, Number: 200}
@@ -69,44 +73,44 @@ func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 
 		expectedRecord1 := &rangedbpb.Record{
 			AggregateType:        "thing",
-			AggregateID:          "f187760f4d8c4d1c9d9cf17b66766abd",
+			AggregateID:          aggregateID1,
 			GlobalSequenceNumber: 1,
 			StreamSequenceNumber: 1,
 			InsertTimestamp:      0,
-			EventID:              "d2ba8e70072943388203c438d4e94bf3",
+			EventID:              uuid.Get(1),
 			EventType:            "ThingWasDone",
 			Data:                 `{"id":"f187760f4d8c4d1c9d9cf17b66766abd","number":100}`,
 			Metadata:             "null",
 		}
 		expectedRecord2 := &rangedbpb.Record{
 			AggregateType:        "thing",
-			AggregateID:          "f187760f4d8c4d1c9d9cf17b66766abd",
+			AggregateID:          aggregateID1,
 			GlobalSequenceNumber: 2,
 			StreamSequenceNumber: 2,
 			InsertTimestamp:      1,
-			EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+			EventID:              uuid.Get(2),
 			EventType:            "ThingWasDone",
 			Data:                 `{"id":"f187760f4d8c4d1c9d9cf17b66766abd","number":200}`,
 			Metadata:             "null",
 		}
 		expectedRecord3 := &rangedbpb.Record{
 			AggregateType:        "thing",
-			AggregateID:          "5b36ae984b724685917b69ae47968be1",
+			AggregateID:          aggregateID2,
 			GlobalSequenceNumber: 3,
 			StreamSequenceNumber: 1,
 			InsertTimestamp:      2,
-			EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+			EventID:              uuid.Get(3),
 			EventType:            "ThingWasDone",
 			Data:                 `{"id":"5b36ae984b724685917b69ae47968be1","number":300}`,
 			Metadata:             "null",
 		}
 		expectedRecord4 := &rangedbpb.Record{
 			AggregateType:        "another",
-			AggregateID:          "9bc181144cef4fd19da1f32a17363997",
+			AggregateID:          aggregateID3,
 			GlobalSequenceNumber: 4,
 			StreamSequenceNumber: 1,
 			InsertTimestamp:      3,
-			EventID:              "5042958739514c948f776fc9f820bca0",
+			EventID:              uuid.Get(4),
 			EventType:            "AnotherWasComplete",
 			Data:                 `{"id":"9bc181144cef4fd19da1f32a17363997"}`,
 			Metadata:             "null",
@@ -138,10 +142,15 @@ func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 func TestRangeDBServer_SubscribeToLiveEvents(t *testing.T) {
 	t.Run("subscribes to real time events, ignoring previous events", func(t *testing.T) {
 		// Given
-		shortuuid.SetRand(100)
-		const aggregateID1 = "f187760f4d8c4d1c9d9cf17b66766abd"
-		const aggregateID2 = "5b36ae984b724685917b69ae47968be1"
-		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+		uuid := rangedbtest.NewSeededUUIDGenerator()
+		const (
+			aggregateID1 = "f187760f4d8c4d1c9d9cf17b66766abd"
+			aggregateID2 = "5b36ae984b724685917b69ae47968be1"
+		)
+		store := inmemorystore.New(
+			inmemorystore.WithClock(sequentialclock.New()),
+			inmemorystore.WithUUIDGenerator(uuid),
+		)
 		ctx := rangedbtest.TimeoutContext(t)
 		rangedbtest.BlockingSaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 100}},
@@ -174,22 +183,22 @@ func TestRangeDBServer_SubscribeToLiveEvents(t *testing.T) {
 
 		expectedRecord1 := &rangedbpb.Record{
 			AggregateType:        "thing",
-			AggregateID:          "f187760f4d8c4d1c9d9cf17b66766abd",
+			AggregateID:          aggregateID1,
 			GlobalSequenceNumber: 3,
 			StreamSequenceNumber: 3,
 			InsertTimestamp:      2,
-			EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+			EventID:              uuid.Get(3),
 			EventType:            "ThingWasDone",
 			Data:                 `{"id":"f187760f4d8c4d1c9d9cf17b66766abd","number":300}`,
 			Metadata:             "null",
 		}
 		expectedRecord2 := &rangedbpb.Record{
 			AggregateType:        "another",
-			AggregateID:          "5b36ae984b724685917b69ae47968be1",
+			AggregateID:          aggregateID2,
 			GlobalSequenceNumber: 4,
 			StreamSequenceNumber: 1,
 			InsertTimestamp:      3,
-			EventID:              "5042958739514c948f776fc9f820bca0",
+			EventID:              uuid.Get(4),
 			EventType:            "AnotherWasComplete",
 			Data:                 `{"id":"5b36ae984b724685917b69ae47968be1"}`,
 			Metadata:             "null",
@@ -203,10 +212,15 @@ func TestRangeDBServer_SubscribeToLiveEvents(t *testing.T) {
 func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 	t.Run("subscribes to all events starting from the 2nd event", func(t *testing.T) {
 		// Given
-		shortuuid.SetRand(100)
-		const aggregateID1 = "f187760f4d8c4d1c9d9cf17b66766abd"
-		const aggregateID2 = "5b36ae984b724685917b69ae47968be1"
-		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+		uuid := rangedbtest.NewSeededUUIDGenerator()
+		const (
+			aggregateID1 = "f187760f4d8c4d1c9d9cf17b66766abd"
+			aggregateID2 = "5b36ae984b724685917b69ae47968be1"
+		)
+		store := inmemorystore.New(
+			inmemorystore.WithClock(sequentialclock.New()),
+			inmemorystore.WithUUIDGenerator(uuid),
+		)
 		ctx := rangedbtest.TimeoutContext(t)
 		rangedbtest.BlockingSaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 100}},
@@ -244,33 +258,33 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 
 		expectedRecord1 := &rangedbpb.Record{
 			AggregateType:        "thing",
-			AggregateID:          "f187760f4d8c4d1c9d9cf17b66766abd",
+			AggregateID:          aggregateID1,
 			GlobalSequenceNumber: 2,
 			StreamSequenceNumber: 2,
 			InsertTimestamp:      1,
-			EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+			EventID:              uuid.Get(2),
 			EventType:            "ThingWasDone",
 			Data:                 `{"id":"f187760f4d8c4d1c9d9cf17b66766abd","number":200}`,
 			Metadata:             "null",
 		}
 		expectedRecord2 := &rangedbpb.Record{
 			AggregateType:        "thing",
-			AggregateID:          "f187760f4d8c4d1c9d9cf17b66766abd",
+			AggregateID:          aggregateID1,
 			GlobalSequenceNumber: 3,
 			StreamSequenceNumber: 3,
 			InsertTimestamp:      2,
-			EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+			EventID:              uuid.Get(3),
 			EventType:            "ThingWasDone",
 			Data:                 `{"id":"f187760f4d8c4d1c9d9cf17b66766abd","number":300}`,
 			Metadata:             "null",
 		}
 		expectedRecord3 := &rangedbpb.Record{
 			AggregateType:        "another",
-			AggregateID:          "5b36ae984b724685917b69ae47968be1",
+			AggregateID:          aggregateID2,
 			GlobalSequenceNumber: 4,
 			StreamSequenceNumber: 1,
 			InsertTimestamp:      3,
-			EventID:              "5042958739514c948f776fc9f820bca0",
+			EventID:              uuid.Get(4),
 			EventType:            "AnotherWasComplete",
 			Data:                 `{"id":"5b36ae984b724685917b69ae47968be1"}`,
 			Metadata:             "null",
@@ -285,10 +299,16 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 	t.Run("subscribes to events by aggregate type starting from the 2nd event", func(t *testing.T) {
 		// Given
-		shortuuid.SetRand(100)
-		const aggregateID1 = "f187760f4d8c4d1c9d9cf17b66766abd"
-		const aggregateID2 = "5b36ae984b724685917b69ae47968be1"
-		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+		uuid := rangedbtest.NewSeededUUIDGenerator()
+		const (
+			aggregateID1 = "f187760f4d8c4d1c9d9cf17b66766abd"
+			aggregateID2 = "5b36ae984b724685917b69ae47968be1"
+		)
+
+		store := inmemorystore.New(
+			inmemorystore.WithClock(sequentialclock.New()),
+			inmemorystore.WithUUIDGenerator(uuid),
+		)
 		ctx := rangedbtest.TimeoutContext(t)
 		rangedbtest.BlockingSaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 100}},
@@ -315,7 +335,7 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 300}},
 		)
 		rangedbtest.BlockingSaveEvents(t, store,
-			&rangedb.EventRecord{Event: rangedbtest.ThatWasDone{ID: "54d8ee5ba84d45a09b3186d9617c4f86"}},
+			&rangedb.EventRecord{Event: rangedbtest.ThatWasDone{ID: aggregateID2}},
 		)
 		rangedbtest.BlockingSaveEvents(t, store,
 			&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: aggregateID2}},
@@ -330,33 +350,33 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 
 		expectedRecord1 := &rangedbpb.Record{
 			AggregateType:        "thing",
-			AggregateID:          "f187760f4d8c4d1c9d9cf17b66766abd",
+			AggregateID:          aggregateID1,
 			GlobalSequenceNumber: 2,
 			StreamSequenceNumber: 2,
 			InsertTimestamp:      1,
-			EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+			EventID:              uuid.Get(2),
 			EventType:            "ThingWasDone",
 			Data:                 `{"id":"f187760f4d8c4d1c9d9cf17b66766abd","number":200}`,
 			Metadata:             "null",
 		}
 		expectedRecord2 := &rangedbpb.Record{
 			AggregateType:        "thing",
-			AggregateID:          "f187760f4d8c4d1c9d9cf17b66766abd",
+			AggregateID:          aggregateID1,
 			GlobalSequenceNumber: 3,
 			StreamSequenceNumber: 3,
 			InsertTimestamp:      2,
-			EventID:              "2e9e6918af10498cb7349c89a351fdb7",
+			EventID:              uuid.Get(3),
 			EventType:            "ThingWasDone",
 			Data:                 `{"id":"f187760f4d8c4d1c9d9cf17b66766abd","number":300}`,
 			Metadata:             "null",
 		}
 		expectedRecord3 := &rangedbpb.Record{
 			AggregateType:        "another",
-			AggregateID:          "5b36ae984b724685917b69ae47968be1",
+			AggregateID:          aggregateID2,
 			GlobalSequenceNumber: 5,
 			StreamSequenceNumber: 1,
 			InsertTimestamp:      4,
-			EventID:              "4059365d39ce4f0082f419ba1350d9c0",
+			EventID:              uuid.Get(5),
 			EventType:            "AnotherWasComplete",
 			Data:                 `{"id":"5b36ae984b724685917b69ae47968be1"}`,
 			Metadata:             "null",
@@ -371,22 +391,26 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 func TestRangeDBServer_Save(t *testing.T) {
 	t.Run("saves 2 events", func(t *testing.T) {
 		// Given
-		shortuuid.SetRand(100)
-		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+		uuid := rangedbtest.NewSeededUUIDGenerator()
+		store := inmemorystore.New(
+			inmemorystore.WithClock(sequentialclock.New()),
+			inmemorystore.WithUUIDGenerator(uuid),
+		)
 		rangeDBClient := getClient(t, store)
 		ctx := rangedbtest.TimeoutContext(t)
+		const aggregateID = "69ac39e8df52419c98fe71e2f8692b72"
 		request := &rangedbpb.SaveRequest{
 			AggregateType: "thing",
-			AggregateID:   "b5ef2296339d4ad1887f1deb486f7821",
+			AggregateID:   aggregateID,
 			Events: []*rangedbpb.Event{
 				{
 					Type:     "ThingWasDone",
-					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
+					Data:     `{"id":"69ac39e8df52419c98fe71e2f8692b72","number":100}`,
 					Metadata: "",
 				},
 				{
 					Type: "ThingWasDone",
-					Data: `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":200}`,
+					Data: `{"id":"69ac39e8df52419c98fe71e2f8692b72","number":200}`,
 				},
 			},
 		}
@@ -402,28 +426,28 @@ func TestRangeDBServer_Save(t *testing.T) {
 		rangedbtest.AssertRecordsInIterator(t, recordIterator,
 			&rangedb.Record{
 				AggregateType:        "thing",
-				AggregateID:          "b5ef2296339d4ad1887f1deb486f7821",
+				AggregateID:          aggregateID,
 				GlobalSequenceNumber: 1,
 				StreamSequenceNumber: 1,
 				InsertTimestamp:      0,
-				EventID:              "d2ba8e70072943388203c438d4e94bf3",
+				EventID:              uuid.Get(1),
 				EventType:            "ThingWasDone",
 				Data: map[string]interface{}{
-					"id":     "141b39d2b9854f8093ef79dc47dae6af",
+					"id":     aggregateID,
 					"number": json.Number("100"),
 				},
 				Metadata: nil,
 			},
 			&rangedb.Record{
 				AggregateType:        "thing",
-				AggregateID:          "b5ef2296339d4ad1887f1deb486f7821",
+				AggregateID:          aggregateID,
 				GlobalSequenceNumber: 2,
 				StreamSequenceNumber: 2,
 				InsertTimestamp:      1,
-				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+				EventID:              uuid.Get(2),
 				EventType:            "ThingWasDone",
 				Data: map[string]interface{}{
-					"id":     "141b39d2b9854f8093ef79dc47dae6af",
+					"id":     aggregateID,
 					"number": json.Number("200"),
 				},
 				Metadata: nil,
@@ -433,17 +457,21 @@ func TestRangeDBServer_Save(t *testing.T) {
 
 	t.Run("fails on 2nd from invalid event data", func(t *testing.T) {
 		// Given
-		shortuuid.SetRand(100)
-		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+		uuid := rangedbtest.NewSeededUUIDGenerator()
+		store := inmemorystore.New(
+			inmemorystore.WithClock(sequentialclock.New()),
+			inmemorystore.WithUUIDGenerator(uuid),
+		)
 		rangeDBClient := getClient(t, store)
 		ctx := rangedbtest.TimeoutContext(t)
+		const aggregateID = "7501649949fc46b389772a3e7df6c563"
 		request := &rangedbpb.SaveRequest{
 			AggregateType: "thing",
-			AggregateID:   "b5ef2296339d4ad1887f1deb486f7821",
+			AggregateID:   aggregateID,
 			Events: []*rangedbpb.Event{
 				{
 					Type:     "ThingWasDone",
-					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
+					Data:     `{"id":"7501649949fc46b389772a3e7df6c563","number":100}`,
 					Metadata: "",
 				},
 				{
@@ -465,22 +493,26 @@ func TestRangeDBServer_Save(t *testing.T) {
 
 	t.Run("fails on 2nd from invalid event metadata", func(t *testing.T) {
 		// Given
-		shortuuid.SetRand(100)
-		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+		uuid := rangedbtest.NewSeededUUIDGenerator()
+		store := inmemorystore.New(
+			inmemorystore.WithClock(sequentialclock.New()),
+			inmemorystore.WithUUIDGenerator(uuid),
+		)
 		rangeDBClient := getClient(t, store)
 		ctx := rangedbtest.TimeoutContext(t)
+		const aggregateID = "340e6f63af8b4fcc8d66ba02adb7d92d"
 		request := &rangedbpb.SaveRequest{
 			AggregateType: "thing",
-			AggregateID:   "b5ef2296339d4ad1887f1deb486f7821",
+			AggregateID:   aggregateID,
 			Events: []*rangedbpb.Event{
 				{
 					Type:     "ThingWasDone",
-					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
+					Data:     `{"id":"340e6f63af8b4fcc8d66ba02adb7d92d","number":100}`,
 					Metadata: "",
 				},
 				{
 					Type:     "ThingWasDone",
-					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
+					Data:     `{"id":"340e6f63af8b4fcc8d66ba02adb7d92d","number":100}`,
 					Metadata: `{invalid-json`,
 				},
 			},
@@ -498,22 +530,22 @@ func TestRangeDBServer_Save(t *testing.T) {
 
 	t.Run("fails from failing store", func(t *testing.T) {
 		// Given
-		shortuuid.SetRand(100)
 		store := rangedbtest.NewFailingEventStore()
 		rangeDBClient := getClient(t, store)
 		ctx := rangedbtest.TimeoutContext(t)
+		const aggregateID = "1193540fc0f3485b8dee57ae57fc745b"
 		request := &rangedbpb.SaveRequest{
 			AggregateType: "thing",
-			AggregateID:   "b5ef2296339d4ad1887f1deb486f7821",
+			AggregateID:   aggregateID,
 			Events: []*rangedbpb.Event{
 				{
 					Type:     "ThingWasDone",
-					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
+					Data:     `{"id":"1193540fc0f3485b8dee57ae57fc745b","number":100}`,
 					Metadata: "",
 				},
 				{
 					Type:     "ThingWasDone",
-					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
+					Data:     `{"id":"1193540fc0f3485b8dee57ae57fc745b","number":100}`,
 					Metadata: "",
 				},
 			},
@@ -533,23 +565,27 @@ func TestRangeDBServer_Save(t *testing.T) {
 func TestRangeDBServer_OptimisticSave(t *testing.T) {
 	t.Run("saves 2 events", func(t *testing.T) {
 		// Given
-		shortuuid.SetRand(100)
-		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+		uuid := rangedbtest.NewSeededUUIDGenerator()
+		store := inmemorystore.New(
+			inmemorystore.WithClock(sequentialclock.New()),
+			inmemorystore.WithUUIDGenerator(uuid),
+		)
 		rangeDBClient := getClient(t, store)
 		ctx := rangedbtest.TimeoutContext(t)
+		const aggregateID = "c46671e5c22b478e9f5ccb5185910e5d"
 		request := &rangedbpb.OptimisticSaveRequest{
 			ExpectedStreamSequenceNumber: 0,
 			AggregateType:                "thing",
-			AggregateID:                  "b5ef2296339d4ad1887f1deb486f7821",
+			AggregateID:                  aggregateID,
 			Events: []*rangedbpb.Event{
 				{
 					Type:     "ThingWasDone",
-					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
+					Data:     `{"id":"c46671e5c22b478e9f5ccb5185910e5d","number":100}`,
 					Metadata: "",
 				},
 				{
 					Type: "ThingWasDone",
-					Data: `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":200}`,
+					Data: `{"id":"c46671e5c22b478e9f5ccb5185910e5d","number":200}`,
 				},
 			},
 		}
@@ -564,28 +600,28 @@ func TestRangeDBServer_OptimisticSave(t *testing.T) {
 		rangedbtest.AssertRecordsInIterator(t, recordIterator,
 			&rangedb.Record{
 				AggregateType:        "thing",
-				AggregateID:          "b5ef2296339d4ad1887f1deb486f7821",
+				AggregateID:          aggregateID,
 				GlobalSequenceNumber: 1,
 				StreamSequenceNumber: 1,
 				InsertTimestamp:      0,
-				EventID:              "d2ba8e70072943388203c438d4e94bf3",
+				EventID:              uuid.Get(1),
 				EventType:            "ThingWasDone",
 				Data: map[string]interface{}{
-					"id":     "141b39d2b9854f8093ef79dc47dae6af",
+					"id":     aggregateID,
 					"number": json.Number("100"),
 				},
 				Metadata: nil,
 			},
 			&rangedb.Record{
 				AggregateType:        "thing",
-				AggregateID:          "b5ef2296339d4ad1887f1deb486f7821",
+				AggregateID:          aggregateID,
 				GlobalSequenceNumber: 2,
 				StreamSequenceNumber: 2,
 				InsertTimestamp:      1,
-				EventID:              "99cbd88bbcaf482ba1cc96ed12541707",
+				EventID:              uuid.Get(2),
 				EventType:            "ThingWasDone",
 				Data: map[string]interface{}{
-					"id":     "141b39d2b9854f8093ef79dc47dae6af",
+					"id":     aggregateID,
 					"number": json.Number("200"),
 				},
 				Metadata: nil,
@@ -595,18 +631,22 @@ func TestRangeDBServer_OptimisticSave(t *testing.T) {
 
 	t.Run("fails on 2nd from invalid event data", func(t *testing.T) {
 		// Given
-		shortuuid.SetRand(100)
-		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+		uuid := rangedbtest.NewSeededUUIDGenerator()
+		store := inmemorystore.New(
+			inmemorystore.WithClock(sequentialclock.New()),
+			inmemorystore.WithUUIDGenerator(uuid),
+		)
 		rangeDBClient := getClient(t, store)
 		ctx := rangedbtest.TimeoutContext(t)
+		const aggregateID = "618d9342a96c4a7f811ff5264e2ea813"
 		request := &rangedbpb.OptimisticSaveRequest{
 			ExpectedStreamSequenceNumber: 0,
 			AggregateType:                "thing",
-			AggregateID:                  "b5ef2296339d4ad1887f1deb486f7821",
+			AggregateID:                  aggregateID,
 			Events: []*rangedbpb.Event{
 				{
 					Type:     "ThingWasDone",
-					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
+					Data:     `{"id":"618d9342a96c4a7f811ff5264e2ea813","number":100}`,
 					Metadata: "",
 				},
 				{
@@ -628,22 +668,26 @@ func TestRangeDBServer_OptimisticSave(t *testing.T) {
 
 	t.Run("fails on 2nd from invalid event metadata", func(t *testing.T) {
 		// Given
-		shortuuid.SetRand(100)
-		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+		uuid := rangedbtest.NewSeededUUIDGenerator()
+		store := inmemorystore.New(
+			inmemorystore.WithClock(sequentialclock.New()),
+			inmemorystore.WithUUIDGenerator(uuid),
+		)
 		rangeDBClient := getClient(t, store)
 		ctx := rangedbtest.TimeoutContext(t)
+		const aggregateID = "01745588c1854a2c84ed5a13c6fd133c"
 		request := &rangedbpb.OptimisticSaveRequest{
 			AggregateType: "thing",
-			AggregateID:   "b5ef2296339d4ad1887f1deb486f7821",
+			AggregateID:   aggregateID,
 			Events: []*rangedbpb.Event{
 				{
 					Type:     "ThingWasDone",
-					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
+					Data:     `{"id":"01745588c1854a2c84ed5a13c6fd133c","number":100}`,
 					Metadata: "",
 				},
 				{
 					Type:     "ThingWasDone",
-					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
+					Data:     `{"id":"01745588c1854a2c84ed5a13c6fd133c","number":100}`,
 					Metadata: `{invalid-json`,
 				},
 			},
@@ -661,22 +705,22 @@ func TestRangeDBServer_OptimisticSave(t *testing.T) {
 
 	t.Run("fails from failing store", func(t *testing.T) {
 		// Given
-		shortuuid.SetRand(100)
 		store := rangedbtest.NewFailingEventStore()
 		rangeDBClient := getClient(t, store)
 		ctx := rangedbtest.TimeoutContext(t)
+		const aggregateID = "92256cc1d6af4d5f96f31eff23de61cd"
 		request := &rangedbpb.OptimisticSaveRequest{
 			AggregateType: "thing",
-			AggregateID:   "b5ef2296339d4ad1887f1deb486f7821",
+			AggregateID:   aggregateID,
 			Events: []*rangedbpb.Event{
 				{
 					Type:     "ThingWasDone",
-					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
+					Data:     `{"id":"92256cc1d6af4d5f96f31eff23de61cd","number":100}`,
 					Metadata: "",
 				},
 				{
 					Type:     "ThingWasDone",
-					Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
+					Data:     `{"id":"92256cc1d6af4d5f96f31eff23de61cd","number":100}`,
 					Metadata: "",
 				},
 			},

@@ -4,13 +4,11 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -27,10 +25,18 @@ func Test_WebsocketApi(t *testing.T) {
 	t.Run("all events", func(t *testing.T) {
 		t.Run("reads two events", func(t *testing.T) {
 			// Given
-			uuid.SetRand(rand.New(rand.NewSource(100)))
-			store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
-			event1 := &rangedbtest.ThingWasDone{ID: "6595a5c206c746c3a9d9006c7df5784e", Number: 1}
-			event2 := &rangedbtest.ThingWasDone{ID: "8cc839e1fd3545b7a0fe67808d84cbd4", Number: 2}
+			uuid := rangedbtest.NewSeededUUIDGenerator()
+			store := inmemorystore.New(
+				inmemorystore.WithClock(sequentialclock.New()),
+				inmemorystore.WithUUIDGenerator(uuid),
+			)
+			const (
+				aggregateID1 = "0315b9a9c2cf460483551b6bb8b59671"
+				aggregateID2 = "477c1dac64c745dbb3968a75af5d23f5"
+			)
+
+			event1 := &rangedbtest.ThingWasDone{ID: aggregateID1, Number: 1}
+			event2 := &rangedbtest.ThingWasDone{ID: aggregateID2, Number: 2}
 			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event1})
 			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event2})
 			api, err := rangedbws.New(rangedbws.WithStore(store))
@@ -51,34 +57,42 @@ func Test_WebsocketApi(t *testing.T) {
 			require.NoError(t, err)
 			_, actualBytes2, err := socket.ReadMessage()
 			require.NoError(t, err)
-			expectedEvent1 := `{
+			expectedEvent1 := fmt.Sprintf(`{
 				"aggregateType": "thing",
-				"aggregateID": "6595a5c206c746c3a9d9006c7df5784e",
+				"aggregateID": "%s",
 				"globalSequenceNumber":1,
 				"streamSequenceNumber":1,
 				"insertTimestamp":0,
-				"eventID": "d2ba8e70072943388203c438d4e94bf3",
+				"eventID": "%s",
 				"eventType": "ThingWasDone",
 				"data":{
-					"id": "6595a5c206c746c3a9d9006c7df5784e",
+					"id": "%s",
 					"number": 1
 				},
 				"metadata":null
-			}`
-			expectedEvent2 := `{
+			}`,
+				aggregateID1,
+				uuid.Get(1),
+				aggregateID1,
+			)
+			expectedEvent2 := fmt.Sprintf(`{
 				"aggregateType": "thing",
-				"aggregateID": "8cc839e1fd3545b7a0fe67808d84cbd4",
+				"aggregateID": "%s",
 				"globalSequenceNumber":2,
 				"streamSequenceNumber":1,
 				"insertTimestamp":1,
-				"eventID": "99cbd88bbcaf482ba1cc96ed12541707",
+				"eventID": "%s",
 				"eventType": "ThingWasDone",
 				"data":{
-					"id": "8cc839e1fd3545b7a0fe67808d84cbd4",
+					"id": "%s",
 					"number": 2
 				},
 				"metadata":null
-			}`
+			}`,
+				aggregateID2,
+				uuid.Get(2),
+				aggregateID2,
+			)
 			assert.Equal(t, http.StatusSwitchingProtocols, response.StatusCode)
 			assertJsonEqual(t, expectedEvent1, string(actualBytes1))
 			assertJsonEqual(t, expectedEvent2, string(actualBytes2))
@@ -86,11 +100,19 @@ func Test_WebsocketApi(t *testing.T) {
 
 		t.Run("reads two events, starting from second event", func(t *testing.T) {
 			// Given
-			uuid.SetRand(rand.New(rand.NewSource(100)))
-			store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
-			event1 := &rangedbtest.ThingWasDone{ID: "24f4ffa9bd2c43468241d648f16b6786", Number: 1}
-			event2 := &rangedbtest.ThingWasDone{ID: "b75064a917054396a9bb3a6b46d7bd4c", Number: 2}
-			event3 := &rangedbtest.ThingWasDone{ID: "d8e3d651d1e9477d9af18893a2e337b9", Number: 3}
+			uuid := rangedbtest.NewSeededUUIDGenerator()
+			store := inmemorystore.New(
+				inmemorystore.WithClock(sequentialclock.New()),
+				inmemorystore.WithUUIDGenerator(uuid),
+			)
+			const (
+				aggregateID1 = "0d18c8603167498ca4004519a24268a7"
+				aggregateID2 = "153d2820edee4fa5ac040640bd1900ed"
+				aggregateID3 = "4a32af1f745c4975a7f5784695e1ba49"
+			)
+			event1 := &rangedbtest.ThingWasDone{ID: aggregateID1, Number: 1}
+			event2 := &rangedbtest.ThingWasDone{ID: aggregateID2, Number: 2}
+			event3 := &rangedbtest.ThingWasDone{ID: aggregateID3, Number: 3}
 			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event1})
 			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event2})
 			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event3})
@@ -113,34 +135,42 @@ func Test_WebsocketApi(t *testing.T) {
 			require.NoError(t, err)
 			_, actualBytes2, err := socket.ReadMessage()
 			require.NoError(t, err)
-			expectedEvent1 := `{
+			expectedEvent1 := fmt.Sprintf(`{
 				"aggregateType": "thing",
-				"aggregateID": "b75064a917054396a9bb3a6b46d7bd4c",
+				"aggregateID": "%s",
 				"globalSequenceNumber":2,
 				"streamSequenceNumber":1,
 				"insertTimestamp":1,
-				"eventID": "99cbd88bbcaf482ba1cc96ed12541707",
+				"eventID": "%s",
 				"eventType": "ThingWasDone",
 				"data":{
-					"id": "b75064a917054396a9bb3a6b46d7bd4c",
+					"id": "%s",
 					"number": 2
 				},
 				"metadata":null
-			}`
-			expectedEvent2 := `{
+			}`,
+				aggregateID2,
+				uuid.Get(2),
+				aggregateID2,
+			)
+			expectedEvent2 := fmt.Sprintf(`{
 				"aggregateType": "thing",
-				"aggregateID": "d8e3d651d1e9477d9af18893a2e337b9",
+				"aggregateID": "%s",
 				"globalSequenceNumber":3,
 				"streamSequenceNumber":1,
 				"insertTimestamp":2,
-				"eventID": "2e9e6918af10498cb7349c89a351fdb7",
+				"eventID": "%s",
 				"eventType": "ThingWasDone",
 				"data":{
-					"id": "d8e3d651d1e9477d9af18893a2e337b9",
+					"id": "%s",
 					"number": 3
 				},
 				"metadata":null
-			}`
+			}`,
+				aggregateID3,
+				uuid.Get(3),
+				aggregateID3,
+			)
 			assert.Equal(t, http.StatusSwitchingProtocols, response.StatusCode)
 			assertJsonEqual(t, expectedEvent1, string(actualBytes1))
 			assertJsonEqual(t, expectedEvent2, string(actualBytes2))
@@ -148,7 +178,6 @@ func Test_WebsocketApi(t *testing.T) {
 
 		t.Run("errors from invalid global sequence number", func(t *testing.T) {
 			// Given
-			uuid.SetRand(rand.New(rand.NewSource(100)))
 			store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 			api, err := rangedbws.New(rangedbws.WithStore(store))
 			require.NoError(t, err)
@@ -169,7 +198,6 @@ func Test_WebsocketApi(t *testing.T) {
 
 		t.Run("unable to upgrade HTTP connection to the WebSocket protocol", func(t *testing.T) {
 			// Given
-			uuid.SetRand(rand.New(rand.NewSource(100)))
 			store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 			api, err := rangedbws.New(rangedbws.WithStore(store))
 			require.NoError(t, err)
@@ -189,7 +217,6 @@ func Test_WebsocketApi(t *testing.T) {
 
 		t.Run("unable to send first event from failing store", func(t *testing.T) {
 			// Given
-			uuid.SetRand(rand.New(rand.NewSource(100)))
 			failingStore := rangedbtest.NewFailingEventStore()
 			ctx := rangedbtest.TimeoutContext(t)
 			api, err := rangedbws.New(rangedbws.WithStore(failingStore))
@@ -214,11 +241,19 @@ func Test_WebsocketApi(t *testing.T) {
 	t.Run("events by aggregate types", func(t *testing.T) {
 		t.Run("reads two events", func(t *testing.T) {
 			// Given
-			uuid.SetRand(rand.New(rand.NewSource(100)))
-			store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
-			event1 := &rangedbtest.ThingWasDone{ID: "c0f61ffbe61a418383244277e9ee6084", Number: 1}
-			event2 := &rangedbtest.AnotherWasComplete{ID: "0ebd3f223484462185cf0e78da083696"}
-			event3 := &rangedbtest.ThatWasDone{ID: "14d50d2cbf8d4b2cbdac21308a4f8155"}
+			uuid := rangedbtest.NewSeededUUIDGenerator()
+			store := inmemorystore.New(
+				inmemorystore.WithClock(sequentialclock.New()),
+				inmemorystore.WithUUIDGenerator(uuid),
+			)
+			const (
+				aggregateID1 = "66b7516e209a4ec39ca798a35467021b"
+				aggregateID2 = "8e09afd055214ca0bae59b38ddb7d8b8"
+				aggregateID3 = "e1eb6179b4034183a55d8315111db3fa"
+			)
+			event1 := &rangedbtest.ThingWasDone{ID: aggregateID1, Number: 1}
+			event2 := &rangedbtest.AnotherWasComplete{ID: aggregateID2}
+			event3 := &rangedbtest.ThatWasDone{ID: aggregateID3}
 			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event1})
 			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event2})
 			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event3})
@@ -240,33 +275,41 @@ func Test_WebsocketApi(t *testing.T) {
 			require.NoError(t, err)
 			_, actualBytes2, err := socket.ReadMessage()
 			require.NoError(t, err)
-			expectedEvent1 := `{
+			expectedEvent1 := fmt.Sprintf(`{
 				"aggregateType": "thing",
-				"aggregateID": "c0f61ffbe61a418383244277e9ee6084",
+				"aggregateID": "%s",
 				"globalSequenceNumber":1,
 				"streamSequenceNumber":1,
 				"insertTimestamp":0,
-				"eventID": "d2ba8e70072943388203c438d4e94bf3",
+				"eventID": "%s",
 				"eventType": "ThingWasDone",
 				"data":{
-					"id": "c0f61ffbe61a418383244277e9ee6084",
+					"id": "%s",
 					"number": 1
 				},
 				"metadata":null
-			}`
-			expectedEvent2 := `{
+			}`,
+				aggregateID1,
+				uuid.Get(1),
+				aggregateID1,
+			)
+			expectedEvent2 := fmt.Sprintf(`{
 				"aggregateType": "that",
-				"aggregateID": "14d50d2cbf8d4b2cbdac21308a4f8155",
+				"aggregateID": "%s",
 				"globalSequenceNumber":3,
 				"streamSequenceNumber":1,
 				"insertTimestamp":2,
-				"eventID": "2e9e6918af10498cb7349c89a351fdb7",
+				"eventID": "%s",
 				"eventType": "ThatWasDone",
 				"data":{
-					"ID": "14d50d2cbf8d4b2cbdac21308a4f8155"
+					"ID": "%s"
 				},
 				"metadata":null
-			}`
+			}`,
+				aggregateID3,
+				uuid.Get(3),
+				aggregateID3,
+			)
 			assert.Equal(t, http.StatusSwitchingProtocols, response.StatusCode)
 			assertJsonEqual(t, expectedEvent1, string(actualBytes1))
 			assertJsonEqual(t, expectedEvent2, string(actualBytes2))
@@ -274,7 +317,6 @@ func Test_WebsocketApi(t *testing.T) {
 
 		t.Run("errors from invalid global sequence number", func(t *testing.T) {
 			// Given
-			uuid.SetRand(rand.New(rand.NewSource(100)))
 			store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 			api, err := rangedbws.New(rangedbws.WithStore(store))
 			require.NoError(t, err)

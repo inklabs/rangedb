@@ -9,6 +9,7 @@ import (
 	"github.com/inklabs/rangedb/pkg/crypto/cryptotest"
 	"github.com/inklabs/rangedb/pkg/crypto/eventencryptor"
 	"github.com/inklabs/rangedb/pkg/crypto/provider/inmemorykeystore"
+	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/inklabs/rangedb/provider/encryptedstore"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/rangedbtest"
@@ -17,9 +18,10 @@ import (
 )
 
 func Test_EncryptedStore_VerifyStoreInterface(t *testing.T) {
-	rangedbtest.VerifyStore(t, func(t *testing.T, clock clock.Clock) rangedb.Store {
+	rangedbtest.VerifyStore(t, func(t *testing.T, clock clock.Clock, uuidGenerator shortuuid.Generator) rangedb.Store {
 		inMemoryStore := inmemorystore.New(
 			inmemorystore.WithClock(clock),
+			inmemorystore.WithUUIDGenerator(uuidGenerator),
 		)
 		encryptor := aes.NewGCM()
 		keyStore := inmemorykeystore.New()
