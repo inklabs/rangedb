@@ -645,9 +645,24 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 
 			// Then
 			require.NoError(t, err)
-			recordIterator := store.EventsByStream(ctx, 0, streamName)
-			assert.False(t, recordIterator.Next())
-			assert.Equal(t, rangedb.ErrStreamNotFound, recordIterator.Err())
+
+			t.Run("does not exist in stream", func(t *testing.T) {
+				recordIterator := store.EventsByStream(ctx, 0, streamName)
+				require.False(t, recordIterator.Next())
+				assert.Equal(t, rangedb.ErrStreamNotFound, recordIterator.Err())
+			})
+
+			t.Run("does not exist by aggregate type", func(t *testing.T) {
+				recordIterator := store.EventsByAggregateTypes(ctx, 0, eventA1.AggregateType())
+				require.False(t, recordIterator.Next())
+				assert.Nil(t, recordIterator.Err())
+			})
+
+			t.Run("does not exist in all events", func(t *testing.T) {
+				recordIterator := store.Events(ctx, 0)
+				require.False(t, recordIterator.Next())
+				assert.Nil(t, recordIterator.Err())
+			})
 		})
 
 		t.Run("errors from wrong expected stream sequence number", func(t *testing.T) {
@@ -690,7 +705,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			assert.Equal(t, rangedb.ErrStreamNotFound, err)
 		})
 
-		t.Run("deletes a stream with 2 events", func(t *testing.T) {
+		t.Run("errors from canceled context attempting to delete a stream with 2 events", func(t *testing.T) {
 			// Given
 			uuid := NewSeededUUIDGenerator()
 			const aggregateIDA = "17852dae2f9448acb0174419c7634fdf"
@@ -735,6 +750,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			// Then
 			require.NoError(t, err)
 			SaveEvents(t, store, &rangedb.EventRecord{Event: eventC})
+
 			t.Run("can retrieve from all events", func(t *testing.T) {
 				recordIterator := store.Events(ctx, 0)
 				AssertRecordsInIterator(t, recordIterator,

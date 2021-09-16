@@ -30,9 +30,11 @@ import (
 )
 
 const (
-	rpcErrContextCanceled   = "Canceled desc = context canceled"
-	streamNotFound          = "Failed to perform read because the stream was not found"
-	broadcastRecordBuffSize = 100
+	rpcErrContextCanceled             = "Canceled desc = context canceled"
+	rpcErrEventStreamIsDeleted        = " is deleted."
+	streamNotFound                    = "Failed to perform read because the stream was not found"
+	rpcErrWrongExpectedStreamRevision = "WrongExpectedStreamRevision"
+	broadcastRecordBuffSize           = 100
 )
 
 type eventStore struct {
@@ -48,6 +50,7 @@ type eventStore struct {
 	version              int64
 	globalSequenceNumber uint64
 	savedStreams         map[string]struct{}
+	deletedStreams       map[string]struct{}
 }
 
 // Option defines functional option parameters for eventStore.
@@ -77,13 +80,14 @@ func WithSerializer(serializer rangedb.RecordSerializer) Option {
 // New constructs an eventStore. Experimental: Use at your own risk.
 func New(ipAddr, username, password string, options ...Option) *eventStore {
 	s := &eventStore{
-		clock:        systemclock.New(),
-		serializer:   jsonrecordserializer.New(),
-		broadcaster:  broadcast.New(broadcastRecordBuffSize, broadcast.DefaultTimeout),
-		savedStreams: make(map[string]struct{}),
-		ipAddr:       ipAddr,
-		username:     username,
-		password:     password,
+		clock:          systemclock.New(),
+		serializer:     jsonrecordserializer.New(),
+		broadcaster:    broadcast.New(broadcastRecordBuffSize, broadcast.DefaultTimeout),
+		savedStreams:   make(map[string]struct{}),
+		deletedStreams: make(map[string]struct{}),
+		ipAddr:         ipAddr,
+		username:       username,
+		password:       password,
 	}
 
 	for _, option := range options {
@@ -365,7 +369,7 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 					return
 				}
 
-				if strings.Contains(err.Error(), streamNotFound) {
+				if strings.Contains(err.Error(), streamNotFound) || strings.HasSuffix(err.Error(), rpcErrEventStreamIsDeleted) {
 					resultRecords <- rangedb.ResultRecord{
 						Record: nil,
 						Err:    rangedb.ErrStreamNotFound,
@@ -417,7 +421,43 @@ func zeroBasedStreamSequenceNumber(streamSequenceNumber uint64) uint64 {
 }
 
 func (s *eventStore) OptimisticDeleteStream(ctx context.Context, expectedStreamSequenceNumber uint64, streamName string) error {
-	panic("implement me")
+	client, err := s.NewClient()
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	// We have to manually obtain the current stream sequence number
+	// client.DeleteStream does not return an error for stream not found
+	actualSequenceNumber, err := s.getStreamSequenceNumber(ctx, streamName)
+	if err != nil {
+		return err
+	}
+	if actualSequenceNumber == 0 {
+		return rangedb.ErrStreamNotFound
+	}
+
+	versionedStreamName := s.streamName(streamName)
+	_, err = client.TombstoneStream(ctx, versionedStreamName, streamrevision.StreamRevision(expectedStreamSequenceNumber-1))
+	if err != nil {
+		log.Printf("%T\n%#v", err, err)
+		if strings.Contains(err.Error(), rpcErrWrongExpectedStreamRevision) {
+			// We have to manually obtain the current stream sequence number
+			// err does not contain "Actual version" and must be a bug in the EventStoreDB gRPC API.
+			return &rangedberror.UnexpectedSequenceNumber{
+				Expected:             expectedStreamSequenceNumber,
+				ActualSequenceNumber: actualSequenceNumber,
+			}
+		}
+
+		return err
+	}
+
+	s.sync.Lock()
+	s.deletedStreams[versionedStreamName] = struct{}{}
+	s.sync.Unlock()
+
+	return nil
 }
 
 func (s *eventStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
@@ -478,9 +518,10 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 
 	var events []messages.ProposedEvent
 	var pendingEventsData [][]byte
+	var lastStreamSequenceNumber uint64
 
 	stream := rangedb.GetStream(aggregateType, aggregateID)
-	streamSequenceNumber := s.getStreamSequenceNumber(ctx, stream)
+	streamSequenceNumber, _ := s.getStreamSequenceNumber(ctx, stream)
 
 	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber != streamSequenceNumber {
 		return 0, &rangedberror.UnexpectedSequenceNumber{
@@ -525,6 +566,7 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 			return 0, err
 		}
 
+		lastStreamSequenceNumber = record.StreamSequenceNumber
 		pendingEventsData = append(pendingEventsData, recordData)
 
 		var eventMetadata []byte
@@ -555,8 +597,9 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 	if expectedStreamSequenceNumber != nil {
 		streamRevision = streamrevision.NewStreamRevision(*expectedStreamSequenceNumber - 1)
 	}
-	streamName := s.streamName(rangedb.GetStream(aggregateType, aggregateID))
-	result, err := client.AppendToStream(ctx, streamName, streamRevision, events)
+	streamName := s.streamName(stream)
+
+	_, err = client.AppendToStream(ctx, streamName, streamRevision, events)
 	if err != nil {
 		if errors.Is(err, clienterrors.ErrWrongExpectedStreamRevision) {
 			return 0, &rangedberror.UnexpectedSequenceNumber{
@@ -577,21 +620,25 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 	s.savedStreams[streamName] = struct{}{}
 	s.sync.Unlock()
 
-	nextStreamSequenceNumber := result.NextExpectedVersion
 	for _, data := range pendingEventsData {
 		deSerializedRecord, err := s.serializer.Deserialize(data)
 		if err == nil {
-			deSerializedRecord.StreamSequenceNumber = nextStreamSequenceNumber
 			s.broadcaster.Accept(deSerializedRecord)
 		} else {
 			log.Print(err)
 		}
 	}
 
-	return result.NextExpectedVersion, nil
+	return lastStreamSequenceNumber, nil
 }
 
 func (s *eventStore) inCurrentVersion(event *messages.ResolvedEvent) bool {
+	s.sync.RLock()
+	defer s.sync.RUnlock()
+	if _, ok := s.deletedStreams[event.Event.StreamID]; ok {
+		return false
+	}
+
 	return strings.HasPrefix(event.Event.StreamID, fmt.Sprintf("%d-", s.version))
 }
 
@@ -620,17 +667,21 @@ func (s *eventStore) Ping() error {
 	return nil
 }
 
-func (s *eventStore) getStreamSequenceNumber(ctx context.Context, stream string) uint64 {
+func (s *eventStore) getStreamSequenceNumber(ctx context.Context, stream string) (uint64, error) {
 	iter := s.EventsByStream(ctx, 0, stream)
 
 	lastStreamSequenceNumber := uint64(0)
 	for iter.Next() {
 		if iter.Err() != nil {
-			return 0
+			return 0, iter.Err()
 		}
 
 		lastStreamSequenceNumber = iter.Record().StreamSequenceNumber
 	}
 
-	return lastStreamSequenceNumber
+	if iter.Err() != nil {
+		return 0, iter.Err()
+	}
+
+	return lastStreamSequenceNumber, nil
 }
