@@ -14,24 +14,26 @@ import (
 )
 
 func Test_EventStore_VerifyStoreInterface(t *testing.T) {
-	esStore := eventstore.New(
+	esStore, err := eventstore.New(
 		"127.0.0.1",
 		"admin",
 		"changeit",
 	)
-	err := esStore.Ping()
+	require.NoError(t, err)
+	err = esStore.Ping()
 	if err != nil {
 		t.Skip("EventStoreDB not found. Run: docker run -it -p 2113:2113 -p 1113:1113 eventstore/eventstore --insecure")
 	}
 
 	rangedbtest.VerifyStore(t, func(t *testing.T, clock clock.Clock, uuidGenerator shortuuid.Generator) rangedb.Store {
-		esStore := eventstore.New(
+		esStore, err := eventstore.New(
 			"127.0.0.1",
 			"admin",
 			"changeit",
 			eventstore.WithClock(clock),
 			eventstore.WithUUIDGenerator(uuidGenerator),
 		)
+		require.NoError(t, err)
 
 		rangedbtest.BindEvents(esStore)
 
@@ -41,11 +43,8 @@ func Test_EventStore_VerifyStoreInterface(t *testing.T) {
 		t.Cleanup(func() {
 			version++
 			esStore.SetVersion(version)
-			client, err := esStore.NewClient()
-			defer func() {
-				require.NoError(t, client.Close())
-			}()
 			require.NoError(t, err)
+			require.NoError(t, esStore.Close())
 		})
 
 		return esStore

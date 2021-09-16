@@ -38,6 +38,7 @@ const (
 )
 
 type eventStore struct {
+	client        *esclient.Client
 	clock         clock.Clock
 	serializer    rangedb.RecordSerializer
 	uuidGenerator shortuuid.Generator
@@ -78,7 +79,7 @@ func WithSerializer(serializer rangedb.RecordSerializer) Option {
 }
 
 // New constructs an eventStore. Experimental: Use at your own risk.
-func New(ipAddr, username, password string, options ...Option) *eventStore {
+func New(ipAddr, username, password string, options ...Option) (*eventStore, error) {
 	s := &eventStore{
 		clock:          systemclock.New(),
 		serializer:     jsonrecordserializer.New(),
@@ -94,23 +95,34 @@ func New(ipAddr, username, password string, options ...Option) *eventStore {
 		option(s)
 	}
 
-	return s
+	err := s.setupClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return s, nil
 }
 
-func (s *eventStore) NewClient() (*esclient.Client, error) {
+func (s *eventStore) Close() error {
+	return s.client.Close()
+}
+
+func (s *eventStore) setupClient() error {
 	config, err := esclient.ParseConnectionString(fmt.Sprintf("esdb://%s:%s@%s", s.username, s.password, s.ipAddr))
 	if err != nil {
-		return nil, fmt.Errorf("unexpected configuration error: %s", err.Error())
+		return fmt.Errorf("unexpected configuration error: %s", err.Error())
 	}
 
 	config.DisableTLS = true
 	config.SkipCertificateVerification = true
 	client, err := esclient.NewClient(config)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create client: %s", err.Error())
+		return fmt.Errorf("unable to create client: %s", err.Error())
 	}
 
-	return client, nil
+	s.client = client
+
+	return nil
 }
 
 func (s *eventStore) streamName(name string) string {
@@ -136,17 +148,7 @@ func (s *eventStore) Events(ctx context.Context, globalSequenceNumber uint64) ra
 	go func() {
 		defer close(resultRecords)
 
-		client, err := s.NewClient()
-		if err != nil {
-			resultRecords <- rangedb.ResultRecord{
-				Record: nil,
-				Err:    err,
-			}
-			return
-		}
-		defer client.Close()
-
-		readStream, err := client.ReadAllEvents(ctx, direction.Forwards, stream_position.Start{}, ^uint64(0), true)
+		readStream, err := s.client.ReadAllEvents(ctx, direction.Forwards, stream_position.Start{}, ^uint64(0), true)
 		if err != nil {
 			if strings.Contains(err.Error(), rpcErrContextCanceled) {
 				resultRecords <- rangedb.ResultRecord{
@@ -229,17 +231,7 @@ func (s *eventStore) EventsByAggregateTypes(ctx context.Context, globalSequenceN
 			aggregateTypesMap[aggregateType] = struct{}{}
 		}
 
-		client, err := s.NewClient()
-		if err != nil {
-			resultRecords <- rangedb.ResultRecord{
-				Record: nil,
-				Err:    err,
-			}
-			return
-		}
-		defer client.Close()
-
-		readStream, err := client.ReadAllEvents(ctx, direction.Forwards, stream_position.Start{}, ^uint64(0), true)
+		readStream, err := s.client.ReadAllEvents(ctx, direction.Forwards, stream_position.Start{}, ^uint64(0), true)
 		if err != nil {
 			if strings.Contains(err.Error(), rpcErrContextCanceled) {
 				resultRecords <- rangedb.ResultRecord{
@@ -320,17 +312,7 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 	go func() {
 		defer close(resultRecords)
 
-		client, err := s.NewClient()
-		if err != nil {
-			resultRecords <- rangedb.ResultRecord{
-				Record: nil,
-				Err:    err,
-			}
-			return
-		}
-		defer client.Close()
-
-		readStream, err := client.ReadStreamEvents(
+		readStream, err := s.client.ReadStreamEvents(
 			ctx,
 			direction.Forwards,
 			s.streamName(streamName),
@@ -421,12 +403,6 @@ func zeroBasedStreamSequenceNumber(streamSequenceNumber uint64) uint64 {
 }
 
 func (s *eventStore) OptimisticDeleteStream(ctx context.Context, expectedStreamSequenceNumber uint64, streamName string) error {
-	client, err := s.NewClient()
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-
 	// We have to manually obtain the current stream sequence number
 	// client.DeleteStream does not return an error for stream not found
 	actualSequenceNumber, err := s.getStreamSequenceNumber(ctx, streamName)
@@ -438,7 +414,7 @@ func (s *eventStore) OptimisticDeleteStream(ctx context.Context, expectedStreamS
 	}
 
 	versionedStreamName := s.streamName(streamName)
-	_, err = client.TombstoneStream(ctx, versionedStreamName, streamrevision.StreamRevision(expectedStreamSequenceNumber-1))
+	_, err = s.client.TombstoneStream(ctx, versionedStreamName, streamrevision.StreamRevision(expectedStreamSequenceNumber-1))
 	if err != nil {
 		log.Printf("%T\n%#v", err, err)
 		if strings.Contains(err.Error(), rpcErrWrongExpectedStreamRevision) {
@@ -587,19 +563,13 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 		})
 	}
 
-	client, err := s.NewClient()
-	if err != nil {
-		return 0, err
-	}
-	defer client.Close()
-
 	streamRevision := streamrevision.StreamRevisionAny
 	if expectedStreamSequenceNumber != nil {
 		streamRevision = streamrevision.NewStreamRevision(*expectedStreamSequenceNumber - 1)
 	}
 	streamName := s.streamName(stream)
 
-	_, err = client.AppendToStream(ctx, streamName, streamRevision, events)
+	_, err := s.client.AppendToStream(ctx, streamName, streamRevision, events)
 	if err != nil {
 		if errors.Is(err, clienterrors.ErrWrongExpectedStreamRevision) {
 			return 0, &rangedberror.UnexpectedSequenceNumber{
@@ -650,12 +620,6 @@ func (s *eventStore) SavedStreams() map[string]struct{} {
 }
 
 func (s *eventStore) Ping() error {
-	client, err := s.NewClient()
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-
 	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
 	defer done()
 	iter := s.EventsByStream(ctx, 0, "no-stream")
