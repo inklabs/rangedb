@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/EventStore/EventStore-Client-Go/streamrevision"
 	"github.com/stretchr/testify/require"
 
 	"github.com/inklabs/rangedb"
@@ -47,11 +46,6 @@ func Test_EventStore_VerifyStoreInterface(t *testing.T) {
 				require.NoError(t, client.Close())
 			}()
 			require.NoError(t, err)
-			for stream := range esStore.SavedStreams() {
-				ctx := rangedbtest.TimeoutContext(t)
-				_, err := client.TombstoneStream(ctx, stream, streamrevision.StreamRevisionAny)
-				require.NoError(t, err)
-			}
 		})
 
 		return esStore
