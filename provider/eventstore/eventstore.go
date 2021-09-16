@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/EventStore/EventStore-Client-Go/stream_position"
+	"io"
 	"log"
 	"strings"
 	"sync"
@@ -14,7 +16,6 @@ import (
 	"github.com/EventStore/EventStore-Client-Go/direction"
 	clienterrors "github.com/EventStore/EventStore-Client-Go/errors"
 	"github.com/EventStore/EventStore-Client-Go/messages"
-	"github.com/EventStore/EventStore-Client-Go/position"
 	"github.com/EventStore/EventStore-Client-Go/streamrevision"
 	"github.com/gofrs/uuid"
 
@@ -35,17 +36,18 @@ const (
 )
 
 type eventStore struct {
-	clock       clock.Clock
-	serializer  rangedb.RecordSerializer
-	broadcaster broadcast.Broadcaster
-	ipAddr      string
-	username    string
-	password    string
+	clock         clock.Clock
+	serializer    rangedb.RecordSerializer
+	uuidGenerator shortuuid.Generator
+	broadcaster   broadcast.Broadcaster
+	ipAddr        string
+	username      string
+	password      string
 
-	sync                     sync.RWMutex
-	version                  int64
-	nextGlobalSequenceNumber uint64
-	savedStreams             map[string]struct{}
+	sync                 sync.RWMutex
+	version              int64
+	globalSequenceNumber uint64
+	savedStreams         map[string]struct{}
 }
 
 // Option defines functional option parameters for eventStore.
@@ -55,6 +57,13 @@ type Option func(*eventStore)
 func WithClock(clock clock.Clock) Option {
 	return func(store *eventStore) {
 		store.clock = clock
+	}
+}
+
+// WithUUIDGenerator is a functional option to inject a shortuuid.Generator.
+func WithUUIDGenerator(uuidGenerator shortuuid.Generator) Option {
+	return func(store *eventStore) {
+		store.uuidGenerator = uuidGenerator
 	}
 }
 
@@ -97,11 +106,6 @@ func (s *eventStore) NewClient() (*esclient.Client, error) {
 		return nil, fmt.Errorf("unable to create client: %s", err.Error())
 	}
 
-	err = client.Connect()
-	if err != nil {
-		return nil, fmt.Errorf("unable to connect: %v", err)
-	}
-
 	return client, nil
 }
 
@@ -113,7 +117,7 @@ func (s *eventStore) streamName(name string) string {
 
 func (s *eventStore) SetVersion(version int64) {
 	s.sync.Lock()
-	s.nextGlobalSequenceNumber = 0
+	s.globalSequenceNumber = 0
 	s.version = version
 	s.sync.Unlock()
 }
@@ -138,7 +142,7 @@ func (s *eventStore) Events(ctx context.Context, globalSequenceNumber uint64) ra
 		}
 		defer client.Close()
 
-		events, err := client.ReadAllEvents(ctx, direction.Forwards, position.StartPosition, ^uint64(0), true)
+		readStream, err := client.ReadAllEvents(ctx, direction.Forwards, stream_position.Start{}, ^uint64(0), true)
 		if err != nil {
 			if strings.Contains(err.Error(), rpcErrContextCanceled) {
 				resultRecords <- rangedb.ResultRecord{
@@ -158,12 +162,26 @@ func (s *eventStore) Events(ctx context.Context, globalSequenceNumber uint64) ra
 			}
 			return
 		}
-		for _, event := range events {
-			if !s.inCurrentVersion(event) {
+
+		for {
+			resolvedEvent, err := readStream.Recv()
+			if err != nil {
+				if err == io.EOF {
+					return
+				}
+
+				resultRecords <- rangedb.ResultRecord{
+					Record: nil,
+					Err:    fmt.Errorf("unable to receive event: %v", err),
+				}
+				return
+			}
+
+			if !s.inCurrentVersion(resolvedEvent) {
 				continue
 			}
 
-			record, err := s.serializer.Deserialize(event.Data)
+			record, err := s.serializer.Deserialize(resolvedEvent.Event.Data)
 			if err != nil {
 				resultRecords <- rangedb.ResultRecord{
 					Record: nil,
@@ -185,7 +203,6 @@ func (s *eventStore) Events(ctx context.Context, globalSequenceNumber uint64) ra
 					continue
 				}
 
-				record.StreamSequenceNumber = event.EventNumber
 				resultRecords <- rangedb.ResultRecord{
 					Record: record,
 					Err:    nil,
@@ -218,7 +235,7 @@ func (s *eventStore) EventsByAggregateTypes(ctx context.Context, globalSequenceN
 		}
 		defer client.Close()
 
-		events, err := client.ReadAllEvents(ctx, direction.Forwards, position.StartPosition, ^uint64(0), true)
+		readStream, err := client.ReadAllEvents(ctx, direction.Forwards, stream_position.Start{}, ^uint64(0), true)
 		if err != nil {
 			if strings.Contains(err.Error(), rpcErrContextCanceled) {
 				resultRecords <- rangedb.ResultRecord{
@@ -238,12 +255,25 @@ func (s *eventStore) EventsByAggregateTypes(ctx context.Context, globalSequenceN
 			}
 			return
 		}
-		for _, event := range events {
-			if !s.inCurrentVersion(event) {
+		for {
+			resolvedEvent, err := readStream.Recv()
+			if err != nil {
+				if err == io.EOF {
+					return
+				}
+
+				resultRecords <- rangedb.ResultRecord{
+					Record: nil,
+					Err:    fmt.Errorf("unable to receive event: %v", err),
+				}
+				return
+			}
+
+			if !s.inCurrentVersion(resolvedEvent) {
 				continue
 			}
 
-			record, err := s.serializer.Deserialize(event.Data)
+			record, err := s.serializer.Deserialize(resolvedEvent.Event.Data)
 			if err != nil {
 				resultRecords <- rangedb.ResultRecord{
 					Record: nil,
@@ -269,7 +299,6 @@ func (s *eventStore) EventsByAggregateTypes(ctx context.Context, globalSequenceN
 					continue
 				}
 
-				record.StreamSequenceNumber = event.EventNumber
 				resultRecords <- rangedb.ResultRecord{
 					Record: record,
 					Err:    nil,
@@ -297,7 +326,14 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 		}
 		defer client.Close()
 
-		events, err := client.ReadStreamEvents(ctx, direction.Forwards, s.streamName(streamName), streamSequenceNumber, ^uint64(0), true)
+		readStream, err := client.ReadStreamEvents(
+			ctx,
+			direction.Forwards,
+			s.streamName(streamName),
+			stream_position.Revision{Value: zeroBasedStreamSequenceNumber(streamSequenceNumber)},
+			^uint64(0),
+			true,
+		)
 		if err != nil {
 			if strings.Contains(err.Error(), rpcErrContextCanceled) {
 				resultRecords <- rangedb.ResultRecord{
@@ -307,18 +343,44 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 				return
 			}
 
-			if strings.Contains(err.Error(), streamNotFound) {
-				return
-			}
-
 			resultRecords <- rangedb.ResultRecord{
 				Record: nil,
 				Err:    fmt.Errorf("unexpected failure ReadStreamEvents: %v", err),
 			}
 			return
 		}
-		for _, event := range events {
-			record, err := s.serializer.Deserialize(event.Data)
+
+		for {
+			resolvedEvent, err := readStream.Recv()
+			if err != nil {
+				if err == io.EOF {
+					return
+				}
+
+				if strings.Contains(err.Error(), rpcErrContextCanceled) {
+					resultRecords <- rangedb.ResultRecord{
+						Record: nil,
+						Err:    context.Canceled,
+					}
+					return
+				}
+
+				if strings.Contains(err.Error(), streamNotFound) {
+					resultRecords <- rangedb.ResultRecord{
+						Record: nil,
+						Err:    rangedb.ErrStreamNotFound,
+					}
+					return
+				}
+
+				resultRecords <- rangedb.ResultRecord{
+					Record: nil,
+					Err:    fmt.Errorf("unable to receive event: %v", err),
+				}
+				return
+			}
+
+			record, err := s.serializer.Deserialize(resolvedEvent.Event.Data)
 			if err != nil {
 				resultRecords <- rangedb.ResultRecord{
 					Record: nil,
@@ -336,7 +398,6 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 				return
 
 			default:
-				record.StreamSequenceNumber = event.EventNumber
 				resultRecords <- rangedb.ResultRecord{
 					Record: record,
 					Err:    nil,
@@ -346,6 +407,17 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 	}()
 
 	return rangedb.NewRecordIterator(resultRecords)
+}
+
+func zeroBasedStreamSequenceNumber(streamSequenceNumber uint64) uint64 {
+	if streamSequenceNumber > 0 {
+		streamSequenceNumber--
+	}
+	return streamSequenceNumber
+}
+
+func (s *eventStore) OptimisticDeleteStream(ctx context.Context, expectedStreamSequenceNumber uint64, streamName string) error {
+	panic("implement me")
 }
 
 func (s *eventStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
@@ -401,13 +473,24 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 		return 0, fmt.Errorf("missing events")
 	}
 
-	var aggregateType, aggregateID string
+	aggregateType := eventRecords[0].Event.AggregateType()
+	aggregateID := eventRecords[0].Event.AggregateID()
 
 	var events []messages.ProposedEvent
 	var pendingEventsData [][]byte
 
+	stream := rangedb.GetStream(aggregateType, aggregateID)
+	streamSequenceNumber := s.getStreamSequenceNumber(ctx, stream)
+
+	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber != streamSequenceNumber {
+		return 0, &rangedberror.UnexpectedSequenceNumber{
+			Expected:             *expectedStreamSequenceNumber,
+			ActualSequenceNumber: streamSequenceNumber,
+		}
+	}
+
 	s.sync.RLock()
-	nextGlobalSequenceNumber := s.nextGlobalSequenceNumber
+	globalSequenceNumber := s.globalSequenceNumber
 	s.sync.RUnlock()
 
 	for _, eventRecord := range eventRecords {
@@ -422,13 +505,16 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 		aggregateType = eventRecord.Event.AggregateType()
 		aggregateID = eventRecord.Event.AggregateID()
 
+		globalSequenceNumber++
+		streamSequenceNumber++
+
 		record := &rangedb.Record{
 			AggregateType:        aggregateType,
 			AggregateID:          aggregateID,
-			GlobalSequenceNumber: nextGlobalSequenceNumber,
-			StreamSequenceNumber: 0,
+			GlobalSequenceNumber: globalSequenceNumber,
+			StreamSequenceNumber: streamSequenceNumber,
 			EventType:            eventRecord.Event.EventType(),
-			EventID:              shortuuid.New().String(),
+			EventID:              s.uuidGenerator.New(),
 			InsertTimestamp:      uint64(s.clock.Now().Unix()),
 			Data:                 eventRecord.Event,
 			Metadata:             eventRecord.Metadata,
@@ -457,7 +543,6 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 			Data:         recordData,
 			UserMetadata: eventMetadata,
 		})
-		nextGlobalSequenceNumber++
 	}
 
 	client, err := s.NewClient()
@@ -475,8 +560,8 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 	if err != nil {
 		if errors.Is(err, clienterrors.ErrWrongExpectedStreamRevision) {
 			return 0, &rangedberror.UnexpectedSequenceNumber{
-				Expected:           *expectedStreamSequenceNumber,
-				NextSequenceNumber: 0,
+				Expected:             *expectedStreamSequenceNumber,
+				ActualSequenceNumber: 0,
 			}
 		}
 
@@ -488,7 +573,7 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 	}
 
 	s.sync.Lock()
-	s.nextGlobalSequenceNumber = nextGlobalSequenceNumber
+	s.globalSequenceNumber = globalSequenceNumber
 	s.savedStreams[streamName] = struct{}{}
 	s.sync.Unlock()
 
@@ -501,14 +586,13 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 		} else {
 			log.Print(err)
 		}
-		nextGlobalSequenceNumber++
 	}
 
 	return result.NextExpectedVersion, nil
 }
 
-func (s *eventStore) inCurrentVersion(event messages.RecordedEvent) bool {
-	return strings.HasPrefix(event.StreamID, fmt.Sprintf("%d-", s.version))
+func (s *eventStore) inCurrentVersion(event *messages.ResolvedEvent) bool {
+	return strings.HasPrefix(event.Event.StreamID, fmt.Sprintf("%d-", s.version))
 }
 
 func (s *eventStore) SavedStreams() map[string]struct{} {
@@ -534,4 +618,19 @@ func (s *eventStore) Ping() error {
 	}
 
 	return nil
+}
+
+func (s *eventStore) getStreamSequenceNumber(ctx context.Context, stream string) uint64 {
+	iter := s.EventsByStream(ctx, 0, stream)
+
+	lastStreamSequenceNumber := uint64(0)
+	for iter.Next() {
+		if iter.Err() != nil {
+			return 0
+		}
+
+		lastStreamSequenceNumber = iter.Record().StreamSequenceNumber
+	}
+
+	return lastStreamSequenceNumber
 }

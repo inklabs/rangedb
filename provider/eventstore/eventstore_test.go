@@ -1,6 +1,7 @@
 package eventstore_test
 
 import (
+	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"testing"
 	"time"
 
@@ -24,12 +25,13 @@ func Test_EventStore_VerifyStoreInterface(t *testing.T) {
 		t.Skip("EventStoreDB not found. Run: docker run -it -p 2113:2113 -p 1113:1113 eventstore/eventstore --insecure")
 	}
 
-	rangedbtest.VerifyStore(t, func(t *testing.T, clock clock.Clock) rangedb.Store {
+	rangedbtest.VerifyStore(t, func(t *testing.T, clock clock.Clock, uuidGenerator shortuuid.Generator) rangedb.Store {
 		esStore := eventstore.New(
 			"127.0.0.1",
 			"admin",
 			"changeit",
 			eventstore.WithClock(clock),
+			eventstore.WithUUIDGenerator(uuidGenerator),
 		)
 
 		rangedbtest.BindEvents(esStore)
