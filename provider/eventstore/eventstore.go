@@ -37,18 +37,23 @@ const (
 	broadcastRecordBuffSize           = 100
 )
 
+type StreamPrefixer interface {
+	WithPrefix(name string) string
+	GetPrefix() string
+}
+
 type eventStore struct {
-	client        *esclient.Client
-	clock         clock.Clock
-	serializer    rangedb.RecordSerializer
-	uuidGenerator shortuuid.Generator
-	broadcaster   broadcast.Broadcaster
-	ipAddr        string
-	username      string
-	password      string
+	client         *esclient.Client
+	clock          clock.Clock
+	streamPrefixer StreamPrefixer
+	serializer     rangedb.RecordSerializer
+	uuidGenerator  shortuuid.Generator
+	broadcaster    broadcast.Broadcaster
+	ipAddr         string
+	username       string
+	password       string
 
 	sync                 sync.RWMutex
-	version              int64
 	globalSequenceNumber uint64
 	savedStreams         map[string]struct{}
 	deletedStreams       map[string]struct{}
@@ -68,6 +73,13 @@ func WithClock(clock clock.Clock) Option {
 func WithUUIDGenerator(uuidGenerator shortuuid.Generator) Option {
 	return func(store *eventStore) {
 		store.uuidGenerator = uuidGenerator
+	}
+}
+
+// WithStreamPrefix is a functional option to inject a stream prefix.
+func WithStreamPrefix(streamPrefixer StreamPrefixer) Option {
+	return func(store *eventStore) {
+		store.streamPrefixer = streamPrefixer
 	}
 }
 
@@ -126,15 +138,16 @@ func (s *eventStore) setupClient() error {
 }
 
 func (s *eventStore) streamName(name string) string {
-	s.sync.RLock()
-	defer s.sync.RUnlock()
-	return fmt.Sprintf("%d-%s", s.version, name)
+	if s.streamPrefixer == nil {
+		return name
+	}
+
+	return s.streamPrefixer.WithPrefix(name)
 }
 
-func (s *eventStore) SetVersion(version int64) {
+func (s *eventStore) ResetGlobalSequenceNumber() {
 	s.sync.Lock()
 	s.globalSequenceNumber = 0
-	s.version = version
 	s.sync.Unlock()
 }
 
@@ -173,6 +186,14 @@ func (s *eventStore) Events(ctx context.Context, globalSequenceNumber uint64) ra
 			resolvedEvent, err := readStream.Recv()
 			if err != nil {
 				if err == io.EOF {
+					return
+				}
+
+				if strings.Contains(err.Error(), rpcErrContextCanceled) {
+					resultRecords <- rangedb.ResultRecord{
+						Record: nil,
+						Err:    context.Canceled,
+					}
 					return
 				}
 
@@ -587,7 +608,6 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 
 	s.sync.Lock()
 	s.globalSequenceNumber = globalSequenceNumber
-	s.savedStreams[streamName] = struct{}{}
 	s.sync.Unlock()
 
 	for _, data := range pendingEventsData {
@@ -609,14 +629,11 @@ func (s *eventStore) inCurrentVersion(event *messages.ResolvedEvent) bool {
 		return false
 	}
 
-	return strings.HasPrefix(event.Event.StreamID, fmt.Sprintf("%d-", s.version))
-}
+	if s.streamPrefixer == nil {
+		return true
+	}
 
-func (s *eventStore) SavedStreams() map[string]struct{} {
-	s.sync.RLock()
-	defer s.sync.RUnlock()
-
-	return s.savedStreams
+	return strings.HasPrefix(event.Event.StreamID, s.streamPrefixer.GetPrefix())
 }
 
 func (s *eventStore) Ping() error {
