@@ -1498,13 +1498,8 @@ func ReadRecord(t *testing.T, recordChan chan *rangedb.Record) *rangedb.Record {
 }
 
 func assertCanceledIterator(t *testing.T, iter rangedb.RecordIterator) {
-	for iter.Next() {
-		select {
-		case <-time.After(time.Second * 5):
-			require.Fail(t, "unexpected timeout")
-			break
-		default:
-		}
+	ctx := TimeoutContext(t)
+	for iter.NextContext(ctx) {
 	}
 
 	assert.False(t, iter.Next())

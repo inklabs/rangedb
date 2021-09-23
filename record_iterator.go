@@ -1,5 +1,9 @@
 package rangedb
 
+import (
+	"context"
+)
+
 type recordIterator struct {
 	resultRecords <-chan ResultRecord
 	current       ResultRecord
@@ -16,6 +20,23 @@ func (i *recordIterator) Next() bool {
 	}
 
 	i.current = <-i.resultRecords
+
+	return i.current.Record != nil
+}
+
+func (i *recordIterator) NextContext(ctx context.Context) bool {
+	if i.current.Err != nil {
+		return false
+	}
+
+	select {
+	case i.current = <-i.resultRecords:
+	case <-ctx.Done():
+		i.current = ResultRecord{
+			Record: nil,
+			Err:    ctx.Err(),
+		}
+	}
 
 	return i.current.Record != nil
 }

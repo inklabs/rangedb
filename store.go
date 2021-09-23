@@ -86,6 +86,7 @@ type ResultRecord struct {
 // RecordIterator is used to traverse a stream of record events.
 type RecordIterator interface {
 	Next() bool
+	NextContext(context.Context) bool
 	Record() *Record
 	Err() error
 }

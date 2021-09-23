@@ -1,6 +1,8 @@
 package encryptedstore
 
 import (
+	"context"
+
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/crypto"
 )
@@ -25,6 +27,14 @@ func (i *decryptingRecordIterator) Next() bool {
 	}
 
 	return i.parent.Next()
+}
+
+func (i *decryptingRecordIterator) NextContext(ctx context.Context) bool {
+	if i.currentErr != nil {
+		return false
+	}
+
+	return i.parent.NextContext(ctx)
 }
 
 func (i *decryptingRecordIterator) Record() *rangedb.Record {

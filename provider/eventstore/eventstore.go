@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/EventStore/EventStore-Client-Go/stream_position"
 	"io"
 	"log"
 	"strings"
@@ -16,6 +15,7 @@ import (
 	"github.com/EventStore/EventStore-Client-Go/direction"
 	clienterrors "github.com/EventStore/EventStore-Client-Go/errors"
 	"github.com/EventStore/EventStore-Client-Go/messages"
+	"github.com/EventStore/EventStore-Client-Go/stream_position"
 	"github.com/EventStore/EventStore-Client-Go/streamrevision"
 	"github.com/gofrs/uuid"
 
