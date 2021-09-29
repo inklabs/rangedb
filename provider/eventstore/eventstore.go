@@ -12,10 +12,8 @@ import (
 	"time"
 
 	esclient "github.com/EventStore/EventStore-Client-Go/client"
-	"github.com/EventStore/EventStore-Client-Go/direction"
 	clienterrors "github.com/EventStore/EventStore-Client-Go/errors"
 	"github.com/EventStore/EventStore-Client-Go/messages"
-	"github.com/EventStore/EventStore-Client-Go/stream_position"
 	"github.com/EventStore/EventStore-Client-Go/streamrevision"
 	"github.com/gofrs/uuid"
 
@@ -161,7 +159,7 @@ func (s *eventStore) Events(ctx context.Context, globalSequenceNumber uint64) ra
 	go func() {
 		defer close(resultRecords)
 
-		readStream, err := s.client.ReadAllEvents(ctx, direction.Forwards, stream_position.Start{}, ^uint64(0), true)
+		readStream, err := s.client.ReadAllEvents(ctx, esclient.ReadAllEventsOptions{}, ^uint64(0))
 		if err != nil {
 			if strings.Contains(err.Error(), rpcErrContextCanceled) {
 				resultRecords <- rangedb.ResultRecord{
@@ -252,7 +250,7 @@ func (s *eventStore) EventsByAggregateTypes(ctx context.Context, globalSequenceN
 			aggregateTypesMap[aggregateType] = struct{}{}
 		}
 
-		readStream, err := s.client.ReadAllEvents(ctx, direction.Forwards, stream_position.Start{}, ^uint64(0), true)
+		readStream, err := s.client.ReadAllEvents(ctx, esclient.ReadAllEventsOptions{}, ^uint64(0))
 		if err != nil {
 			if strings.Contains(err.Error(), rpcErrContextCanceled) {
 				resultRecords <- rangedb.ResultRecord{
@@ -333,14 +331,9 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 	go func() {
 		defer close(resultRecords)
 
-		readStream, err := s.client.ReadStreamEvents(
-			ctx,
-			direction.Forwards,
-			s.streamName(streamName),
-			stream_position.Revision{Value: zeroBasedStreamSequenceNumber(streamSequenceNumber)},
-			^uint64(0),
-			true,
-		)
+		readStreamOptions := esclient.ReadStreamEventsOptions{}
+		readStreamOptions.SetFromRevision(zeroBasedStreamSequenceNumber(streamSequenceNumber))
+		readStream, err := s.client.ReadStreamEvents(ctx, s.streamName(streamName), readStreamOptions, ^uint64(0))
 		if err != nil {
 			if strings.Contains(err.Error(), rpcErrContextCanceled) {
 				resultRecords <- rangedb.ResultRecord{
@@ -435,7 +428,10 @@ func (s *eventStore) OptimisticDeleteStream(ctx context.Context, expectedStreamS
 	}
 
 	versionedStreamName := s.streamName(streamName)
-	_, err = s.client.TombstoneStream(ctx, versionedStreamName, streamrevision.StreamRevision(expectedStreamSequenceNumber-1))
+	tombstoneStreamOptions := esclient.TombstoneStreamOptions{}
+	tombstoneStreamOptions.SetExpectedRevision(streamrevision.Exact(expectedStreamSequenceNumber - 1))
+
+	_, err = s.client.TombstoneStream(ctx, versionedStreamName, tombstoneStreamOptions)
 	if err != nil {
 		log.Printf("%T\n%#v", err, err)
 		if strings.Contains(err.Error(), rpcErrWrongExpectedStreamRevision) {
@@ -575,22 +571,25 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 		}
 
 		eventUUID, _ := uuid.FromString(record.EventID)
-		events = append(events, messages.ProposedEvent{
-			EventID:      eventUUID,
-			EventType:    record.EventType,
-			ContentType:  "application/json",
-			Data:         recordData,
-			UserMetadata: eventMetadata,
-		})
+		proposedEvent := messages.ProposedEvent{}
+		proposedEvent.SetEventID(eventUUID)
+		proposedEvent.SetEventType(record.EventType)
+		proposedEvent.SetContentType("application/json")
+		proposedEvent.SetData(recordData)
+		proposedEvent.SetMetadata(eventMetadata)
+
+		events = append(events, proposedEvent)
 	}
 
-	streamRevision := streamrevision.StreamRevisionAny
+	streamRevision := streamrevision.Any()
 	if expectedStreamSequenceNumber != nil {
-		streamRevision = streamrevision.NewStreamRevision(*expectedStreamSequenceNumber - 1)
+		streamRevision = streamrevision.Exact(*expectedStreamSequenceNumber - 1)
 	}
 	streamName := s.streamName(stream)
 
-	_, err := s.client.AppendToStream(ctx, streamName, streamRevision, events)
+	appendToStreamRevisionOptions := esclient.AppendToStreamOptions{}
+	appendToStreamRevisionOptions.SetExpectedRevision(streamRevision)
+	_, err := s.client.AppendToStream(ctx, streamName, appendToStreamRevisionOptions, events...)
 	if err != nil {
 		if errors.Is(err, clienterrors.ErrWrongExpectedStreamRevision) {
 			return 0, &rangedberror.UnexpectedSequenceNumber{
