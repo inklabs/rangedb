@@ -51,10 +51,9 @@ type eventStore struct {
 	username       string
 	password       string
 
-	sync                 sync.RWMutex
-	globalSequenceNumber uint64
-	savedStreams         map[string]struct{}
-	deletedStreams       map[string]struct{}
+	sync           sync.RWMutex
+	savedStreams   map[string]struct{}
+	deletedStreams map[string]struct{}
 }
 
 // Option defines functional option parameters for eventStore.
@@ -141,12 +140,6 @@ func (s *eventStore) streamName(name string) string {
 	}
 
 	return s.streamPrefixer.WithPrefix(name)
-}
-
-func (s *eventStore) ResetGlobalSequenceNumber() {
-	s.sync.Lock()
-	s.globalSequenceNumber = 0
-	s.sync.Unlock()
 }
 
 func (s *eventStore) Bind(events ...rangedb.Event) {
@@ -389,6 +382,14 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 				return
 			}
 
+			record.GlobalSequenceNumber = resolvedEvent.OriginalEvent().Position.Commit
+			log.Printf("resolvedEvent.Commit: %v", resolvedEvent.Commit)
+			log.Printf("resolvedEvent Position.Commit: %v", resolvedEvent.OriginalEvent().Position.Commit)
+			log.Printf("resolvedEvent Position.Prepare: %v", resolvedEvent.OriginalEvent().Position.Prepare)
+			log.Printf("resolvedEvent systemmetadata: %v", resolvedEvent.OriginalEvent().SystemMetadata)
+
+			log.Printf("%v", resolvedEvent.OriginalEvent().Position)
+
 			select {
 			case <-ctx.Done():
 				resultRecords <- rangedb.ResultRecord{
@@ -509,7 +510,6 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 	aggregateType := eventRecords[0].Event.AggregateType()
 	aggregateID := eventRecords[0].Event.AggregateID()
 
-	var events []messages.ProposedEvent
 	var pendingEventsData [][]byte
 	var lastStreamSequenceNumber uint64
 
@@ -523,10 +523,6 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 		}
 	}
 
-	s.sync.RLock()
-	globalSequenceNumber := s.globalSequenceNumber
-	s.sync.RUnlock()
-
 	for _, eventRecord := range eventRecords {
 		if aggregateType != "" && aggregateType != eventRecord.Event.AggregateType() {
 			return 0, fmt.Errorf("unmatched aggregate type")
@@ -539,13 +535,13 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 		aggregateType = eventRecord.Event.AggregateType()
 		aggregateID = eventRecord.Event.AggregateID()
 
-		globalSequenceNumber++
 		streamSequenceNumber++
 
+		const placeholderGlobalSequenceNumber = 0
 		record := &rangedb.Record{
 			AggregateType:        aggregateType,
 			AggregateID:          aggregateID,
-			GlobalSequenceNumber: globalSequenceNumber,
+			GlobalSequenceNumber: placeholderGlobalSequenceNumber,
 			StreamSequenceNumber: streamSequenceNumber,
 			EventType:            eventRecord.Event.EventType(),
 			EventID:              s.uuidGenerator.New(),
@@ -558,9 +554,6 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 		if err != nil {
 			return 0, err
 		}
-
-		lastStreamSequenceNumber = record.StreamSequenceNumber
-		pendingEventsData = append(pendingEventsData, recordData)
 
 		var eventMetadata []byte
 		if eventRecord.Metadata != nil {
@@ -578,36 +571,45 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 		proposedEvent.SetData(recordData)
 		proposedEvent.SetMetadata(eventMetadata)
 
-		events = append(events, proposedEvent)
-	}
+		streamRevision := streamrevision.Any()
+		if expectedStreamSequenceNumber != nil {
+			streamRevision = streamrevision.Exact(*expectedStreamSequenceNumber - 1)
+		}
+		streamName := s.streamName(stream)
 
-	streamRevision := streamrevision.Any()
-	if expectedStreamSequenceNumber != nil {
-		streamRevision = streamrevision.Exact(*expectedStreamSequenceNumber - 1)
-	}
-	streamName := s.streamName(stream)
-
-	appendToStreamRevisionOptions := esclient.AppendToStreamOptions{}
-	appendToStreamRevisionOptions.SetExpectedRevision(streamRevision)
-	_, err := s.client.AppendToStream(ctx, streamName, appendToStreamRevisionOptions, events...)
-	if err != nil {
-		if errors.Is(err, clienterrors.ErrWrongExpectedStreamRevision) {
-			return 0, &rangedberror.UnexpectedSequenceNumber{
-				Expected:             *expectedStreamSequenceNumber,
-				ActualSequenceNumber: 0,
+		appendToStreamRevisionOptions := esclient.AppendToStreamOptions{}
+		appendToStreamRevisionOptions.SetExpectedRevision(streamRevision)
+		writeResult, err := s.client.AppendToStream(ctx, streamName, appendToStreamRevisionOptions, proposedEvent)
+		if err != nil {
+			if errors.Is(err, clienterrors.ErrWrongExpectedStreamRevision) {
+				return 0, &rangedberror.UnexpectedSequenceNumber{
+					Expected:             *expectedStreamSequenceNumber,
+					ActualSequenceNumber: 0,
+				}
 			}
+
+			if strings.Contains(err.Error(), rpcErrContextCanceled) {
+				return 0, context.Canceled
+			}
+
+			return 0, err
 		}
 
-		if strings.Contains(err.Error(), rpcErrContextCanceled) {
-			return 0, context.Canceled
+		// commit/prepare are returned when calling AppendToStream()
+		// commit/prepare are not available when calling ReadStreamEvents() and subsequent calls to Recv()
+
+		record.GlobalSequenceNumber = writeResult.CommitPosition
+		log.Printf("writeResult commit: %v", writeResult.CommitPosition)
+		log.Printf("writeResult prepare: %v", writeResult.PreparePosition)
+
+		recordData, err = s.serializer.Serialize(record)
+		if err != nil {
+			return 0, err
 		}
 
-		return 0, err
+		lastStreamSequenceNumber = record.StreamSequenceNumber
+		pendingEventsData = append(pendingEventsData, recordData)
 	}
-
-	s.sync.Lock()
-	s.globalSequenceNumber = globalSequenceNumber
-	s.sync.Unlock()
 
 	for _, data := range pendingEventsData {
 		deSerializedRecord, err := s.serializer.Deserialize(data)

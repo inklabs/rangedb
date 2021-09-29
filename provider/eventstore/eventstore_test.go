@@ -41,11 +41,8 @@ func Test_EventStore_VerifyStoreInterface(t *testing.T) {
 		require.NoError(t, err)
 		rangedbtest.BindEvents(esStore)
 
-		esStore.ResetGlobalSequenceNumber()
-
 		t.Cleanup(func() {
 			streamPrefixer.TickVersion()
-			esStore.ResetGlobalSequenceNumber()
 			require.NoError(t, err)
 			require.NoError(t, esStore.Close())
 		})

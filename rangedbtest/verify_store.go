@@ -1509,12 +1509,20 @@ func assertCanceledIterator(t *testing.T, iter rangedb.RecordIterator) {
 
 // AssertRecordsInIterator asserts all expected rangedb.Record exist in the rangedb.RecordIterator.
 func AssertRecordsInIterator(t *testing.T, recordIterator rangedb.RecordIterator, expectedRecords ...*rangedb.Record) {
+	var lastGlobalSequenceNumber uint64
 	for i, expectedRecord := range expectedRecords {
 		require.True(t, recordIterator.Next())
 		assert.Nil(t, recordIterator.Err())
-		require.Equal(t, expectedRecord, recordIterator.Record(), i)
+		require.Greater(t, recordIterator.Record().GlobalSequenceNumber, lastGlobalSequenceNumber)
+		lastGlobalSequenceNumber = recordIterator.Record().GlobalSequenceNumber
+		AssertRecordsEqual(t, *expectedRecord, *recordIterator.Record(), i)
 	}
 	AssertNoMoreResultsInIterator(t, recordIterator)
+}
+
+func AssertRecordsEqual(t *testing.T, expected, actual rangedb.Record, msgAndArgs ...interface{}) {
+	expected.GlobalSequenceNumber = actual.GlobalSequenceNumber
+	require.Equal(t, expected, actual, msgAndArgs...)
 }
 
 // AssertNoMoreResultsInIterator asserts no more rangedb.Record exist in the rangedb.RecordIterator.
