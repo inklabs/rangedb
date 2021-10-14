@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"time"
 
 	"google.golang.org/grpc"
@@ -179,7 +180,7 @@ func serveGRPC(srv *grpc.Server, gRPCPort int) {
 }
 
 func snapshotBasePath(uniqueName string) string {
-	snapshotBasePath := fmt.Sprintf("%s%s/shapshots", os.TempDir(), uniqueName)
+	snapshotBasePath := filepath.Join(os.TempDir(), uniqueName, "snapshots")
 	err := os.MkdirAll(snapshotBasePath, 0700)
 	if err != nil && os.IsNotExist(err) {
 		log.Fatalf("unable to create snapshot directory: %v", err)
