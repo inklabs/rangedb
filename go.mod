@@ -3,7 +3,7 @@ module github.com/inklabs/rangedb
 go 1.16
 
 require (
-	github.com/EventStore/EventStore-Client-Go v0.0.0-20210929165928-362654b6b8e0
+	github.com/EventStore/EventStore-Client-Go v0.0.0-20211014103649-f2245b0f9636
 	github.com/aws/aws-sdk-go v1.38.22
 	github.com/fatih/structtag v1.2.0
 	github.com/gofrs/uuid v4.0.0+incompatible

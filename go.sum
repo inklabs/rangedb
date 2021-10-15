@@ -7,6 +7,8 @@ github.com/EventStore/EventStore-Client-Go v0.0.0-20210901083018-267dadb3ad6f h1
 github.com/EventStore/EventStore-Client-Go v0.0.0-20210901083018-267dadb3ad6f/go.mod h1:zQxXZ05pMBKstNySmCa9JbTuQ6Ci3wHPKFVsLx+RDVg=
 github.com/EventStore/EventStore-Client-Go v0.0.0-20210929165928-362654b6b8e0 h1:n2ms4tEtv+yTzfmznfiCLCMBq06deI0POJzQJPfTWe8=
 github.com/EventStore/EventStore-Client-Go v0.0.0-20210929165928-362654b6b8e0/go.mod h1:zQxXZ05pMBKstNySmCa9JbTuQ6Ci3wHPKFVsLx+RDVg=
+github.com/EventStore/EventStore-Client-Go v0.0.0-20211014103649-f2245b0f9636 h1:uZFgP/++dcmJ7nPimdGZnTgmboAkHxY2pPUT04Iz3Us=
+github.com/EventStore/EventStore-Client-Go v0.0.0-20211014103649-f2245b0f9636/go.mod h1:zQxXZ05pMBKstNySmCa9JbTuQ6Ci3wHPKFVsLx+RDVg=
 github.com/Microsoft/go-winio v0.4.14 h1:+hMXMk01us9KgxGb7ftKQt2Xpf5hH/yky+TDA+qxleU=
 github.com/Microsoft/go-winio v0.4.14/go.mod h1:qXqCSQ3Xa7+6tgxaGTIe4Kpcdsi+P8jBhyzoq1bpyYA=
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 h1:TngWCqHvy9oXAN6lEVMRuU21PR1EtLVZJmdB18Gu3Rw=

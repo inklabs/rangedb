@@ -11,10 +11,7 @@ import (
 	"strings"
 	"time"
 
-	esclient "github.com/EventStore/EventStore-Client-Go/client"
-	clienterrors "github.com/EventStore/EventStore-Client-Go/errors"
-	"github.com/EventStore/EventStore-Client-Go/messages"
-	"github.com/EventStore/EventStore-Client-Go/streamrevision"
+	"github.com/EventStore/EventStore-Client-Go/esdb"
 	"github.com/gofrs/uuid"
 
 	"github.com/inklabs/rangedb"
@@ -29,8 +26,6 @@ import (
 
 const (
 	rpcErrContextCanceled             = "Canceled desc = context canceled"
-	rpcErrEventStreamIsDeleted        = " is deleted."
-	streamNotFound                    = "Failed to perform read because the stream was not found"
 	rpcErrWrongExpectedStreamRevision = "WrongExpectedStreamRevision"
 	broadcastRecordBuffSize           = 100
 )
@@ -55,7 +50,7 @@ type StreamPrefixer interface {
 }
 
 type eventStore struct {
-	client              *esclient.Client
+	client              *esdb.Client
 	clock               clock.Clock
 	streamPrefixer      StreamPrefixer
 	uuidGenerator       shortuuid.Generator
@@ -120,14 +115,14 @@ func (s *eventStore) Close() error {
 }
 
 func (s *eventStore) setupClient() error {
-	config, err := esclient.ParseConnectionString(fmt.Sprintf("esdb://%s:%s@%s", s.username, s.password, s.ipAddr))
+	config, err := esdb.ParseConnectionString(fmt.Sprintf("esdb://%s:%s@%s", s.username, s.password, s.ipAddr))
 	if err != nil {
 		return fmt.Errorf("unexpected configuration error: %s", err.Error())
 	}
 
 	config.DisableTLS = true
 	config.SkipCertificateVerification = true
-	client, err := esclient.NewClient(config)
+	client, err := esdb.NewClient(config)
 	if err != nil {
 		return fmt.Errorf("unable to create client: %s", err.Error())
 	}
@@ -155,12 +150,21 @@ func (s *eventStore) Events(ctx context.Context, globalSequenceNumber uint64) ra
 	go func() {
 		defer close(resultRecords)
 
-		readStreamOptions := esclient.ReadStreamEventsOptions{}
-		readStreamOptions.SetFromRevision(globalSequenceNumber)
-		readStreamOptions.SetResolveLinks()
-		readStream, err := s.client.ReadStreamEvents(ctx, "LogData", readStreamOptions, ^uint64(0))
+		readStreamOptions := esdb.ReadStreamOptions{
+			From:           esdb.Revision(globalSequenceNumber),
+			ResolveLinkTos: true,
+		}
+		readStream, err := s.client.ReadStream(ctx, "LogData", readStreamOptions, ^uint64(0))
 		if err != nil {
-			if strings.Contains(err.Error(), rpcErrContextCanceled) {
+			if errors.Is(err, io.EOF) {
+				return
+			}
+
+			if errors.Is(err, esdb.ErrStreamNotFound) {
+				return
+			}
+
+			if strings.HasSuffix(err.Error(), rpcErrContextCanceled) {
 				resultRecords <- rangedb.ResultRecord{
 					Record: nil,
 					Err:    context.Canceled,
@@ -178,11 +182,11 @@ func (s *eventStore) Events(ctx context.Context, globalSequenceNumber uint64) ra
 		for {
 			resolvedEvent, err := readStream.Recv()
 			if err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					return
 				}
 
-				if strings.Contains(err.Error(), rpcErrContextCanceled) {
+				if strings.HasSuffix(err.Error(), rpcErrContextCanceled) {
 					resultRecords <- rangedb.ResultRecord{
 						Record: nil,
 						Err:    context.Canceled,
@@ -190,7 +194,7 @@ func (s *eventStore) Events(ctx context.Context, globalSequenceNumber uint64) ra
 					return
 				}
 
-				if strings.Contains(err.Error(), streamNotFound) || strings.HasSuffix(err.Error(), rpcErrEventStreamIsDeleted) {
+				if errors.Is(err, esdb.ErrStreamNotFound) {
 					return
 				}
 
@@ -245,12 +249,13 @@ func (s *eventStore) EventsByAggregateTypes(ctx context.Context, globalSequenceN
 			aggregateTypesMap[aggregateType] = struct{}{}
 		}
 
-		readStreamOptions := esclient.ReadStreamEventsOptions{}
-		readStreamOptions.SetFromRevision(zeroBasedSequenceNumber(globalSequenceNumber))
-		readStreamOptions.SetResolveLinks()
-		readStream, err := s.client.ReadStreamEvents(ctx, "LogData", readStreamOptions, ^uint64(0))
+		readStreamOptions := esdb.ReadStreamOptions{
+			From:           esdb.Revision(globalSequenceNumber),
+			ResolveLinkTos: true,
+		}
+		readStream, err := s.client.ReadStream(ctx, "LogData", readStreamOptions, ^uint64(0))
 		if err != nil {
-			if strings.Contains(err.Error(), rpcErrContextCanceled) {
+			if strings.HasSuffix(err.Error(), rpcErrContextCanceled) {
 				resultRecords <- rangedb.ResultRecord{
 					Record: nil,
 					Err:    context.Canceled,
@@ -258,7 +263,7 @@ func (s *eventStore) EventsByAggregateTypes(ctx context.Context, globalSequenceN
 				return
 			}
 
-			if strings.Contains(err.Error(), streamNotFound) {
+			if errors.Is(err, esdb.ErrStreamNotFound) {
 				return
 			}
 
@@ -275,7 +280,7 @@ func (s *eventStore) EventsByAggregateTypes(ctx context.Context, globalSequenceN
 					return
 				}
 
-				if strings.Contains(err.Error(), streamNotFound) || strings.HasSuffix(err.Error(), rpcErrEventStreamIsDeleted) {
+				if errors.Is(err, esdb.ErrStreamNotFound) {
 					return
 				}
 
@@ -335,12 +340,12 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 
 		aggregateType, aggregateID := rangedb.ParseStream(streamName)
 
-		readStreamOptions := esclient.ReadStreamEventsOptions{}
-		readStreamOptions.SetFromRevision(0)
-		readStreamOptions.SetResolveLinks()
-		readStream, err := s.client.ReadStreamEvents(ctx, "LogData", readStreamOptions, ^uint64(0))
+		readStreamOptions := esdb.ReadStreamOptions{
+			ResolveLinkTos: true,
+		}
+		readStream, err := s.client.ReadStream(ctx, "LogData", readStreamOptions, ^uint64(0))
 		if err != nil {
-			if strings.Contains(err.Error(), rpcErrContextCanceled) {
+			if strings.HasSuffix(err.Error(), rpcErrContextCanceled) {
 				resultRecords <- rangedb.ResultRecord{
 					Record: nil,
 					Err:    context.Canceled,
@@ -348,7 +353,11 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 				return
 			}
 
-			if strings.Contains(err.Error(), streamNotFound) {
+			if errors.Is(err, esdb.ErrStreamNotFound) {
+				resultRecords <- rangedb.ResultRecord{
+					Record: nil,
+					Err:    rangedb.ErrStreamNotFound,
+				}
 				return
 			}
 
@@ -363,7 +372,7 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 		for {
 			resolvedEvent, err := readStream.Recv()
 			if err != nil {
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					if totalRecords == 0 {
 						resultRecords <- rangedb.ResultRecord{
 							Record: nil,
@@ -375,7 +384,7 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 					return
 				}
 
-				if strings.Contains(err.Error(), streamNotFound) || strings.HasSuffix(err.Error(), rpcErrEventStreamIsDeleted) {
+				if errors.Is(err, esdb.ErrStreamNotFound) {
 					resultRecords <- rangedb.ResultRecord{
 						Record: nil,
 						Err:    rangedb.ErrStreamNotFound,
@@ -431,13 +440,6 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 	return rangedb.NewRecordIterator(resultRecords)
 }
 
-func zeroBasedSequenceNumber(sequenceNumber uint64) uint64 {
-	if sequenceNumber > 0 {
-		sequenceNumber--
-	}
-	return sequenceNumber
-}
-
 func oneBasedSequenceNumber(sequenceNumber uint64) uint64 {
 	return sequenceNumber + 1
 }
@@ -454,12 +456,12 @@ func (s *eventStore) OptimisticDeleteStream(ctx context.Context, expectedStreamS
 	}
 
 	versionedStreamName := s.streamName(streamName)
-	tombstoneStreamOptions := esclient.TombstoneStreamOptions{}
-	tombstoneStreamOptions.SetExpectedRevision(streamrevision.Exact(expectedStreamSequenceNumber - 1))
-
+	tombstoneStreamOptions := esdb.TombstoneStreamOptions{
+		ExpectedRevision: esdb.Revision(expectedStreamSequenceNumber - 1),
+		Authenticated:    nil,
+	}
 	_, err = s.client.TombstoneStream(ctx, versionedStreamName, tombstoneStreamOptions)
 	if err != nil {
-		log.Printf("%T\n%#v", err, err)
 		if strings.Contains(err.Error(), rpcErrWrongExpectedStreamRevision) {
 			// We have to manually obtain the current stream sequence number
 			// err does not contain "Actual version" and must be a bug in the EventStoreDB gRPC API.
@@ -541,7 +543,7 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 		}
 	}
 
-	var proposedEvents []messages.ProposedEvent
+	var proposedEvents []esdb.EventData
 
 	for _, eventRecord := range eventRecords {
 		if aggregateType != "" && aggregateType != eventRecord.Event.AggregateType() {
@@ -582,34 +584,36 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 		}
 
 		eventUUID, _ := uuid.FromString(eventID)
-		proposedEvent := messages.ProposedEvent{}
-		proposedEvent.SetEventID(eventUUID)
-		proposedEvent.SetEventType(eventRecord.Event.EventType())
-		proposedEvent.SetContentType("application/json")
-		proposedEvent.SetData(eventData)
-		proposedEvent.SetMetadata(eventMetadata)
+		proposedEvent := esdb.EventData{
+			EventID:     eventUUID,
+			EventType:   eventRecord.Event.EventType(),
+			ContentType: esdb.JsonContentType,
+			Data:        eventData,
+			Metadata:    eventMetadata,
+		}
 
 		proposedEvents = append(proposedEvents, proposedEvent)
 	}
 
-	streamRevision := streamrevision.Any()
+	var streamRevision esdb.ExpectedRevision
 	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber > 0 {
-		streamRevision = streamrevision.Exact(*expectedStreamSequenceNumber - 1)
+		streamRevision = esdb.Revision(*expectedStreamSequenceNumber - 1)
 	}
 
 	streamName := s.streamName(stream)
-	appendToStreamRevisionOptions := esclient.AppendToStreamOptions{}
-	appendToStreamRevisionOptions.SetExpectedRevision(streamRevision)
+	appendToStreamRevisionOptions := esdb.AppendToStreamOptions{
+		ExpectedRevision: streamRevision,
+	}
 	_, err := s.client.AppendToStream(ctx, streamName, appendToStreamRevisionOptions, proposedEvents...)
 	if err != nil {
-		if errors.Is(err, clienterrors.ErrWrongExpectedStreamRevision) {
+		if errors.Is(err, esdb.ErrWrongExpectedStreamRevision) {
 			return 0, &rangedberror.UnexpectedSequenceNumber{
 				Expected:             *expectedStreamSequenceNumber,
 				ActualSequenceNumber: 0,
 			}
 		}
 
-		if strings.Contains(err.Error(), rpcErrContextCanceled) {
+		if strings.HasSuffix(err.Error(), rpcErrContextCanceled) {
 			return 0, context.Canceled
 		}
 
@@ -625,7 +629,7 @@ func (s *eventStore) waitForLogDataProjectionToCatchUp() {
 	time.Sleep(time.Millisecond * 100)
 }
 
-func (s *eventStore) inCurrentVersion(event *messages.ResolvedEvent) bool {
+func (s *eventStore) inCurrentVersion(event *esdb.ResolvedEvent) bool {
 	if event.Event == nil {
 		return false
 	}
@@ -668,7 +672,7 @@ func (s *eventStore) getStreamSequenceNumber(ctx context.Context, stream string)
 	return lastStreamSequenceNumber, nil
 }
 
-func (s *eventStore) recordFromLinkedEvent(resolvedEvent *messages.ResolvedEvent) (*rangedb.Record, error) {
+func (s *eventStore) recordFromLinkedEvent(resolvedEvent *esdb.ResolvedEvent) (*rangedb.Record, error) {
 	if resolvedEvent.Event == nil {
 		return nil, fmt.Errorf("not found")
 	}
@@ -707,9 +711,10 @@ func (s *eventStore) recordFromLinkedEvent(resolvedEvent *messages.ResolvedEvent
 
 func (s *eventStore) startSubscription() {
 	ctx := context.Background()
-	opts := esclient.SubscribeToStreamOptions{}
-	opts.SetResolveLinks()
-	opts.SetFromStart()
+	opts := esdb.SubscribeToStreamOptions{
+		From:           esdb.Start{},
+		ResolveLinkTos: true,
+	}
 	subscription, err := s.client.SubscribeToStream(ctx, "LogData", opts)
 	if err != nil {
 		return
@@ -730,12 +735,12 @@ func (s *eventStore) startSubscription() {
 				return
 			}
 
-			if strings.Contains(err.Error(), rpcErrContextCanceled) {
+			if strings.HasSuffix(err.Error(), rpcErrContextCanceled) {
 				log.Printf("subscription: context canceled")
 				return
 			}
 
-			if strings.Contains(err.Error(), streamNotFound) || strings.HasSuffix(err.Error(), rpcErrEventStreamIsDeleted) {
+			if errors.Is(err, esdb.ErrStreamNotFound) {
 				log.Printf("subscription: stream not found")
 				return
 			}
