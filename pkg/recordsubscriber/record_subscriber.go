@@ -8,7 +8,7 @@ import (
 )
 
 // GetRecordsIteratorFunc defines a function to get events from a rangedb.Store.
-// Typically from store.Events or store.Events store.EventsByAggregateTypes.
+// Typically, from store.Events or store.Events store.EventsByAggregateTypes.
 type GetRecordsIteratorFunc func(globalSequenceNumber uint64) rangedb.RecordIterator
 
 // ConsumeRecordFunc defines a function to receiver a rangedb.Record
@@ -28,7 +28,6 @@ type recordSubscriber struct {
 	ctx                      context.Context
 	cancelCtx                context.CancelFunc
 	lastGlobalSequenceNumber uint64
-	totalRecordsSent         uint64 // TODO: Remove and refactor zero based sequence numbers to begin with 1
 }
 
 // New constructs a record subscriber.
@@ -116,7 +115,7 @@ func (s *recordSubscriber) work() {
 }
 
 func (s *recordSubscriber) recordHasAlreadyBeenSent(record *rangedb.Record) bool {
-	return s.totalRecordsSent > 0 && record.GlobalSequenceNumber <= s.lastGlobalSequenceNumber
+	return record.GlobalSequenceNumber <= s.lastGlobalSequenceNumber
 }
 
 func (s *recordSubscriber) Stop() {
@@ -141,6 +140,5 @@ func (s *recordSubscriber) writeRecords(globalSequenceNumber uint64) error {
 
 func (s *recordSubscriber) writeRecord(record *rangedb.Record) error {
 	s.lastGlobalSequenceNumber = record.GlobalSequenceNumber
-	s.totalRecordsSent++
 	return s.consumeRecord(record)
 }
