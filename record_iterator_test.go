@@ -1,6 +1,7 @@
 package rangedb_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -26,10 +27,7 @@ func TestRecordIterator(t *testing.T) {
 	t.Run("only 1 record in the stream", func(t *testing.T) {
 		t.Run("first call to next", func(t *testing.T) {
 			// Given
-			resultRecords := make(chan rangedb.ResultRecord, 1)
-			resultRecords <- rangedb.ResultRecord{Record: record, Err: nil}
-			close(resultRecords)
-			iter := rangedb.NewRecordIterator(resultRecords)
+			iter := stubRecordIterator(rangedb.ResultRecord{Record: record, Err: nil})
 
 			// When
 			canContinue := iter.Next()
@@ -42,10 +40,7 @@ func TestRecordIterator(t *testing.T) {
 
 		t.Run("second call to Next", func(t *testing.T) {
 			// Given
-			resultRecords := make(chan rangedb.ResultRecord, 1)
-			resultRecords <- rangedb.ResultRecord{Record: record, Err: nil}
-			close(resultRecords)
-			iter := rangedb.NewRecordIterator(resultRecords)
+			iter := stubRecordIterator(rangedb.ResultRecord{Record: record, Err: nil})
 			iter.Next()
 
 			// When
@@ -56,18 +51,59 @@ func TestRecordIterator(t *testing.T) {
 			assert.Nil(t, iter.Record())
 			assert.Nil(t, iter.Err())
 		})
+
+		t.Run("first call to next context", func(t *testing.T) {
+			// Given
+			iter := stubRecordIterator(rangedb.ResultRecord{Record: record, Err: nil})
+			ctx := rangedbtest.TimeoutContext(t)
+
+			// When
+			canContinue := iter.NextContext(ctx)
+
+			// Then
+			assert.True(t, canContinue)
+			assert.Equal(t, record, iter.Record())
+			assert.Nil(t, iter.Err())
+		})
+
+		t.Run("second call to next context", func(t *testing.T) {
+			// Given
+			iter := stubRecordIterator(rangedb.ResultRecord{Record: record, Err: nil})
+			ctx := rangedbtest.TimeoutContext(t)
+			iter.NextContext(ctx)
+
+			// When
+			canContinue := iter.NextContext(ctx)
+
+			// Then
+			assert.False(t, canContinue)
+			assert.Nil(t, iter.Record())
+			assert.Nil(t, iter.Err())
+		})
+
+		t.Run("timeout from closed context", func(t *testing.T) {
+			// Given
+			iter := blockingRecordIterator(t)
+			canceledCtx, done := context.WithCancel(context.Background())
+			done()
+
+			// When
+			canContinue := iter.NextContext(canceledCtx)
+
+			// Then
+			assert.False(t, canContinue)
+			assert.Nil(t, iter.Record())
+			assert.Equal(t, context.Canceled, iter.Err())
+		})
 	})
 
 	t.Run("only 1 error in stream", func(t *testing.T) {
 		t.Run("first call to Next", func(t *testing.T) {
 			// Given
-			resultRecords := make(chan rangedb.ResultRecord, 1)
-			resultRecords <- rangedb.ResultRecord{
+			iter := stubRecordIterator(rangedb.ResultRecord{
 				Record: nil,
 				Err:    fmt.Errorf("first error"),
-			}
-			close(resultRecords)
-			iter := rangedb.NewRecordIterator(resultRecords)
+			})
 
 			// When
 			canContinue := iter.Next()
@@ -80,13 +116,10 @@ func TestRecordIterator(t *testing.T) {
 
 		t.Run("second call to Next retains error for use outside of a for loop", func(t *testing.T) {
 			// Given
-			resultRecords := make(chan rangedb.ResultRecord, 1)
-			resultRecords <- rangedb.ResultRecord{
+			iter := stubRecordIterator(rangedb.ResultRecord{
 				Record: nil,
 				Err:    fmt.Errorf("first error"),
-			}
-			close(resultRecords)
-			iter := rangedb.NewRecordIterator(resultRecords)
+			})
 			iter.Next()
 
 			// When
@@ -98,4 +131,21 @@ func TestRecordIterator(t *testing.T) {
 			assert.Nil(t, iter.Record())
 		})
 	})
+}
+
+func stubRecordIterator(resultRecords ...rangedb.ResultRecord) rangedb.RecordIterator {
+	resultRecordChan := make(chan rangedb.ResultRecord, len(resultRecords))
+	for _, resultRecord := range resultRecords {
+		resultRecordChan <- resultRecord
+	}
+	close(resultRecordChan)
+	return rangedb.NewRecordIterator(resultRecordChan)
+}
+
+func blockingRecordIterator(t *testing.T) rangedb.RecordIterator {
+	resultRecordChan := make(chan rangedb.ResultRecord, 1)
+	t.Cleanup(func() {
+		close(resultRecordChan)
+	})
+	return rangedb.NewRecordIterator(resultRecordChan)
 }

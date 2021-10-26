@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 )
 
@@ -30,6 +31,10 @@ func (g *seededUUIDGenerator) New() string {
 func (g *seededUUIDGenerator) Get(index int) string {
 	g.mux.RLock()
 	defer g.mux.RUnlock()
+
+	if len(g.generatedUUIDs) < index {
+		return ""
+	}
 
 	return g.generatedUUIDs[index-1]
 }

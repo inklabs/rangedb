@@ -13,5 +13,6 @@ type RecordSerializer interface {
 
 // EventTypeIdentifier is the interface for retrieving an event type.
 type EventTypeIdentifier interface {
+	EventBinder
 	EventTypeLookup(eventTypeName string) (reflect.Type, bool)
 }

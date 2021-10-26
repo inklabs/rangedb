@@ -8,7 +8,7 @@ import (
 )
 
 // Version for RangeDB.
-const Version = "0.12.0-dev"
+const Version = "0.12.1-dev"
 
 // Record contains event data and metadata.
 type Record struct {
@@ -86,6 +86,7 @@ type ResultRecord struct {
 // RecordIterator is used to traverse a stream of record events.
 type RecordIterator interface {
 	Next() bool
+	NextContext(context.Context) bool
 	Record() *Record
 	Err() error
 }

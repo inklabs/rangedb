@@ -11,20 +11,18 @@ import (
 )
 
 type msgpackRecordIoStream struct {
-	eventTypes map[string]reflect.Type
+	eventIdentifier rangedb.EventTypeIdentifier
 }
 
 // New constructs a msgpackRecordIoStream.
 func New() *msgpackRecordIoStream {
 	return &msgpackRecordIoStream{
-		eventTypes: map[string]reflect.Type{},
+		eventIdentifier: rangedb.NewEventIdentifier(),
 	}
 }
 
 func (s *msgpackRecordIoStream) Bind(events ...rangedb.Event) {
-	for _, e := range events {
-		s.eventTypes[e.EventType()] = getType(e)
-	}
+	s.eventIdentifier.Bind(events...)
 }
 
 func (s *msgpackRecordIoStream) Write(writer io.Writer, recordIterator rangedb.RecordIterator) <-chan error {
@@ -62,7 +60,7 @@ func (s *msgpackRecordIoStream) Read(reader io.Reader) rangedb.RecordIterator {
 		decoder.UseJSONTag(true)
 
 		for {
-			record, err := msgpackrecordserializer.UnmarshalRecord(decoder, s.eventTypeLookup)
+			record, err := msgpackrecordserializer.UnmarshalRecord(decoder, s.eventIdentifier)
 			if err != nil {
 				if err == msgpackrecordserializer.ErrorEOF {
 					return
@@ -86,16 +84,6 @@ func (s *msgpackRecordIoStream) Read(reader io.Reader) rangedb.RecordIterator {
 	return rangedb.NewRecordIterator(resultRecords)
 }
 
-func (s *msgpackRecordIoStream) eventTypeLookup(eventTypeName string) (r reflect.Type, b bool) {
-	eventType, ok := s.eventTypes[eventTypeName]
-	return eventType, ok
-}
-
-func getType(object interface{}) reflect.Type {
-	t := reflect.TypeOf(object)
-	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-
-	return t
+func (s *msgpackRecordIoStream) EventTypeLookup(eventTypeName string) (r reflect.Type, b bool) {
+	return s.eventIdentifier.EventTypeLookup(eventTypeName)
 }

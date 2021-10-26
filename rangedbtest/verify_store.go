@@ -211,7 +211,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			recordIterator := store.EventsByStream(ctx, 2, rangedb.GetEventStream(eventA1))
 
 			// When
-			recordIterator.Next()
+			require.True(t, recordIterator.Next(), recordIterator.Err())
 			done()
 
 			// Then
@@ -275,11 +275,11 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			thingWasDoneA1 := &ThingWasDone{ID: aggregateIDA, Number: 200}
 			thingWasDoneB0 := &ThingWasDone{ID: aggregateIDB, Number: 300}
 			AnotherWasCompleteX0 := &AnotherWasComplete{ID: aggregateIDX}
-			ctx := TimeoutContext(t)
 			SaveEvents(t, store, &rangedb.EventRecord{Event: thingWasDoneA0})
 			SaveEvents(t, store, &rangedb.EventRecord{Event: thingWasDoneB0})
 			SaveEvents(t, store, &rangedb.EventRecord{Event: thingWasDoneA1})
 			SaveEvents(t, store, &rangedb.EventRecord{Event: AnotherWasCompleteX0})
+			ctx := TimeoutContext(t)
 
 			// When
 			recordIterator := store.Events(ctx, 0)
@@ -451,7 +451,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			recordIterator := store.Events(ctx, 2)
 
 			// When
-			recordIterator.Next()
+			require.True(t, recordIterator.Next(), recordIterator.Err())
 			done()
 
 			// Then
@@ -504,7 +504,6 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
 			eventB := &ThingWasDone{ID: aggregateIDB, Number: 3}
-			ctx := TimeoutContext(t)
 			SaveEvents(t, store,
 				&rangedb.EventRecord{Event: eventA1},
 				&rangedb.EventRecord{Event: eventA2},
@@ -512,6 +511,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			SaveEvents(t, store,
 				&rangedb.EventRecord{Event: eventB},
 			)
+			ctx := TimeoutContext(t)
 
 			// When
 			recordIterator := store.EventsByAggregateTypes(ctx, 0, eventA1.AggregateType())
@@ -633,21 +633,35 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			store := newStore(t, sequentialclock.New(), uuid)
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
-			ctx := TimeoutContext(t)
 			SaveEvents(t, store,
 				&rangedb.EventRecord{Event: eventA1},
 				&rangedb.EventRecord{Event: eventA2},
 			)
 			streamName := rangedb.GetEventStream(eventA1)
+			ctx := TimeoutContext(t)
 
 			// When
 			err := store.OptimisticDeleteStream(ctx, 2, streamName)
 
 			// Then
 			require.NoError(t, err)
-			recordIterator := store.EventsByStream(ctx, 0, streamName)
-			assert.False(t, recordIterator.Next())
-			assert.Equal(t, rangedb.ErrStreamNotFound, recordIterator.Err())
+			t.Run("does not exist in stream", func(t *testing.T) {
+				recordIterator := store.EventsByStream(ctx, 0, streamName)
+				require.False(t, recordIterator.Next())
+				assert.Equal(t, rangedb.ErrStreamNotFound, recordIterator.Err())
+			})
+
+			t.Run("does not exist by aggregate type", func(t *testing.T) {
+				recordIterator := store.EventsByAggregateTypes(ctx, 0, eventA1.AggregateType())
+				require.False(t, recordIterator.Next())
+				assert.Nil(t, recordIterator.Err())
+			})
+
+			t.Run("does not exist in all events", func(t *testing.T) {
+				recordIterator := store.Events(ctx, 0)
+				require.False(t, recordIterator.Next())
+				assert.Nil(t, recordIterator.Err())
+			})
 		})
 
 		t.Run("errors from wrong expected stream sequence number", func(t *testing.T) {
@@ -690,7 +704,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			assert.Equal(t, rangedb.ErrStreamNotFound, err)
 		})
 
-		t.Run("deletes a stream with 2 events", func(t *testing.T) {
+		t.Run("errors from canceled context attempting to delete a stream with 2 events", func(t *testing.T) {
 			// Given
 			uuid := NewSeededUUIDGenerator()
 			const aggregateIDA = "17852dae2f9448acb0174419c7634fdf"
@@ -984,13 +998,24 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			// Then
 			require.Error(t, err)
 			assert.Equal(t, uint64(0), lastStreamSequenceNumber)
-			allRecordsIter := store.Events(ctx, 0)
-			AssertNoMoreResultsInIterator(t, allRecordsIter)
-			streamRecordsIter := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event1))
-			require.False(t, streamRecordsIter.Next())
-			assert.Equal(t, rangedb.ErrStreamNotFound, streamRecordsIter.Err())
-			aggregateTypeRecordsIter := store.EventsByAggregateTypes(ctx, 0, event1.AggregateType())
-			AssertNoMoreResultsInIterator(t, aggregateTypeRecordsIter)
+
+			t.Run("does not exist in stream", func(t *testing.T) {
+				recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event1))
+				require.False(t, recordIterator.Next())
+				assert.Equal(t, rangedb.ErrStreamNotFound, recordIterator.Err())
+			})
+
+			t.Run("does not exist by aggregate type", func(t *testing.T) {
+				recordIterator := store.EventsByAggregateTypes(ctx, 0, event1.AggregateType())
+				require.False(t, recordIterator.Next())
+				assert.Nil(t, recordIterator.Err())
+			})
+
+			t.Run("does not exist in all events", func(t *testing.T) {
+				recordIterator := store.Events(ctx, 0)
+				require.False(t, recordIterator.Next())
+				assert.Nil(t, recordIterator.Err())
+			})
 		})
 
 		t.Run("fails on 2nd event without persisting 1st event, with one previously saved event", func(t *testing.T) {
@@ -1482,13 +1507,8 @@ func ReadRecord(t *testing.T, recordChan chan *rangedb.Record) *rangedb.Record {
 }
 
 func assertCanceledIterator(t *testing.T, iter rangedb.RecordIterator) {
-	for iter.Next() {
-		select {
-		case <-time.After(time.Second * 5):
-			require.Fail(t, "unexpected timeout")
-			break
-		default:
-		}
+	ctx := TimeoutContext(t)
+	for iter.NextContext(ctx) {
 	}
 
 	assert.False(t, iter.Next())
@@ -1499,7 +1519,7 @@ func assertCanceledIterator(t *testing.T, iter rangedb.RecordIterator) {
 // AssertRecordsInIterator asserts all expected rangedb.Record exist in the rangedb.RecordIterator.
 func AssertRecordsInIterator(t *testing.T, recordIterator rangedb.RecordIterator, expectedRecords ...*rangedb.Record) {
 	for i, expectedRecord := range expectedRecords {
-		assert.True(t, recordIterator.Next())
+		assert.True(t, recordIterator.Next(), recordIterator.Err())
 		assert.Nil(t, recordIterator.Err())
 		require.Equal(t, expectedRecord, recordIterator.Record(), i)
 	}

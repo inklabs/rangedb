@@ -3,7 +3,6 @@ package msgpackrecordserializer_test
 import (
 	"bytes"
 	"fmt"
-	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -120,9 +119,7 @@ func Test_UnmarshalRecord(t *testing.T) {
 		decoder := msgpack.NewDecoder(bytes.NewReader([]byte{}))
 
 		// When
-		record, err := msgpackrecordserializer.UnmarshalRecord(decoder, func(eventTypeName string) (r reflect.Type, b bool) {
-			return nil, false
-		})
+		record, err := msgpackrecordserializer.UnmarshalRecord(decoder, nil)
 
 		// Then
 		assert.Equal(t, msgpackrecordserializer.ErrorEOF, err)

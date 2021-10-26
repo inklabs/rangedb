@@ -11,20 +11,18 @@ import (
 )
 
 type jsonSerializer struct {
-	eventTypes map[string]reflect.Type
+	eventIdentifier rangedb.EventTypeIdentifier
 }
 
 // New constructs a jsonSerializer.
 func New() *jsonSerializer {
 	return &jsonSerializer{
-		eventTypes: map[string]reflect.Type{},
+		eventIdentifier: rangedb.NewEventIdentifier(),
 	}
 }
 
 func (s *jsonSerializer) Bind(events ...rangedb.Event) {
-	for _, e := range events {
-		s.eventTypes[e.EventType()] = getType(e)
-	}
+	s.eventIdentifier.Bind(events...)
 }
 
 func (s *jsonSerializer) Serialize(record *rangedb.Record) ([]byte, error) {
@@ -40,12 +38,11 @@ func (s *jsonSerializer) Deserialize(serializedData []byte) (*rangedb.Record, er
 	decoder := json.NewDecoder(bytes.NewReader(serializedData))
 	decoder.UseNumber()
 
-	return UnmarshalRecord(decoder, s)
+	return UnmarshalRecord(decoder, s.eventIdentifier)
 }
 
 func (s *jsonSerializer) EventTypeLookup(eventTypeName string) (reflect.Type, bool) {
-	eventType, ok := s.eventTypes[eventTypeName]
-	return eventType, ok
+	return s.eventIdentifier.EventTypeLookup(eventTypeName)
 }
 
 // UnmarshalRecord decodes a Record using the supplied JSON decoder.
@@ -96,13 +93,4 @@ func DecodeJsonData(eventTypeName string, rawJsonData io.Reader, eventTypeIdenti
 	}
 
 	return data, nil
-}
-
-func getType(object interface{}) reflect.Type {
-	t := reflect.TypeOf(object)
-	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-
-	return t
 }
