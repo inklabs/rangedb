@@ -7,10 +7,17 @@
     <div class="grid-container">
         <div class="grid-x grid-padding-x">
             <div class="cell medium-12 medium-order-1">
-                <h3>
-                    Aggregate Type: {{.AggregateTypeInfo.Name}}
-                    <small>({{.AggregateTypeInfo.TotalEvents}})</small>
-                </h3>
+                <nav aria-label="You are here:" role="navigation">
+                    <ul class="breadcrumbs">
+                        <li><a href="/aggregate-types">Aggregate</a></li>
+                        <li>
+                            {{.AggregateTypeInfo.Name}} ({{.AggregateTypeInfo.TotalEvents}})
+                        </li>
+                        <li>
+                            <a href="/e/{{.AggregateTypeInfo.Name}}/live">Realtime</a>
+                        </li>
+                    </ul>
+                </nav>
                 {{template "records" .Records}}
                 {{template "pagination" .PaginationLinks}}
             </div>

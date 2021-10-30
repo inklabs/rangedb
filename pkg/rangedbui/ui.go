@@ -3,18 +3,20 @@ package rangedbui
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
-
-	"github.com/inklabs/rangedb/pkg/paging"
+	"time"
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 
 	"github.com/inklabs/rangedb"
+	"github.com/inklabs/rangedb/pkg/paging"
 	"github.com/inklabs/rangedb/pkg/projection"
 )
 
@@ -24,10 +26,13 @@ var StaticAssets embed.FS
 //go:embed templates
 var Templates embed.FS
 
+const subscriberRecordBuffSize = 20
+
 type webUI struct {
 	handler            http.Handler
 	aggregateTypeStats *projection.AggregateTypeStats
 	store              rangedb.Store
+	upgrader           *websocket.Upgrader
 }
 
 // New constructs a webUI web application.
@@ -38,6 +43,13 @@ func New(
 	webUI := &webUI{
 		aggregateTypeStats: aggregateTypeStats,
 		store:              store,
+		upgrader: &websocket.Upgrader{
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+			CheckOrigin: func(r *http.Request) bool {
+				return true
+			},
+		},
 	}
 
 	webUI.initRoutes()
@@ -49,13 +61,20 @@ func (a *webUI) initRoutes() {
 	const aggregateType = "{aggregateType:[a-zA-Z-]+}"
 	const stream = aggregateType + "/{aggregateID:[0-9a-f]{32}}"
 	router := mux.NewRouter().StrictSlash(true)
-	router.HandleFunc("/", a.index)
-	router.HandleFunc("/aggregate-types", a.aggregateTypes)
-	router.HandleFunc("/e/"+aggregateType, a.aggregateType)
-	router.HandleFunc("/e/"+stream, a.stream)
-	router.PathPrefix("/static/").Handler(http.FileServer(http.FS(StaticAssets)))
 
-	a.handler = handlers.CompressHandler(router)
+	main := router.PathPrefix("/").Subrouter()
+	main.HandleFunc("/", a.index)
+	main.HandleFunc("/aggregate-types", a.aggregateTypes)
+	main.HandleFunc("/e/"+aggregateType, a.aggregateType)
+	main.HandleFunc("/e/"+aggregateType+"/live", a.aggregateTypeLive)
+	main.HandleFunc("/e/"+stream, a.stream)
+	main.PathPrefix("/static/").Handler(http.FileServer(http.FS(StaticAssets)))
+	main.Use(handlers.CompressHandler)
+
+	websocketRouter := router.PathPrefix("/live").Subrouter()
+	websocketRouter.HandleFunc("/e/"+aggregateType, a.realtimeEventsByAggregateType)
+
+	a.handler = router
 }
 
 func (a *webUI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -168,6 +187,19 @@ func (a *webUI) stream(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (a *webUI) aggregateTypeLive(w http.ResponseWriter, r *http.Request) {
+	aggregateTypeName := mux.Vars(r)["aggregateType"]
+
+	totalRecords := a.aggregateTypeStats.TotalEventsByAggregateType(aggregateTypeName)
+
+	a.renderWithValues(w, "aggregate-type-live.html", aggregateTypeTemplateVars{
+		AggregateTypeInfo: AggregateTypeInfo{
+			Name:        aggregateTypeName,
+			TotalEvents: totalRecords,
+		},
+	})
+}
+
 func (a *webUI) renderWithValues(w http.ResponseWriter, tpl string, data interface{}) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
@@ -186,6 +218,83 @@ func (a *webUI) RenderTemplate(w http.ResponseWriter, tpl string, data interface
 	}
 
 	return tmpl.Execute(w, data)
+}
+
+type RecordEnvelope struct {
+	Record      rangedb.Record
+	TotalEvents uint64
+}
+
+func (a *webUI) realtimeEventsByAggregateType(w http.ResponseWriter, r *http.Request) {
+	aggregateTypeName := mux.Vars(r)["aggregateType"]
+
+	conn, err := a.upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		http.Error(w, "unable to upgrade websocket connection", http.StatusBadRequest)
+		return
+	}
+	defer conn.Close()
+
+	keepAlive(conn, 1*time.Minute)
+
+	var startingGlobalSequenceNumber, runningTotalRecords uint64
+	totalRecords := a.aggregateTypeStats.TotalEventsByAggregateType(aggregateTypeName)
+	if totalRecords > 10 {
+		startingGlobalSequenceNumber = totalRecords - 10
+		runningTotalRecords = startingGlobalSequenceNumber - 1
+	}
+
+	recordSubscriber := rangedb.RecordSubscriberFunc(func(record *rangedb.Record) {
+		runningTotalRecords++
+
+		envelope := RecordEnvelope{
+			Record:      *record,
+			TotalEvents: runningTotalRecords,
+		}
+
+		message, err := json.Marshal(envelope)
+		if err != nil {
+			log.Printf("unable to marshal record: %v", err)
+			return
+		}
+
+		writeErr := conn.WriteMessage(websocket.TextMessage, message)
+		if writeErr != nil {
+			log.Printf("unable to write to ws client: %v", writeErr)
+		}
+	})
+
+	subscription := a.store.AggregateTypesSubscription(r.Context(), subscriberRecordBuffSize, recordSubscriber, aggregateTypeName)
+	defer subscription.Stop()
+	err = subscription.StartFrom(startingGlobalSequenceNumber)
+	if err != nil {
+		log.Printf("unable to start subscription: %v", err)
+		return
+	}
+
+	_, _, _ = conn.ReadMessage()
+}
+
+func keepAlive(c *websocket.Conn, timeout time.Duration) {
+	lastResponse := time.Now()
+	c.SetPongHandler(func(_ string) error {
+		lastResponse = time.Now()
+		return nil
+	})
+
+	go func() {
+		for {
+			err := c.WriteMessage(websocket.PingMessage, []byte("keepalive"))
+			if err != nil {
+				return
+			}
+			time.Sleep(timeout / 2)
+			if time.Since(lastResponse) > timeout {
+				_ = c.Close()
+				return
+			}
+		}
+	}()
 }
 
 // AggregateTypeInfo contains the aggregate type data available to templates.

@@ -7,11 +7,15 @@
     <div class="grid-container">
         <div class="grid-x grid-padding-x">
             <div class="cell medium-12 medium-order-1">
-                <a href="{{.AggregateTypeURL}}">{{.AggregateType}}</a>
-                <h3>
-                    Stream: {{.StreamInfo.Name}}
-                    <small>({{.StreamInfo.TotalEvents}})</small>
-                </h3>
+                <nav aria-label="You are here:" role="navigation">
+                    <ul class="breadcrumbs">
+                        <li><a href="/aggregate-types">Aggregate</a></li>
+                        <li><a href="{{.AggregateTypeURL}}">{{.AggregateType}}</a></li>
+                        <li>
+                            {{.StreamInfo.Name}} ({{.StreamInfo.TotalEvents}})
+                        </li>
+                    </ul>
+                </nav>
                 {{template "records" .Records}}
                 {{template "pagination" .PaginationLinks}}
             </div>
