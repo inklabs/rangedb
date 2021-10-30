@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"time"
 
 	"github.com/inklabs/rangedb"
@@ -29,6 +30,10 @@ func Example_getEventsByAggregateTypes() {
 	server := httptest.NewServer(api)
 	defer server.Close()
 
+	serverURL, err := url.Parse(server.URL)
+	PrintError(err)
+	serverURL.Path = "/events/thing,another.json"
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
@@ -37,10 +42,9 @@ func Example_getEventsByAggregateTypes() {
 	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a095086e52bc4617a1763a62398cd645"}},
 	)))
-	url := fmt.Sprintf("%s/events/thing,another.json", server.URL)
 
 	// When
-	response, err := http.Get(url)
+	response, err := http.Get(serverURL.String())
 	PrintError(err)
 	defer Close(response.Body)
 

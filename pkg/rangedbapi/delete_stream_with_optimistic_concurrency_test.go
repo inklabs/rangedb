@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"time"
 
 	"github.com/inklabs/rangedb"
@@ -33,8 +34,11 @@ func Example_optimisticDeleteStream() {
 	server := httptest.NewServer(api)
 	defer server.Close()
 
-	url := fmt.Sprintf("%s/delete-stream/thing/4b9a415c53734b69ac459a7e53eb4c1b", server.URL)
-	request, err := http.NewRequest(http.MethodPost, url, nil)
+	serverURL, err := url.Parse(server.URL)
+	PrintError(err)
+	serverURL.Path = "/delete-stream/thing/4b9a415c53734b69ac459a7e53eb4c1b"
+
+	request, err := http.NewRequest(http.MethodPost, serverURL.String(), nil)
 	PrintError(err)
 	request.Header.Set("ExpectedStreamSequenceNumber", "1")
 	client := http.DefaultClient

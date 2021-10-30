@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"time"
 
 	"github.com/inklabs/rangedb"
@@ -29,6 +30,10 @@ func Example_getEventsByStream() {
 	server := httptest.NewServer(api)
 	defer server.Close()
 
+	serverURL, err := url.Parse(server.URL)
+	PrintError(err)
+	serverURL.Path = "/events/thing/605f20348fb940e386c171d51c877bf1.json"
+
 	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
 	defer done()
 	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
@@ -38,10 +43,9 @@ func Example_getEventsByStream() {
 	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
 		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a095086e52bc4617a1763a62398cd645"}},
 	)))
-	url := fmt.Sprintf("%s/events/thing/605f20348fb940e386c171d51c877bf1.json", server.URL)
 
 	// When
-	response, err := http.Get(url)
+	response, err := http.Get(serverURL.String())
 	PrintError(err)
 	defer Close(response.Body)
 

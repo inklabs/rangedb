@@ -6,7 +6,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"strings"
+	"net/url"
+	"strconv"
 	"testing"
 
 	"github.com/gorilla/websocket"
@@ -42,12 +43,16 @@ func Test_WebsocketApi(t *testing.T) {
 			api, err := rangedbws.New(rangedbws.WithStore(store))
 			require.NoError(t, err)
 			t.Cleanup(api.Stop)
+
 			server := httptest.NewServer(api)
 			t.Cleanup(server.Close)
-			url := fmt.Sprintf("ws://%s/events", strings.TrimPrefix(server.URL, "http://"))
+			serverURL, err := url.Parse(server.URL)
+			require.NoError(t, err)
+			serverURL.Scheme = "ws"
+			serverURL.Path = "/events"
 
 			// When
-			socket, response, err := websocket.DefaultDialer.Dial(url, nil)
+			socket, response, err := websocket.DefaultDialer.Dial(serverURL.String(), nil)
 
 			// Then
 			require.NoError(t, err)
@@ -119,16 +124,24 @@ func Test_WebsocketApi(t *testing.T) {
 			api, err := rangedbws.New(rangedbws.WithStore(store))
 			require.NoError(t, err)
 			t.Cleanup(api.Stop)
+
 			server := httptest.NewServer(api)
 			t.Cleanup(server.Close)
 			const globalSequenceNumber = 2
-			url := fmt.Sprintf("ws://%s/events?global-sequence-number=%d", strings.TrimPrefix(server.URL, "http://"), globalSequenceNumber)
+
+			serverURL, err := url.Parse(server.URL)
+			require.NoError(t, err)
+			serverURL.Scheme = "ws"
+			serverURL.Path = "/events"
+			query := url.Values{}
+			query.Add("global-sequence-number", strconv.Itoa(globalSequenceNumber))
+			serverURL.RawQuery = query.Encode()
 
 			// When
-			socket, response, err := websocket.DefaultDialer.Dial(url, nil)
+			socket, response, err := websocket.DefaultDialer.Dial(serverURL.String(), nil)
 
 			// Then
-			require.NoError(t, err)
+			require.NoError(t, err, serverURL.String())
 			defer closeOrFail(t, socket)
 			defer closeOrFail(t, response.Body)
 			_, actualBytes1, err := socket.ReadMessage()
@@ -182,12 +195,20 @@ func Test_WebsocketApi(t *testing.T) {
 			api, err := rangedbws.New(rangedbws.WithStore(store))
 			require.NoError(t, err)
 			t.Cleanup(api.Stop)
+
 			server := httptest.NewServer(api)
 			t.Cleanup(server.Close)
-			url := fmt.Sprintf("ws://%s/events?global-sequence-number=invalid", strings.TrimPrefix(server.URL, "http://"))
+
+			serverURL, err := url.Parse(server.URL)
+			require.NoError(t, err)
+			serverURL.Scheme = "ws"
+			serverURL.Path = "/events"
+			query := url.Values{}
+			query.Add("global-sequence-number", "invalid")
+			serverURL.RawQuery = query.Encode()
 
 			// When
-			socket, response, err := websocket.DefaultDialer.Dial(url, nil)
+			socket, response, err := websocket.DefaultDialer.Dial(serverURL.String(), nil)
 
 			// Then
 			require.EqualError(t, err, "websocket: bad handshake")
@@ -202,8 +223,7 @@ func Test_WebsocketApi(t *testing.T) {
 			api, err := rangedbws.New(rangedbws.WithStore(store))
 			require.NoError(t, err)
 			t.Cleanup(api.Stop)
-			server := httptest.NewServer(api)
-			t.Cleanup(server.Close)
+
 			request := httptest.NewRequest(http.MethodGet, "/events", nil)
 			response := httptest.NewRecorder()
 
@@ -221,13 +241,19 @@ func Test_WebsocketApi(t *testing.T) {
 			api, err := rangedbws.New(rangedbws.WithStore(failingStore))
 			require.NoError(t, err)
 			t.Cleanup(api.Stop)
+
 			server := httptest.NewServer(api)
 			t.Cleanup(server.Close)
-			url := fmt.Sprintf("ws://%s/events", strings.TrimPrefix(server.URL, "http://"))
+
+			serverURL, err := url.Parse(server.URL)
+			require.NoError(t, err)
+			serverURL.Scheme = "ws"
+			serverURL.Path = "/events"
+
 			ctx, done := context.WithCancel(rangedbtest.TimeoutContext(t))
 
 			// When
-			socket, response, err := websocket.DefaultDialer.DialContext(ctx, url, nil)
+			socket, response, err := websocket.DefaultDialer.DialContext(ctx, serverURL.String(), nil)
 
 			// Then
 			require.NoError(t, err)
@@ -259,12 +285,17 @@ func Test_WebsocketApi(t *testing.T) {
 			api, err := rangedbws.New(rangedbws.WithStore(store))
 			require.NoError(t, err)
 			t.Cleanup(api.Stop)
+
 			server := httptest.NewServer(api)
 			t.Cleanup(server.Close)
-			url := fmt.Sprintf("ws://%s/events/thing,that", strings.TrimPrefix(server.URL, "http://"))
+
+			serverURL, err := url.Parse(server.URL)
+			require.NoError(t, err)
+			serverURL.Scheme = "ws"
+			serverURL.Path = "/events/thing,that"
 
 			// When
-			socket, response, err := websocket.DefaultDialer.Dial(url, nil)
+			socket, response, err := websocket.DefaultDialer.Dial(serverURL.String(), nil)
 
 			// Then
 			require.NoError(t, err)
@@ -320,12 +351,20 @@ func Test_WebsocketApi(t *testing.T) {
 			api, err := rangedbws.New(rangedbws.WithStore(store))
 			require.NoError(t, err)
 			t.Cleanup(api.Stop)
+
 			server := httptest.NewServer(api)
 			t.Cleanup(server.Close)
-			url := fmt.Sprintf("ws://%s/events/thing,that?global-sequence-number=invalid", strings.TrimPrefix(server.URL, "http://"))
+
+			serverURL, err := url.Parse(server.URL)
+			require.NoError(t, err)
+			serverURL.Scheme = "ws"
+			serverURL.Path = "/events/thing,that"
+			query := url.Values{}
+			query.Add("global-sequence-number", "invalid")
+			serverURL.RawQuery = query.Encode()
 
 			// When
-			socket, response, err := websocket.DefaultDialer.Dial(url, nil)
+			socket, response, err := websocket.DefaultDialer.Dial(serverURL.String(), nil)
 
 			// Then
 			require.EqualError(t, err, "websocket: bad handshake")
@@ -381,11 +420,16 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		api, err := rangedbws.New(rangedbws.WithStore(store))
 		require.NoError(t, err)
 		t.Cleanup(api.Stop)
+
 		server := httptest.NewServer(api)
 		t.Cleanup(server.Close)
 
-		url := "ws" + strings.TrimPrefix(server.URL, "http") + "/events"
-		socket, response, err := websocket.DefaultDialer.Dial(url, nil)
+		serverURL, err := url.Parse(server.URL)
+		require.NoError(t, err)
+		serverURL.Scheme = "ws"
+		serverURL.Path = "/events"
+
+		socket, response, err := websocket.DefaultDialer.Dial(serverURL.String(), nil)
 		require.NoError(t, err)
 		defer closeOrFail(t, response.Body)
 
@@ -393,7 +437,6 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		require.NoError(t, socket.Close())
 
 		// Then
-
 	})
 
 	t.Run("errors from failing store", func(t *testing.T) {

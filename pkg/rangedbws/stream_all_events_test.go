@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http/httptest"
-	"strings"
+	"net/url"
 	"sync"
 	"time"
 
@@ -32,9 +32,12 @@ func Example_streamAllEvents() {
 	server := httptest.NewServer(websocketApi)
 	defer server.Close()
 
-	serverAddress := strings.TrimPrefix(server.URL, "http://")
-	websocketUrl := fmt.Sprintf("ws://%s/events", serverAddress)
-	socket, _, err := websocket.DefaultDialer.Dial(websocketUrl, nil)
+	serverURL, err := url.Parse(server.URL)
+	PrintError(err)
+	serverURL.Scheme = "ws"
+	serverURL.Path = "/events"
+
+	socket, _, err := websocket.DefaultDialer.Dial(serverURL.String(), nil)
 	PrintError(err)
 
 	var wg sync.WaitGroup
