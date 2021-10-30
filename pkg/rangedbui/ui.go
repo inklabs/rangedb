@@ -81,8 +81,8 @@ func (a *webUI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a.handler.ServeHTTP(w, r)
 }
 
-func (a *webUI) index(w http.ResponseWriter, _ *http.Request) {
-	a.renderWithValues(w, "index.html", nil)
+func (a *webUI) index(w http.ResponseWriter, r *http.Request) {
+	http.Redirect(w, r, "/aggregate-types", http.StatusFound)
 }
 
 type aggregateTypesTemplateVars struct {

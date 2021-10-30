@@ -30,8 +30,8 @@ func Test_Index(t *testing.T) {
 	ui.ServeHTTP(response, request)
 
 	// Then
-	assert.Equal(t, http.StatusOK, response.Code)
-	assert.Equal(t, "text/html; charset=utf-8", response.Header().Get("Content-Type"))
+	assert.Equal(t, http.StatusFound, response.Code)
+	assert.Equal(t, "/aggregate-types", response.Header().Get("Location"))
 }
 
 func Test_ListAggregateTypes(t *testing.T) {
