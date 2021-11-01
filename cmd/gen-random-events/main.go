@@ -55,7 +55,7 @@ func main() {
 
 	<-stop
 
-	fmt.Println("Shutting down")
+	fmt.Printf("\nShutting down\n")
 	done()
 }
 
@@ -69,7 +69,7 @@ func generateRandomEvents(ctx context.Context, store rangedb.Store, maxEventsPer
 			log.Fatal(err)
 		}
 		total += uint64(eventsPerStream)
-		fmt.Printf("Saved %d events\r", total)
+		fmt.Printf("\rSaved %d events", total)
 	}
 }
 

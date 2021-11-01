@@ -282,6 +282,8 @@ func (a *webUI) realtimeEventsByAggregateType(w http.ResponseWriter, r *http.Req
 		runningTotalRecords = startingGlobalSequenceNumber - 1
 	}
 
+	ctx, cancel := context.WithCancel(r.Context())
+
 	recordSubscriber := rangedb.RecordSubscriberFunc(func(record *rangedb.Record) {
 		runningTotalRecords++
 
@@ -299,10 +301,11 @@ func (a *webUI) realtimeEventsByAggregateType(w http.ResponseWriter, r *http.Req
 		writeErr := conn.WriteMessage(websocket.TextMessage, message)
 		if writeErr != nil {
 			log.Printf("unable to write to ws client: %v", writeErr)
+			cancel()
 		}
 	})
 
-	subscription := a.store.AggregateTypesSubscription(r.Context(), subscriberRecordBuffSize, recordSubscriber, aggregateTypeName)
+	subscription := a.store.AggregateTypesSubscription(ctx, subscriberRecordBuffSize, recordSubscriber, aggregateTypeName)
 	defer subscription.Stop()
 	err = subscription.StartFrom(startingGlobalSequenceNumber)
 	if err != nil {
@@ -350,16 +353,15 @@ func (a *webUI) realtimeAggregateTypes(w http.ResponseWriter, r *http.Request) {
 		message, err := json.Marshal(envelope)
 		if err != nil {
 			log.Printf("unable to marshal record: %v", err)
-			break
+			return
 		}
 
 		writeErr := conn.WriteMessage(websocket.TextMessage, message)
 		if writeErr != nil {
 			log.Printf("unable to write to ws client: %v", writeErr)
+			return
 		}
 	}
-
-	_, _, _ = conn.ReadMessage()
 }
 
 func keepAlive(c *websocket.Conn, timeout time.Duration) {
