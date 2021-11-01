@@ -296,6 +296,58 @@ func Test_RealtimeEventsByAggregateType(t *testing.T) {
 	})
 }
 
+func Test_RealtimeAggregateTypes(t *testing.T) {
+	uuid := rangedbtest.NewSeededUUIDGenerator()
+	store, aggregateTypeStats := storeWithTwoEvents(t,
+		inmemorystore.WithUUIDGenerator(uuid),
+		inmemorystore.WithClock(sequentialclock.New()),
+	)
+	event := rangedbtest.ThingWasDone{
+		ID:     "f6b6f8ed682c4b5180f625e53b3c4bac",
+		Number: 1,
+	}
+	rangedbtest.BlockingSaveEvents(t, store,
+		&rangedb.EventRecord{Event: event},
+	)
+	ui := rangedbui.New(aggregateTypeStats, store)
+
+	t.Run("reads with three events", func(t *testing.T) {
+		// Given
+		server := httptest.NewServer(ui)
+		t.Cleanup(server.Close)
+
+		serverURL, err := url.Parse(server.URL)
+		require.NoError(t, err)
+		serverURL.Scheme = "ws"
+		serverURL.Path = "/live/aggregate-types"
+
+		// When
+		socket, response, err := websocket.DefaultDialer.Dial(serverURL.String(), nil)
+
+		// Then
+		require.NoError(t, err)
+		errCleanup(t, socket)
+		errCleanup(t, response.Body)
+		_, actualBytes1, err := socket.ReadMessage()
+		require.NoError(t, err)
+		expectedEvent1 := `{
+			"AggregateTypes": [
+				{
+					"Name": "another",
+					"TotalEvents": 1
+				},
+				{
+					"Name": "thing",
+					"TotalEvents": 2
+				}
+			],
+			"TotalEvents": 3
+		}`
+		assert.Equal(t, http.StatusSwitchingProtocols, response.StatusCode)
+		assert.JSONEq(t, expectedEvent1, string(actualBytes1))
+	})
+}
+
 func storeWithTwoEvents(t *testing.T, options ...inmemorystore.Option) (rangedb.Store, *projection.AggregateTypeStats) {
 	store := inmemorystore.New(options...)
 	aggregateTypeStats := projection.NewAggregateTypeStats()

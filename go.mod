@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/aws/aws-sdk-go v1.38.22
+	github.com/dustin/go-humanize v1.0.0
 	github.com/fatih/structtag v1.2.0
 	github.com/golang/protobuf v1.4.2
 	github.com/google/uuid v1.1.2

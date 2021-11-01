@@ -83,6 +83,7 @@ func (a *webUI) initRoutes() {
 	main := router.PathPrefix("/").Subrouter()
 	main.HandleFunc("/", a.index)
 	main.HandleFunc("/aggregate-types", a.aggregateTypes)
+	main.HandleFunc("/aggregate-types/live", a.aggregateTypesLive)
 	main.HandleFunc("/e/"+aggregateType, a.aggregateType)
 	main.HandleFunc("/e/"+aggregateType+"/live", a.aggregateTypeLive)
 	main.HandleFunc("/e/"+stream, a.stream)
@@ -91,6 +92,7 @@ func (a *webUI) initRoutes() {
 
 	websocketRouter := router.PathPrefix("/live").Subrouter()
 	websocketRouter.HandleFunc("/e/"+aggregateType, a.realtimeEventsByAggregateType)
+	websocketRouter.HandleFunc("/aggregate-types", a.realtimeAggregateTypes)
 
 	a.handler = router
 }
@@ -119,6 +121,22 @@ func (a *webUI) aggregateTypes(w http.ResponseWriter, _ *http.Request) {
 	}
 
 	a.renderWithValues(w, "aggregate-types.html", aggregateTypesTemplateVars{
+		AggregateTypes: aggregateTypes,
+		TotalEvents:    a.aggregateTypeStats.TotalEvents(),
+	})
+}
+
+func (a *webUI) aggregateTypesLive(w http.ResponseWriter, _ *http.Request) {
+	var aggregateTypes []AggregateTypeInfo
+
+	for _, aggregateType := range a.aggregateTypeStats.SortedAggregateTypes() {
+		aggregateTypes = append(aggregateTypes, AggregateTypeInfo{
+			Name:        aggregateType,
+			TotalEvents: a.aggregateTypeStats.TotalEventsByAggregateType(aggregateType),
+		})
+	}
+
+	a.renderWithValues(w, "aggregate-types-live.html", aggregateTypesTemplateVars{
 		AggregateTypes: aggregateTypes,
 		TotalEvents:    a.aggregateTypeStats.TotalEvents(),
 	})
@@ -258,6 +276,8 @@ func (a *webUI) realtimeEventsByAggregateType(w http.ResponseWriter, r *http.Req
 	var startingGlobalSequenceNumber, runningTotalRecords uint64
 	totalRecords := a.aggregateTypeStats.TotalEventsByAggregateType(aggregateTypeName)
 	if totalRecords > 10 {
+		// TODO: optimize: obtain last 10th aggregate type records GSN then rangedb.ReadNRecords using
+		//  store.EventsByAggregateTypes from that position.
 		startingGlobalSequenceNumber = totalRecords - 10
 		runningTotalRecords = startingGlobalSequenceNumber - 1
 	}
@@ -288,6 +308,55 @@ func (a *webUI) realtimeEventsByAggregateType(w http.ResponseWriter, r *http.Req
 	if err != nil {
 		log.Printf("unable to start subscription: %v", err)
 		return
+	}
+
+	_, _, _ = conn.ReadMessage()
+}
+
+func (a *webUI) realtimeAggregateTypes(w http.ResponseWriter, r *http.Request) {
+	conn, err := a.upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		http.Error(w, "unable to upgrade websocket connection", http.StatusBadRequest)
+		return
+	}
+	defer conn.Close()
+
+	keepAlive(conn, 1*time.Minute)
+
+	latestGlobalSequenceNumber := uint64(0)
+
+	for {
+		time.Sleep(100 * time.Millisecond)
+
+		if a.aggregateTypeStats.LatestGlobalSequenceNumber() <= latestGlobalSequenceNumber {
+			continue
+		}
+
+		latestGlobalSequenceNumber = a.aggregateTypeStats.LatestGlobalSequenceNumber()
+
+		var aggregateTypes []AggregateTypeInfo
+		for _, aggregateType := range a.aggregateTypeStats.SortedAggregateTypes() {
+			aggregateTypes = append(aggregateTypes, AggregateTypeInfo{
+				Name:        aggregateType,
+				TotalEvents: a.aggregateTypeStats.TotalEventsByAggregateType(aggregateType),
+			})
+		}
+
+		envelope := aggregateTypesTemplateVars{
+			AggregateTypes: aggregateTypes,
+			TotalEvents:    a.aggregateTypeStats.TotalEvents(),
+		}
+
+		message, err := json.Marshal(envelope)
+		if err != nil {
+			log.Printf("unable to marshal record: %v", err)
+			break
+		}
+
+		writeErr := conn.WriteMessage(websocket.TextMessage, message)
+		if writeErr != nil {
+			log.Printf("unable to write to ws client: %v", writeErr)
+		}
 	}
 
 	_, _, _ = conn.ReadMessage()

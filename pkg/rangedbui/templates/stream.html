@@ -12,7 +12,7 @@
                         <li><a href="/aggregate-types">Aggregate</a></li>
                         <li><a href="{{.AggregateTypeURL}}">{{.AggregateType}}</a></li>
                         <li>
-                            {{.StreamInfo.Name}} ({{.StreamInfo.TotalEvents}})
+                            {{.StreamInfo.Name}} ({{.StreamInfo.TotalEvents | formatUint64}})
                         </li>
                     </ul>
                 </nav>

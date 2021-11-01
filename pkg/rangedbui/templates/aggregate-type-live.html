@@ -12,10 +12,10 @@
         <div class="cell medium-12 medium-order-1" id="app">
             <nav aria-label="You are here:" role="navigation">
                 <ul class="breadcrumbs">
-                    <li><a href="/aggregate-types">Aggregate</a></li>
+                    <li><a href="/aggregate-types/live">Aggregate</a></li>
                     <li><a href="/e/{{.AggregateTypeInfo.Name}}">{{.AggregateTypeInfo.Name}}</a></li>
                     <li>
-                        Realtime (${totalEvents})
+                        Realtime (${ Number(totalEvents).toLocaleString() })
                     </li>
                 </ul>
             </nav>

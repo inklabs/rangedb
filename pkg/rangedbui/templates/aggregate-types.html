@@ -10,7 +10,10 @@
                 <nav aria-label="You are here:" role="navigation">
                     <ul class="breadcrumbs">
                         <li>
-                            <a href="/aggregate-types">Aggregate</a> ({{.TotalEvents}})
+                            <a href="/aggregate-types">Aggregate</a> ({{.TotalEvents | formatUint64}})
+                        </li>
+                        <li>
+                            <a href="/aggregate-types/live">Realtime</a>
                         </li>
                     </ul>
                 </nav>
@@ -25,7 +28,7 @@
                     {{range .AggregateTypes}}
                     <tr>
                         <td><a href="/e/{{.Name}}">{{.Name}}</a></td>
-                        <td>{{.TotalEvents}}</td>
+                        <td>{{.TotalEvents | formatUint64}}</td>
                     </tr>
                     {{end}}
                     </tbody>
