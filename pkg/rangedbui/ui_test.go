@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"testing"
 
 	"github.com/gorilla/websocket"
@@ -35,27 +36,9 @@ func Test_Index(t *testing.T) {
 }
 
 func Test_ListAggregateTypes(t *testing.T) {
-	// Given
-	store, aggregateTypeStats := storeWithTwoEvents(t)
-
-	t.Run("works with memory loader", func(t *testing.T) {
+	t.Run("renders list of aggregate types", func(t *testing.T) {
 		// Given
-		ui := rangedbui.New(aggregateTypeStats, store)
-		request := httptest.NewRequest(http.MethodGet, "/aggregate-types", nil)
-		response := httptest.NewRecorder()
-
-		// When
-		ui.ServeHTTP(response, request)
-
-		// Then
-		assert.Equal(t, http.StatusOK, response.Code)
-		assert.Equal(t, "text/html; charset=utf-8", response.Header().Get("Content-Type"))
-		assert.Contains(t, response.Body.String(), "thing")
-		assert.Contains(t, response.Body.String(), "another")
-	})
-
-	t.Run("works with filesystem loader", func(t *testing.T) {
-		// Given
+		store, aggregateTypeStats := storeWithTwoEvents(t)
 		ui := rangedbui.New(aggregateTypeStats, store)
 		request := httptest.NewRequest(http.MethodGet, "/aggregate-types", nil)
 		response := httptest.NewRecorder()
@@ -180,6 +163,38 @@ func Test_Stream(t *testing.T) {
 		assert.NotContains(t, response.Body.String(), "01f96eb13c204a7699d2138e7d64639b")
 		assert.NotContains(t, response.Body.String(), "/e/thing/f6b6f8ed682c4b5180f625e53b3c4bac?itemsPerPage=1&amp;page=1")
 		assert.Contains(t, response.Body.String(), "/e/thing/f6b6f8ed682c4b5180f625e53b3c4bac?itemsPerPage=1&amp;page=2")
+	})
+}
+
+func Test_Stream_UsingCustomTemplates(t *testing.T) {
+	// Given
+	store, aggregateTypeStats := storeWithTwoEvents(t)
+	rangedbtest.BlockingSaveEvents(t, store,
+		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{
+			ID:     "f6b6f8ed682c4b5180f625e53b3c4bac",
+			Number: 0,
+		}},
+	)
+
+	ui := rangedbui.New(
+		aggregateTypeStats,
+		store,
+		rangedbui.WithTemplateFS(os.DirFS(".")),
+	)
+
+	t.Run("renders events by stream", func(t *testing.T) {
+		// Given
+		request := httptest.NewRequest(http.MethodGet, "/e/thing/f6b6f8ed682c4b5180f625e53b3c4bac", nil)
+		response := httptest.NewRecorder()
+
+		// When
+		ui.ServeHTTP(response, request)
+
+		// Then
+		assert.Equal(t, http.StatusOK, response.Code)
+		assert.Equal(t, "text/html; charset=utf-8", response.Header().Get("Content-Type"))
+		assert.Contains(t, response.Body.String(), "thing!f6b6f8ed682c4b5180f625e53b3c4bac (2)")
+		assert.Contains(t, response.Body.String(), "/e/thing/f6b6f8ed682c4b5180f625e53b3c4bac")
 	})
 }
 

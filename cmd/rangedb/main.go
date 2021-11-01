@@ -38,6 +38,7 @@ func main() {
 	port := flag.Int("port", 8080, "port")
 	baseURI := flag.String("baseUri", "http://0.0.0.0:8080", "")
 	dbPath := flag.String("levelDBPath", "", "path to LevelDB directory")
+	templatesPath := flag.String("templates", "", "optional templates path")
 	gRPCPort := flag.Int("gRPCPort", 8081, "gRPC port")
 	flag.Parse()
 
@@ -74,7 +75,22 @@ func main() {
 		log.Fatalf("unable to create RangeDB Server: %v", err)
 	}
 
-	ui := rangedbui.New(api.AggregateTypeStatsProjection(), store)
+	var rangedbUIOptions []rangedbui.Option
+	if *templatesPath != "" {
+		if _, err := os.Stat(*templatesPath); os.IsNotExist(err) {
+			log.Fatalf("templates path does not exist: %v", err)
+		}
+
+		templatesFS := os.DirFS(*templatesPath + "/..")
+
+		rangedbUIOptions = append(rangedbUIOptions, rangedbui.WithTemplateFS(templatesFS))
+	}
+
+	ui := rangedbui.New(
+		api.AggregateTypeStatsProjection(),
+		store,
+		rangedbUIOptions...,
+	)
 
 	muxServer := http.NewServeMux()
 	muxServer.Handle("/", ui)

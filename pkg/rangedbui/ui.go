@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"io/fs"
 	"log"
 	"net/http"
 	"time"
@@ -32,17 +33,30 @@ type webUI struct {
 	handler            http.Handler
 	aggregateTypeStats *projection.AggregateTypeStats
 	store              rangedb.Store
+	templateFS         fs.FS
 	upgrader           *websocket.Upgrader
+}
+
+// Option defines functional option parameters for webUI.
+type Option func(*webUI)
+
+// WithTemplateFS is a functional option to inject a templatemanager.TemplateManager.
+func WithTemplateFS(f fs.FS) Option {
+	return func(webUI *webUI) {
+		webUI.templateFS = f
+	}
 }
 
 // New constructs a webUI web application.
 func New(
 	aggregateTypeStats *projection.AggregateTypeStats,
 	store rangedb.Store,
+	options ...Option,
 ) *webUI {
 	webUI := &webUI{
 		aggregateTypeStats: aggregateTypeStats,
 		store:              store,
+		templateFS:         Templates,
 		upgrader: &websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
@@ -50,6 +64,10 @@ func New(
 				return true
 			},
 		},
+	}
+
+	for _, option := range options {
+		option(webUI)
 	}
 
 	webUI.initRoutes()
@@ -212,7 +230,7 @@ func (a *webUI) renderWithValues(w http.ResponseWriter, tpl string, data interfa
 }
 
 func (a *webUI) RenderTemplate(w http.ResponseWriter, tpl string, data interface{}) error {
-	tmpl, err := template.New(tpl).Funcs(FuncMap).ParseFS(Templates, "templates/layout/*.html", "templates/"+tpl)
+	tmpl, err := template.New(tpl).Funcs(FuncMap).ParseFS(a.templateFS, "templates/layout/*.html", "templates/*"+tpl)
 	if err != nil {
 		return fmt.Errorf("unable to parse template: %w", err)
 	}
