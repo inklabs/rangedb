@@ -27,7 +27,10 @@ var StaticAssets embed.FS
 //go:embed templates
 var Templates embed.FS
 
-const subscriberRecordBuffSize = 20
+const (
+	subscriberRecordBuffSize = 20
+	defaultHost              = "0.0.0.0:8080"
+)
 
 type webUI struct {
 	handler            http.Handler
@@ -35,15 +38,23 @@ type webUI struct {
 	store              rangedb.Store
 	templateFS         fs.FS
 	upgrader           *websocket.Upgrader
+	host               string
 }
 
 // Option defines functional option parameters for webUI.
 type Option func(*webUI)
 
-// WithTemplateFS is a functional option to inject a templatemanager.TemplateManager.
+// WithTemplateFS is a functional option to inject a template filesystem
 func WithTemplateFS(f fs.FS) Option {
 	return func(webUI *webUI) {
 		webUI.templateFS = f
+	}
+}
+
+// WithHost is a functional option to inject a tcp4 host.
+func WithHost(host string) Option {
+	return func(app *webUI) {
+		app.host = host
 	}
 }
 
@@ -64,6 +75,7 @@ func New(
 				return true
 			},
 		},
+		host: defaultHost,
 	}
 
 	for _, option := range options {
@@ -108,6 +120,7 @@ func (a *webUI) index(w http.ResponseWriter, r *http.Request) {
 type aggregateTypesTemplateVars struct {
 	AggregateTypes []AggregateTypeInfo
 	TotalEvents    uint64
+	UIHost         string
 }
 
 func (a *webUI) aggregateTypes(w http.ResponseWriter, _ *http.Request) {
@@ -139,6 +152,7 @@ func (a *webUI) aggregateTypesLive(w http.ResponseWriter, _ *http.Request) {
 	a.renderWithValues(w, "aggregate-types-live.html", aggregateTypesTemplateVars{
 		AggregateTypes: aggregateTypes,
 		TotalEvents:    a.aggregateTypeStats.TotalEvents(),
+		UIHost:         a.host,
 	})
 }
 
@@ -146,6 +160,7 @@ type aggregateTypeTemplateVars struct {
 	AggregateTypeInfo AggregateTypeInfo
 	PaginationLinks   paging.Links
 	Records           []*rangedb.Record
+	UIHost            string
 }
 
 func (a *webUI) aggregateType(w http.ResponseWriter, r *http.Request) {
@@ -233,6 +248,7 @@ func (a *webUI) aggregateTypeLive(w http.ResponseWriter, r *http.Request) {
 			Name:        aggregateTypeName,
 			TotalEvents: totalRecords,
 		},
+		UIHost: a.host,
 	})
 }
 

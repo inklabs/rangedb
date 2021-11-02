@@ -57,7 +57,7 @@
         },
         methods: {
             connect() {
-                let ws = new WebSocket('ws://127.0.0.1:8080/live/aggregate-types');
+                let ws = new WebSocket('ws://{{.UIHost}}/live/aggregate-types');
                 ws.onmessage = (event) => {
                     if (this.wasDisconnected) {
                         this.aggregateTypes = [];

@@ -67,7 +67,7 @@
                 return new Intl.DateTimeFormat('default', {dateStyle: 'medium', timeStyle: 'long'}).format(date);
             },
             connect() {
-                let ws = new WebSocket('ws://127.0.0.1:8080/live/e/{{.AggregateTypeInfo.Name}}');
+                let ws = new WebSocket('ws://{{.UIHost}}/live/e/{{.AggregateTypeInfo.Name}}');
                 ws.onmessage = (event) => {
                     if (this.wasDisconnected) {
                         this.records = [];

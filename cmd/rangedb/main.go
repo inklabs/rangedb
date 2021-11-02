@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -36,13 +37,20 @@ func main() {
 	flag.CommandLine = flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 
 	port := flag.Int("port", 8080, "port")
-	baseURI := flag.String("baseUri", "http://0.0.0.0:8080", "")
 	dbPath := flag.String("levelDBPath", "", "path to LevelDB directory")
 	templatesPath := flag.String("templates", "", "optional templates path")
 	gRPCPort := flag.Int("gRPCPort", 8081, "gRPC port")
 	flag.Parse()
 
-	httpAddress := fmt.Sprintf("0.0.0.0:%d", *port)
+	httpListener, err := net.Listen("tcp4", fmt.Sprintf(":%d", *port))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	grpcListener, err := net.Listen("tcp4", fmt.Sprintf(":%d", *gRPCPort))
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	logger := log.New(os.Stderr, "", 0)
 	store, snapshotName, closeStore, err := getStore(*dbPath, logger)
@@ -50,9 +58,17 @@ func main() {
 		log.Fatalf("unable to get store: %v", err)
 	}
 
+	baseURI := url.URL{
+		Scheme: "http",
+		Host:   httpListener.Addr().String(),
+	}
+
+	rangeDBAPIUri := baseURI
+	rangeDBAPIUri.Path = "/api"
+
 	api, err := rangedbapi.New(
 		rangedbapi.WithStore(store),
-		rangedbapi.WithBaseUri(*baseURI+"/api"),
+		rangedbapi.WithBaseUri(rangeDBAPIUri.String()),
 		rangedbapi.WithSnapshotStore(projection.NewDiskSnapshotStore(snapshotBasePath(snapshotName))),
 		rangedbapi.WithLogger(logger),
 	)
@@ -75,7 +91,9 @@ func main() {
 		log.Fatalf("unable to create RangeDB Server: %v", err)
 	}
 
-	var rangedbUIOptions []rangedbui.Option
+	rangedbUIOptions := []rangedbui.Option{
+		rangedbui.WithHost(baseURI.Host),
+	}
 	if *templatesPath != "" {
 		if _, err := os.Stat(*templatesPath); os.IsNotExist(err) {
 			log.Fatalf("templates path does not exist: %v", err)
@@ -98,7 +116,6 @@ func main() {
 	muxServer.Handle("/ws/", http.StripPrefix("/ws", websocketAPI))
 
 	httpServer := &http.Server{
-		Addr:         httpAddress,
 		ReadTimeout:  httpTimeout + time.Second,
 		WriteTimeout: httpTimeout + time.Second,
 		Handler:      muxServer,
@@ -110,8 +127,8 @@ func main() {
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)
 
-	go serveGRPC(gRPCServer, *gRPCPort)
-	go serveHTTP(httpServer, httpAddress)
+	go serveGRPC(gRPCServer, grpcListener)
+	go serveHTTP(httpServer, httpListener)
 
 	<-stop
 
@@ -174,22 +191,17 @@ func nilFunc() error {
 	return nil
 }
 
-func serveHTTP(srv *http.Server, addr string) {
-	fmt.Printf("Listening: http://%s/\n", addr)
-	err := srv.ListenAndServe()
+func serveHTTP(srv *http.Server, listener net.Listener) {
+	fmt.Printf("Listening: http://%s\n", listener.Addr().String())
+	err := srv.Serve(listener)
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func serveGRPC(srv *grpc.Server, gRPCPort int) {
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", gRPCPort))
-	if err != nil {
-		log.Fatalf("failed to bind to port: %v", err)
-	}
-
-	fmt.Printf("gRPC listening: 0.0.0.0:%d\n", gRPCPort)
-	err = srv.Serve(listener)
+func serveGRPC(srv *grpc.Server, listener net.Listener) {
+	fmt.Printf("gRPC listening: grpc://%s\n", listener.Addr().String())
+	err := srv.Serve(listener)
 	if err != nil {
 		log.Fatal(err)
 	}
