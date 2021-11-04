@@ -123,6 +123,11 @@ type aggregateTypesTemplateVars struct {
 	UIHost         string
 }
 
+type liveAggregateTypesTemplateVars struct {
+	AggregateTypes []AggregateTypeInfo
+	TotalEvents    uint64
+}
+
 func (a *webUI) aggregateTypes(w http.ResponseWriter, _ *http.Request) {
 	var aggregateTypes []AggregateTypeInfo
 
@@ -133,7 +138,7 @@ func (a *webUI) aggregateTypes(w http.ResponseWriter, _ *http.Request) {
 		})
 	}
 
-	a.renderWithValues(w, "aggregate-types.html", aggregateTypesTemplateVars{
+	a.renderWithValues(w, "aggregate-types.gohtml", aggregateTypesTemplateVars{
 		AggregateTypes: aggregateTypes,
 		TotalEvents:    a.aggregateTypeStats.TotalEvents(),
 	})
@@ -149,7 +154,7 @@ func (a *webUI) aggregateTypesLive(w http.ResponseWriter, _ *http.Request) {
 		})
 	}
 
-	a.renderWithValues(w, "aggregate-types-live.html", aggregateTypesTemplateVars{
+	a.renderWithValues(w, "aggregate-types-live.gohtml", aggregateTypesTemplateVars{
 		AggregateTypes: aggregateTypes,
 		TotalEvents:    a.aggregateTypeStats.TotalEvents(),
 		UIHost:         a.host,
@@ -179,7 +184,7 @@ func (a *webUI) aggregateType(w http.ResponseWriter, r *http.Request) {
 	baseURI := fmt.Sprintf("/e/%s", aggregateTypeName)
 	totalRecords := a.aggregateTypeStats.TotalEventsByAggregateType(aggregateTypeName)
 
-	a.renderWithValues(w, "aggregate-type.html", aggregateTypeTemplateVars{
+	a.renderWithValues(w, "aggregate-type.gohtml", aggregateTypeTemplateVars{
 		AggregateTypeInfo: AggregateTypeInfo{
 			Name:        aggregateTypeName,
 			TotalEvents: totalRecords,
@@ -226,7 +231,7 @@ func (a *webUI) stream(w http.ResponseWriter, r *http.Request) {
 
 	aggregateURL := fmt.Sprintf("/e/%s", aggregateTypeName)
 
-	a.renderWithValues(w, "stream.html", streamTemplateVars{
+	a.renderWithValues(w, "stream.gohtml", streamTemplateVars{
 		PaginationLinks: pagination.Links(baseURI, totalRecords),
 		Records:         records,
 		StreamInfo: StreamInfo{
@@ -243,7 +248,7 @@ func (a *webUI) aggregateTypeLive(w http.ResponseWriter, r *http.Request) {
 
 	totalRecords := a.aggregateTypeStats.TotalEventsByAggregateType(aggregateTypeName)
 
-	a.renderWithValues(w, "aggregate-type-live.html", aggregateTypeTemplateVars{
+	a.renderWithValues(w, "aggregate-type-live.gohtml", aggregateTypeTemplateVars{
 		AggregateTypeInfo: AggregateTypeInfo{
 			Name:        aggregateTypeName,
 			TotalEvents: totalRecords,
@@ -264,7 +269,7 @@ func (a *webUI) renderWithValues(w http.ResponseWriter, tpl string, data interfa
 }
 
 func (a *webUI) RenderTemplate(w http.ResponseWriter, tpl string, data interface{}) error {
-	tmpl, err := template.New(tpl).Funcs(FuncMap).ParseFS(a.templateFS, "templates/layout/*.html", "templates/*"+tpl)
+	tmpl, err := template.New(tpl).Funcs(FuncMap).ParseFS(a.templateFS, "templates/layout/*.gohtml", "templates/*"+tpl)
 	if err != nil {
 		return fmt.Errorf("unable to parse template: %w", err)
 	}
@@ -361,7 +366,7 @@ func (a *webUI) realtimeAggregateTypes(w http.ResponseWriter, r *http.Request) {
 			})
 		}
 
-		envelope := aggregateTypesTemplateVars{
+		envelope := liveAggregateTypesTemplateVars{
 			AggregateTypes: aggregateTypes,
 			TotalEvents:    a.aggregateTypeStats.TotalEvents(),
 		}
