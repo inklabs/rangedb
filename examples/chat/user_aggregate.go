@@ -31,7 +31,7 @@ func (a *user) apply(event rangedb.Event) {
 	}
 }
 
-func (a *user) OnBoardUser(c OnBoardUser) {
+func (a *user) onBoardUser(c OnBoardUser) {
 	if a.state.IsOnBoarded {
 		return
 	}
@@ -42,7 +42,7 @@ func (a *user) OnBoardUser(c OnBoardUser) {
 	})
 }
 
-func (a *user) WarnUser(c WarnUser) {
+func (a *user) warnUser(c WarnUser) {
 	a.raise(UserWasWarned{
 		UserID: c.UserID,
 		Reason: c.Reason,

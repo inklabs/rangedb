@@ -67,7 +67,10 @@ func (a *thing) Load(recordIterator rangedb.RecordIterator) {
 func (a *thing) Handle(command cqrs.Command) []rangedb.Event {
 	switch c := command.(type) {
 	case DoThing:
-		a.DoThing(c)
+		a.doThing(c)
+
+	case *DoThing:
+		a.doThing(*c)
 
 	}
 
@@ -128,10 +131,16 @@ func (a *thing) Load(recordIterator rangedb.RecordIterator) {
 func (a *thing) Handle(command cqrs.Command) []rangedb.Event {
 	switch c := command.(type) {
 	case DoThing:
-		a.DoThing(c)
+		a.doThing(c)
+
+	case *DoThing:
+		a.doThing(*c)
 
 	case DoAnother:
-		a.DoAnother(c)
+		a.doAnother(c)
+
+	case *DoAnother:
+		a.doAnother(*c)
 
 	}
 
