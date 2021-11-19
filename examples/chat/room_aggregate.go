@@ -3,16 +3,12 @@ package chat
 //go:generate go run ../../gen/aggregategenerator/main.go -name room
 
 import (
-	"sync"
-
 	"github.com/inklabs/rangedb"
 )
 
 type room struct {
+	state         roomState
 	pendingEvents []rangedb.Event
-
-	sync  sync.RWMutex
-	state roomState
 }
 
 type roomState struct {
@@ -36,9 +32,7 @@ func (a *room) roomWasOnBoarded(e RoomWasOnBoarded) {
 }
 
 func (a *room) userWasBannedFromRoom(e UserWasBannedFromRoom) {
-	a.sync.Lock()
 	a.state.BannedUsers[e.UserID] = struct{}{}
-	a.sync.Unlock()
 }
 
 func (a *room) onBoardRoom(c OnBoardRoom) {
@@ -106,9 +100,7 @@ func (a *room) removeUserFromRoom(c RemoveUserFromRoom) {
 }
 
 func (a *room) userIsBanned(userID string) bool {
-	a.sync.RLock()
 	_, ok := a.state.BannedUsers[userID]
-	a.sync.RUnlock()
 	return ok
 }
 
