@@ -1,6 +1,6 @@
 package chat
 
-//go:generate go run ../../gen/aggregategenerator/main.go -name user -commands user_commands.go
+//go:generate go run ../../gen/aggregategenerator/main.go -name user
 
 import (
 	"github.com/inklabs/rangedb"
@@ -21,14 +21,9 @@ func NewUser() *user {
 	return &user{}
 }
 
-func (a *user) apply(event rangedb.Event) {
-	switch e := event.(type) {
-
-	case *UserWasOnBoarded:
-		a.state.IsOnBoarded = true
-		a.state.Name = e.Name
-
-	}
+func (a *user) userWasOnBoarded(e UserWasOnBoarded) {
+	a.state.IsOnBoarded = true
+	a.state.Name = e.Name
 }
 
 func (a *user) onBoardUser(c OnBoardUser) {
@@ -48,3 +43,5 @@ func (a *user) warnUser(c WarnUser) {
 		Reason: c.Reason,
 	})
 }
+
+func (a *user) userWasWarned(_ UserWasWarned) {}

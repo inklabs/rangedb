@@ -10,14 +10,16 @@ import (
 
 var NowFunc = time.Now
 
-func Write(out io.Writer, commands []string, pkg, aggregateName string) error {
-	if len(commands) < 1 {
-		return fmt.Errorf("no commands found")
+// Write generates the boilerplate aggregate Go code required for the cqrs package.
+func Write(out io.Writer, pkg, aggregateName string, commands, events []string) error {
+	if len(commands)+len(events) < 1 {
+		return fmt.Errorf("no commands or events found")
 	}
 
 	return fileTemplate.Execute(out, templateData{
 		Timestamp:     NowFunc(),
 		Commands:      commands,
+		Events:        events,
 		AggregateName: aggregateName,
 		Package:       pkg,
 	})
@@ -26,6 +28,7 @@ func Write(out io.Writer, commands []string, pkg, aggregateName string) error {
 type templateData struct {
 	Timestamp     time.Time
 	Commands      []string
+	Events        []string
 	AggregateName string
 	Package       string
 }
@@ -53,25 +56,47 @@ import (
 
 func (a *{{ .AggregateName }}) Load(recordIterator rangedb.RecordIterator) {
 	for recordIterator.Next() {
+{{- if .Events }}
 		if recordIterator.Err() == nil {
 			if event, ok := recordIterator.Record().Data.(rangedb.Event); ok {
 				a.apply(event)
 			}
 		}
+{{- end }}
 	}
 }
 
+{{- if .Events }}
+
+func (a *{{ .AggregateName }}) apply(event rangedb.Event) {
+	switch e := event.(type) {
+{{- range .Events }}
+
+	case {{ . }}:
+		a.{{ . | LcFirst }}(e)
+
+	case *{{ . }}:
+		a.{{ . | LcFirst }}(*e)
+{{- end }}
+
+	}
+}
+{{- end }}
+
 func (a *{{ .AggregateName }}) Handle(command cqrs.Command) []rangedb.Event {
+{{- if .Commands }}
 	switch c := command.(type) {
 {{- range .Commands }}
+
 	case {{ . }}:
 		a.{{ . | LcFirst }}(c)
 
 	case *{{ . }}:
 		a.{{ . | LcFirst }}(*c)
-{{ end }}
-	}
+{{- end }}
 
+	}
+{{ end }}
 	defer a.resetPendingEvents()
 	return a.pendingEvents
 }

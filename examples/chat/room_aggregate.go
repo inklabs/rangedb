@@ -1,6 +1,6 @@
 package chat
 
-//go:generate go run ../../gen/aggregategenerator/main.go -name room -commands room_commands.go
+//go:generate go run ../../gen/aggregategenerator/main.go -name room
 
 import (
 	"sync"
@@ -30,19 +30,15 @@ func NewRoom() *room {
 	}
 }
 
-func (a *room) apply(event rangedb.Event) {
-	switch e := event.(type) {
+func (a *room) roomWasOnBoarded(e RoomWasOnBoarded) {
+	a.state.IsOnBoarded = true
+	a.state.RoomName = e.RoomName
+}
 
-	case *RoomWasOnBoarded:
-		a.state.IsOnBoarded = true
-		a.state.RoomName = e.RoomName
-
-	case *UserWasBannedFromRoom:
-		a.sync.Lock()
-		a.state.BannedUsers[e.UserID] = struct{}{}
-		a.sync.Unlock()
-
-	}
+func (a *room) userWasBannedFromRoom(e UserWasBannedFromRoom) {
+	a.sync.Lock()
+	a.state.BannedUsers[e.UserID] = struct{}{}
+	a.sync.Unlock()
 }
 
 func (a *room) onBoardRoom(c OnBoardRoom) {
@@ -115,3 +111,8 @@ func (a *room) userIsBanned(userID string) bool {
 	a.sync.RUnlock()
 	return ok
 }
+
+func (a *room) roomWasJoined(_ RoomWasJoined)                             {}
+func (a *room) messageWasSentToRoom(_ MessageWasSentToRoom)               {}
+func (a *room) privateMessageWasSentToRoom(_ PrivateMessageWasSentToRoom) {}
+func (a *room) userWasRemovedFromRoom(_ UserWasRemovedFromRoom)           {}
