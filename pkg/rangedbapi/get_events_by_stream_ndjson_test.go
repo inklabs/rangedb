@@ -31,15 +31,18 @@ func Example_getEventsByStreamNdJson() {
 
 	serverURL, err := url.Parse(server.URL)
 	PrintError(err)
-	serverURL.Path = "/events/thing/605f20348fb940e386c171d51c877bf1.ndjson"
+	serverURL.Path = "/events-by-stream/thing-605f20348fb940e386c171d51c877bf1.ndjson"
 
 	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
 	defer done()
-	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+
+	streamNameA := "thing-605f20348fb940e386c171d51c877bf1"
+	streamNameB := "another-a095086e52bc4617a1763a62398cd645"
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx, streamNameA,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "605f20348fb940e386c171d51c877bf1", Number: 100}},
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "605f20348fb940e386c171d51c877bf1", Number: 200}},
 	)))
-	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx, streamNameB,
 		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a095086e52bc4617a1763a62398cd645"}},
 	)))
 
@@ -54,6 +57,6 @@ func Example_getEventsByStreamNdJson() {
 	fmt.Println(string(body))
 
 	// Output:
-	// {"aggregateType":"thing","aggregateID":"605f20348fb940e386c171d51c877bf1","globalSequenceNumber":1,"streamSequenceNumber":1,"insertTimestamp":0,"eventID":"d2ba8e70072943388203c438d4e94bf3","eventType":"ThingWasDone","data":{"id":"605f20348fb940e386c171d51c877bf1","number":100},"metadata":null}
-	// {"aggregateType":"thing","aggregateID":"605f20348fb940e386c171d51c877bf1","globalSequenceNumber":2,"streamSequenceNumber":2,"insertTimestamp":1,"eventID":"99cbd88bbcaf482ba1cc96ed12541707","eventType":"ThingWasDone","data":{"id":"605f20348fb940e386c171d51c877bf1","number":200},"metadata":null}
+	// {"streamName":"thing-605f20348fb940e386c171d51c877bf1","aggregateType":"thing","aggregateID":"605f20348fb940e386c171d51c877bf1","globalSequenceNumber":1,"streamSequenceNumber":1,"insertTimestamp":0,"eventID":"d2ba8e70072943388203c438d4e94bf3","eventType":"ThingWasDone","data":{"id":"605f20348fb940e386c171d51c877bf1","number":100},"metadata":null}
+	// {"streamName":"thing-605f20348fb940e386c171d51c877bf1","aggregateType":"thing","aggregateID":"605f20348fb940e386c171d51c877bf1","globalSequenceNumber":2,"streamSequenceNumber":2,"insertTimestamp":1,"eventID":"99cbd88bbcaf482ba1cc96ed12541707","eventType":"ThingWasDone","data":{"id":"605f20348fb940e386c171d51c877bf1","number":200},"metadata":null}
 }

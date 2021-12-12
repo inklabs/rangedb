@@ -76,10 +76,12 @@ func ExampleRangeDBServer_SubscribeToEvents() {
 		wg.Done()
 	}()
 
-	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+	streamNameA := "thing-52e247a7c0a54a65906e006dac9be108"
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx, streamNameA,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "52e247a7c0a54a65906e006dac9be108", Number: 100}},
 	)))
-	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+	streamNameB := "another-a3d9faa7614a46b388c6dce9984b6620"
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx, streamNameB,
 		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a3d9faa7614a46b388c6dce9984b6620"}},
 	)))
 
@@ -87,6 +89,7 @@ func ExampleRangeDBServer_SubscribeToEvents() {
 
 	// Output:
 	// {
+	//   "StreamName": "thing-52e247a7c0a54a65906e006dac9be108",
 	//   "AggregateType": "thing",
 	//   "AggregateID": "52e247a7c0a54a65906e006dac9be108",
 	//   "GlobalSequenceNumber": 1,
@@ -97,6 +100,7 @@ func ExampleRangeDBServer_SubscribeToEvents() {
 	//   "Metadata": "null"
 	// }
 	// {
+	//   "StreamName": "another-a3d9faa7614a46b388c6dce9984b6620",
 	//   "AggregateType": "another",
 	//   "AggregateID": "a3d9faa7614a46b388c6dce9984b6620",
 	//   "GlobalSequenceNumber": 2,

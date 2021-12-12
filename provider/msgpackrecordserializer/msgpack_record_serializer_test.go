@@ -127,7 +127,7 @@ func Test_UnmarshalRecord(t *testing.T) {
 	})
 }
 
-func ExampleNew_serialize() {
+func ExampleNew_serialize_and_deserialize_with_bound_event() {
 	// Given
 	serializer := msgpackrecordserializer.New()
 	serializer.Bind(rangedbtest.ThingWasDone{})
@@ -136,6 +136,7 @@ func ExampleNew_serialize() {
 		Number: 1,
 	}
 	record := &rangedb.Record{
+		StreamName:           "thing-60f01cc527844cde9953c998a2c077a7",
 		AggregateType:        "thing",
 		AggregateID:          "60f01cc527844cde9953c998a2c077a7",
 		GlobalSequenceNumber: 100,
@@ -147,36 +148,44 @@ func ExampleNew_serialize() {
 	}
 
 	// When
-	output, _ := serializer.Serialize(record)
-	fmt.Printf("%q\n", output)
+	msgpackOutput, _ := serializer.Serialize(record)
+	fmt.Printf("%q\n", msgpackOutput)
+
+	outputRecord, _ := serializer.Deserialize(msgpackOutput)
+	fmt.Printf("%#v\n", outputRecord.Data)
 
 	// Output:
-	// "\x89\xa1a\xa5thing\xa1i\xd9 60f01cc527844cde9953c998a2c077a7\xa1g\xcf\x00\x00\x00\x00\x00\x00\x00d\xa1s\xcf\x00\x00\x00\x00\x00\x00\x00\x02\xa1u\xcf\x00\x00\x00\x00]\xfdwۡe\xa0\xa1t\xacThingWasDone\xa1d\xc0\xa1m\xc0\x82\xa2id\xa1A\xa6number\xd3\x00\x00\x00\x00\x00\x00\x00\x01"
-}
-
-func ExampleNew_deserializeWithBoundEvent() {
-	// Given
-	serializer := msgpackrecordserializer.New()
-	serializer.Bind(rangedbtest.ThingWasDone{})
-	input := "\x89\xa1a\xa5thing\xa1i\xd9 60f01cc527844cde9953c998a2c077a7\xa1g\xcf\x00\x00\x00\x00\x00\x00\x00d\xa1s\xcf\x00\x00\x00\x00\x00\x00\x00\x02\xa1u\xcf\x00\x00\x00\x00]\xfdwۡe\xa0\xa1t\xacThingWasDone\xa1d\xc0\xa1m\xc0\x82\xa2id\xa1A\xa6number\xd3\x00\x00\x00\x00\x00\x00\x00\x01"
-
-	// When
-	record, _ := serializer.Deserialize([]byte(input))
-	fmt.Printf("%#v\n", record.Data)
-
-	// Output:
+	// "\x8a\xa1n\xd9&thing-60f01cc527844cde9953c998a2c077a7\xa1a\xa5thing\xa1i\xd9 60f01cc527844cde9953c998a2c077a7\xa1g\xcf\x00\x00\x00\x00\x00\x00\x00d\xa1s\xcf\x00\x00\x00\x00\x00\x00\x00\x02\xa1u\xcf\x00\x00\x00\x00]\xfdwۡe\xa0\xa1t\xacThingWasDone\xa1d\xc0\xa1m\xc0\x82\xa2id\xa1A\xa6number\xd3\x00\x00\x00\x00\x00\x00\x00\x01"
 	// &rangedbtest.ThingWasDone{ID:"A", Number:1}
 }
 
-func ExampleNew_deserializeWithUnboundEvent() {
+func ExampleNew_serialize_and_deserialize_with_unbound_event() {
 	// Given
 	serializer := msgpackrecordserializer.New()
-	input := "\x89\xa1a\xa5thing\xa1i\xd9 60f01cc527844cde9953c998a2c077a7\xa1g\xcf\x00\x00\x00\x00\x00\x00\x00d\xa1s\xcf\x00\x00\x00\x00\x00\x00\x00\x02\xa1u\xcf\x00\x00\x00\x00]\xfdwۡe\xa0\xa1t\xacThingWasDone\xa1d\xc0\xa1m\xc0\x82\xa2id\xa1A\xa6number\xd3\x00\x00\x00\x00\x00\x00\x00\x01"
+	event := &rangedbtest.ThingWasDone{
+		ID:     "A",
+		Number: 1,
+	}
+	record := &rangedb.Record{
+		StreamName:           "thing-60f01cc527844cde9953c998a2c077a7",
+		AggregateType:        "thing",
+		AggregateID:          "60f01cc527844cde9953c998a2c077a7",
+		GlobalSequenceNumber: 100,
+		StreamSequenceNumber: 2,
+		EventType:            "ThingWasDone",
+		InsertTimestamp:      1576892379,
+		Data:                 event,
+		Metadata:             nil,
+	}
 
 	// When
-	record, _ := serializer.Deserialize([]byte(input))
-	fmt.Printf("%#v\n", record.Data)
+	msgpackOutput, _ := serializer.Serialize(record)
+	fmt.Printf("%q\n", msgpackOutput)
+
+	outputRecord, _ := serializer.Deserialize(msgpackOutput)
+	fmt.Printf("%#v\n", outputRecord.Data)
 
 	// Output:
+	// "\x8a\xa1n\xd9&thing-60f01cc527844cde9953c998a2c077a7\xa1a\xa5thing\xa1i\xd9 60f01cc527844cde9953c998a2c077a7\xa1g\xcf\x00\x00\x00\x00\x00\x00\x00d\xa1s\xcf\x00\x00\x00\x00\x00\x00\x00\x02\xa1u\xcf\x00\x00\x00\x00]\xfdwۡe\xa0\xa1t\xacThingWasDone\xa1d\xc0\xa1m\xc0\x82\xa2id\xa1A\xa6number\xd3\x00\x00\x00\x00\x00\x00\x00\x01"
 	// map[string]interface {}{"id":"A", "number":1}
 }

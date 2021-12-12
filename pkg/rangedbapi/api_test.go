@@ -64,24 +64,27 @@ func TestApi_HealthCheck(t *testing.T) {
 
 func TestApi_SaveEvents(t *testing.T) {
 	// Given
-	singleJsonEvent := `[
-		{
-			"eventType": "ThingWasDone",
-			"data":{
-				"id": "0a403cfe0e8c4284b2107e12bbe19881",
-				"number": 100
-			},
-			"metadata":null
-		}
-	]`
+	const (
+		streamName      = "thing-0a403cfe0e8c4284b2107e12bbe19881"
+		singleJsonEvent = `[
+			{
+				"aggregateType": "thing",
+				"aggregateID": "0a403cfe0e8c4284b2107e12bbe19881",
+				"eventType": "ThingWasDone",
+				"data":{
+					"id": "0a403cfe0e8c4284b2107e12bbe19881",
+					"number": 100
+				},
+				"metadata":null
+			}
+		]`
+	)
 
 	t.Run("saves from json", func(t *testing.T) {
 		// Given
-		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
-		const aggregateType = "thing"
 		api, err := rangedbapi.New()
 		require.NoError(t, err)
-		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
+		saveUri := fmt.Sprintf("/save-events/%s", streamName)
 		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(singleJsonEvent))
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
@@ -97,23 +100,10 @@ func TestApi_SaveEvents(t *testing.T) {
 
 	t.Run("saves from json with expected stream sequence number", func(t *testing.T) {
 		// Given
-		jsonEvent := `[
-			{
-				"eventType": "ThingWasDone",
-				"data":{
-					"id": "0a403cfe0e8c4284b2107e12bbe19881",
-					"number": 100
-				},
-				"metadata":null
-			}
-		]`
-
-		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
-		const aggregateType = "thing"
 		api, err := rangedbapi.New()
 		require.NoError(t, err)
-		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
-		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(jsonEvent))
+		saveUri := fmt.Sprintf("/save-events/%s", streamName)
+		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(singleJsonEvent))
 		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("ExpectedStreamSequenceNumber", "0")
 		response := httptest.NewRecorder()
@@ -129,31 +119,36 @@ func TestApi_SaveEvents(t *testing.T) {
 
 	t.Run("saves 2 events from json with expected stream sequence number", func(t *testing.T) {
 		// Given
-		jsonEvent := `[
-			{
-				"eventType": "ThingWasDone",
-				"data":{
-					"id": "0a403cfe0e8c4284b2107e12bbe19881",
-					"number": 100
+		const (
+			streamName = "thing-0a403cfe0e8c4284b2107e12bbe19881"
+			jsonEvents = `[
+				{
+					"aggregateType": "thing",
+					"aggregateID": "0a403cfe0e8c4284b2107e12bbe19881",
+					"eventType": "ThingWasDone",
+					"data":{
+						"id": "0a403cfe0e8c4284b2107e12bbe19881",
+						"number": 100
+					},
+					"metadata":null
 				},
-				"metadata":null
-			},
-			{
-				"eventType": "ThingWasDone",
-				"data":{
-					"id": "0a403cfe0e8c4284b2107e12bbe19881",
-					"number": 100
-				},
-				"metadata":null
-			}
-		]`
+				{
+					"aggregateType": "thing",
+					"aggregateID": "0a403cfe0e8c4284b2107e12bbe19881",
+					"eventType": "ThingWasDone",
+					"data":{
+						"id": "0a403cfe0e8c4284b2107e12bbe19881",
+						"number": 200
+					},
+					"metadata":null
+				}
+			]`
+		)
 
-		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
-		const aggregateType = "thing"
 		api, err := rangedbapi.New()
 		require.NoError(t, err)
-		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
-		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(jsonEvent))
+		saveUri := fmt.Sprintf("/save-events/%s", streamName)
+		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(jsonEvents))
 		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("ExpectedStreamSequenceNumber", "0")
 		response := httptest.NewRecorder()
@@ -169,23 +164,10 @@ func TestApi_SaveEvents(t *testing.T) {
 
 	t.Run("errors to save from json with wrong expected stream sequence number", func(t *testing.T) {
 		// Given
-		jsonEvent := `[
-			{
-				"eventType": "ThingWasDone",
-				"data":{
-					"id": "0a403cfe0e8c4284b2107e12bbe19881",
-					"number": 100
-				},
-				"metadata":null
-			}
-		]`
-
-		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
-		const aggregateType = "thing"
 		api, err := rangedbapi.New()
 		require.NoError(t, err)
-		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
-		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(jsonEvent))
+		saveUri := fmt.Sprintf("/save-events/%s", streamName)
+		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(singleJsonEvent))
 		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("ExpectedStreamSequenceNumber", "1")
 		response := httptest.NewRecorder()
@@ -201,11 +183,9 @@ func TestApi_SaveEvents(t *testing.T) {
 
 	t.Run("errors when content type not set", func(t *testing.T) {
 		// Given
-		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
-		const aggregateType = "thing"
 		api, err := rangedbapi.New()
 		require.NoError(t, err)
-		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
+		saveUri := fmt.Sprintf("/save-events/%s", streamName)
 		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(singleJsonEvent))
 		response := httptest.NewRecorder()
 
@@ -219,8 +199,6 @@ func TestApi_SaveEvents(t *testing.T) {
 
 	t.Run("errors when store save errors", func(t *testing.T) {
 		// Given
-		const aggregateID = "cbba5f386b2d4924ac34d1b9e9217d67"
-		const aggregateType = "thing"
 		var logBuffer bytes.Buffer
 		logger := log.New(&logBuffer, "", 0)
 		api, err := rangedbapi.New(
@@ -228,18 +206,8 @@ func TestApi_SaveEvents(t *testing.T) {
 			rangedbapi.WithLogger(logger),
 		)
 		require.NoError(t, err)
-		jsonBody := `[
-		{
-			"eventType": "ThingWasDone",
-			"data":{
-				"Name": "Thing Test",
-				"Timestamp": 1546302589
-			},
-			"metadata":null
-		}
-	]`
-		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
-		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(jsonBody))
+		saveUri := fmt.Sprintf("/save-events/%s", streamName)
+		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(singleJsonEvent))
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 
@@ -255,12 +223,10 @@ func TestApi_SaveEvents(t *testing.T) {
 
 	t.Run("errors when input json is invalid", func(t *testing.T) {
 		// Given
-		const aggregateID = "cbba5f386b2d4924ac34d1b9e9217d67"
-		const aggregateType = "thing"
 		api, err := rangedbapi.New(rangedbapi.WithStore(rangedbtest.NewFailingEventStore()))
 		require.NoError(t, err)
 		invalidJson := `x`
-		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
+		saveUri := fmt.Sprintf("/save-events/%s", streamName)
 		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(invalidJson))
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
@@ -276,11 +242,9 @@ func TestApi_SaveEvents(t *testing.T) {
 
 	t.Run("errors from invalid expected stream sequence number", func(t *testing.T) {
 		// Given
-		const aggregateID = "2c12be033de7402d9fb28d9b635b3330"
-		const aggregateType = "thing"
 		api, err := rangedbapi.New()
 		require.NoError(t, err)
-		saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
+		saveUri := fmt.Sprintf("/save-events/%s", streamName)
 		request := httptest.NewRequest(http.MethodPost, saveUri, strings.NewReader(singleJsonEvent))
 		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("ExpectedStreamSequenceNumber", "xyz")
@@ -297,16 +261,24 @@ func TestApi_SaveEvents(t *testing.T) {
 }
 
 func TestApi_DeleteStream(t *testing.T) {
+	// Given
+	const (
+		aggregateID   = "439b8969c82b43d6bf0ee219b42d93ac"
+		aggregateType = "thing"
+		streamName    = "thing-439b8969c82b43d6bf0ee219b42d93ac"
+	)
+
 	t.Run("deletes stream with 2 events", func(t *testing.T) {
 		// Given
 		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 		api, err := rangedbapi.New(rangedbapi.WithStore(store))
 		require.NoError(t, err)
-		const aggregateID = "439b8969c82b43d6bf0ee219b42d93ac"
-		const aggregateType = "thing"
-		saveEvents(t, api, aggregateType, aggregateID,
+
+		saveEvents(t, api, streamName,
 			SaveEventRequest{
-				EventType: "ThingWasDone",
+				AggregateType: aggregateType,
+				AggregateID:   aggregateID,
+				EventType:     "ThingWasDone",
 				Data: rangedbtest.ThingWasDone{
 					ID:     aggregateID,
 					Number: 100,
@@ -314,7 +286,9 @@ func TestApi_DeleteStream(t *testing.T) {
 				Metadata: nil,
 			},
 			SaveEventRequest{
-				EventType: "ThingWasDone",
+				AggregateType: aggregateType,
+				AggregateID:   aggregateID,
+				EventType:     "ThingWasDone",
 				Data: rangedbtest.ThingWasDone{
 					ID:     aggregateID,
 					Number: 200,
@@ -323,7 +297,7 @@ func TestApi_DeleteStream(t *testing.T) {
 			},
 		)
 
-		deleteStreamUri := fmt.Sprintf("/delete-stream/%s/%s", aggregateType, aggregateID)
+		deleteStreamUri := fmt.Sprintf("/delete-stream/%s", streamName)
 		request := httptest.NewRequest(http.MethodPost, deleteStreamUri, nil)
 		request.Header.Set("ExpectedStreamSequenceNumber", "2")
 		response := httptest.NewRecorder()
@@ -342,11 +316,11 @@ func TestApi_DeleteStream(t *testing.T) {
 		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 		api, err := rangedbapi.New(rangedbapi.WithStore(store))
 		require.NoError(t, err)
-		const aggregateID = "439b8969c82b43d6bf0ee219b42d93ac"
-		const aggregateType = "thing"
-		saveEvents(t, api, aggregateType, aggregateID,
+		saveEvents(t, api, streamName,
 			SaveEventRequest{
-				EventType: "ThingWasDone",
+				AggregateType: aggregateType,
+				AggregateID:   aggregateID,
+				EventType:     "ThingWasDone",
 				Data: rangedbtest.ThingWasDone{
 					ID:     aggregateID,
 					Number: 100,
@@ -354,7 +328,9 @@ func TestApi_DeleteStream(t *testing.T) {
 				Metadata: nil,
 			},
 			SaveEventRequest{
-				EventType: "ThingWasDone",
+				AggregateType: aggregateType,
+				AggregateID:   aggregateID,
+				EventType:     "ThingWasDone",
 				Data: rangedbtest.ThingWasDone{
 					ID:     aggregateID,
 					Number: 200,
@@ -363,7 +339,7 @@ func TestApi_DeleteStream(t *testing.T) {
 			},
 		)
 
-		deleteStreamUri := fmt.Sprintf("/delete-stream/%s/%s", aggregateType, aggregateID)
+		deleteStreamUri := fmt.Sprintf("/delete-stream/%s", streamName)
 		request := httptest.NewRequest(http.MethodPost, deleteStreamUri, nil)
 		request.Header.Set("ExpectedStreamSequenceNumber", "3")
 		response := httptest.NewRecorder()
@@ -382,11 +358,11 @@ func TestApi_DeleteStream(t *testing.T) {
 		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 		api, err := rangedbapi.New(rangedbapi.WithStore(store))
 		require.NoError(t, err)
-		const aggregateID = "439b8969c82b43d6bf0ee219b42d93ac"
-		const aggregateType = "thing"
-		saveEvents(t, api, aggregateType, aggregateID,
+		saveEvents(t, api, streamName,
 			SaveEventRequest{
-				EventType: "ThingWasDone",
+				AggregateType: aggregateType,
+				AggregateID:   aggregateID,
+				EventType:     "ThingWasDone",
 				Data: rangedbtest.ThingWasDone{
 					ID:     aggregateID,
 					Number: 100,
@@ -394,7 +370,9 @@ func TestApi_DeleteStream(t *testing.T) {
 				Metadata: nil,
 			},
 			SaveEventRequest{
-				EventType: "ThingWasDone",
+				AggregateType: aggregateType,
+				AggregateID:   aggregateID,
+				EventType:     "ThingWasDone",
 				Data: rangedbtest.ThingWasDone{
 					ID:     aggregateID,
 					Number: 200,
@@ -403,7 +381,7 @@ func TestApi_DeleteStream(t *testing.T) {
 			},
 		)
 
-		deleteStreamUri := fmt.Sprintf("/delete-stream/%s/%s", aggregateType, aggregateID)
+		deleteStreamUri := fmt.Sprintf("/delete-stream/%s", streamName)
 		request := httptest.NewRequest(http.MethodPost, deleteStreamUri, nil)
 		request.Header.Set("ExpectedStreamSequenceNumber", "-1")
 		response := httptest.NewRecorder()
@@ -422,10 +400,8 @@ func TestApi_DeleteStream(t *testing.T) {
 		store := rangedbtest.NewFailingEventStore()
 		api, err := rangedbapi.New(rangedbapi.WithStore(store))
 		require.NoError(t, err)
-		const aggregateID = "439b8969c82b43d6bf0ee219b42d93ac"
-		const aggregateType = "thing"
 
-		deleteStreamUri := fmt.Sprintf("/delete-stream/%s/%s", aggregateType, aggregateID)
+		deleteStreamUri := fmt.Sprintf("/delete-stream/%s", streamName)
 		request := httptest.NewRequest(http.MethodPost, deleteStreamUri, nil)
 		request.Header.Set("ExpectedStreamSequenceNumber", "0")
 		response := httptest.NewRecorder()
@@ -444,10 +420,8 @@ func TestApi_DeleteStream(t *testing.T) {
 		store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
 		api, err := rangedbapi.New(rangedbapi.WithStore(store))
 		require.NoError(t, err)
-		const aggregateID = "4fb43e659e2743049ae036e5c699c5e5"
-		const aggregateType = "thing"
 
-		deleteStreamUri := fmt.Sprintf("/delete-stream/%s/%s", aggregateType, aggregateID)
+		deleteStreamUri := fmt.Sprintf("/delete-stream/%s", streamName)
 		request := httptest.NewRequest(http.MethodPost, deleteStreamUri, nil)
 		response := httptest.NewRecorder()
 
@@ -470,43 +444,56 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 	)
 	api, err := rangedbapi.New(rangedbapi.WithStore(store))
 	require.NoError(t, err)
-	const aggregateID1 = "f187760f4d8c4d1c9d9cf17b66766abd"
-	const aggregateID2 = "5b36ae984b724685917b69ae47968be1"
-	const aggregateID3 = "9bc181144cef4fd19da1f32a17363997"
+	const (
+		aggregateIDA = "f187760f4d8c4d1c9d9cf17b66766abd"
+		aggregateIDB = "5b36ae984b724685917b69ae47968be1"
+		aggregateIDC = "9bc181144cef4fd19da1f32a17363997"
+		streamNameA  = "thing-" + aggregateIDA
+		streamNameB  = "thing-" + aggregateIDB
+		streamNameC  = "another-" + aggregateIDC
+	)
 
-	saveEvents(t, api, "thing", aggregateID1,
+	saveEvents(t, api, streamNameA,
 		SaveEventRequest{
-			EventType: "ThingWasDone",
+			AggregateType: "thing",
+			AggregateID:   aggregateIDA,
+			EventType:     "ThingWasDone",
 			Data: rangedbtest.ThingWasDone{
-				ID:     aggregateID1,
+				ID:     aggregateIDA,
 				Number: 100,
 			},
 			Metadata: nil,
 		},
 		SaveEventRequest{
-			EventType: "ThingWasDone",
+			AggregateType: "thing",
+			AggregateID:   aggregateIDA,
+			EventType:     "ThingWasDone",
 			Data: rangedbtest.ThingWasDone{
-				ID:     aggregateID1,
+				ID:     aggregateIDA,
 				Number: 200,
 			},
 			Metadata: nil,
 		},
 	)
-	saveEvents(t, api, "thing", aggregateID2,
+	saveEvents(t, api, streamNameB,
 		SaveEventRequest{
-			EventType: "ThingWasDone",
+			AggregateType: "thing",
+			AggregateID:   aggregateIDB,
+			EventType:     "ThingWasDone",
 			Data: rangedbtest.ThingWasDone{
-				ID:     aggregateID2,
+				ID:     aggregateIDB,
 				Number: 300,
 			},
 			Metadata: nil,
 		},
 	)
-	saveEvents(t, api, "another", aggregateID3,
+	saveEvents(t, api, streamNameC,
 		SaveEventRequest{
-			EventType: "AnotherWasComplete",
+			AggregateType: "another",
+			AggregateID:   aggregateIDC,
+			EventType:     "AnotherWasComplete",
 			Data: rangedbtest.AnotherWasComplete{
-				ID: aggregateID3,
+				ID: aggregateIDC,
 			},
 			Metadata: nil,
 		},
@@ -514,7 +501,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 
 	t.Run("get all events as json", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest(http.MethodGet, "/events.json", nil)
+		request := httptest.NewRequest(http.MethodGet, "/all-events.json", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -525,6 +512,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
 		expectedJson := fmt.Sprintf(`[
 			{
+				"streamName": "thing-f187760f4d8c4d1c9d9cf17b66766abd",
 				"aggregateType": "thing",
 				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
 				"globalSequenceNumber": 1,
@@ -539,6 +527,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"metadata":null
 			},
 			{
+				"streamName": "thing-f187760f4d8c4d1c9d9cf17b66766abd",
 				"aggregateType": "thing",
 				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
 				"globalSequenceNumber": 2,
@@ -553,6 +542,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"metadata":null
 			},
 			{
+				"streamName": "thing-5b36ae984b724685917b69ae47968be1",
 				"aggregateType": "thing",
 				"aggregateID": "5b36ae984b724685917b69ae47968be1",
 				"globalSequenceNumber": 3,
@@ -567,6 +557,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"metadata":null
 			},
 			{
+				"streamName": "another-9bc181144cef4fd19da1f32a17363997",
 				"aggregateType": "another",
 				"aggregateID": "9bc181144cef4fd19da1f32a17363997",
 				"globalSequenceNumber": 4,
@@ -590,7 +581,8 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 
 	t.Run("get events by stream as ndjson", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest(http.MethodGet, "/events/thing/f187760f4d8c4d1c9d9cf17b66766abd.ndjson", nil)
+		uri := fmt.Sprintf("/events-by-stream/%s.ndjson", streamNameA)
+		request := httptest.NewRequest(http.MethodGet, uri, nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -631,7 +623,8 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 
 	t.Run("get events by stream as msgpack", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest(http.MethodGet, "/events/thing/f187760f4d8c4d1c9d9cf17b66766abd.msgpack", nil)
+		uri := fmt.Sprintf("/events-by-stream/%s.msgpack", streamNameA)
+		request := httptest.NewRequest(http.MethodGet, uri, nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -640,45 +633,45 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 		// Then
 		assert.Equal(t, http.StatusOK, response.Code)
 		assert.Equal(t, "application/msgpack", response.Header().Get("Content-Type"))
-		expectedRecord1 := &rangedb.Record{
-			AggregateType:        "thing",
-			AggregateID:          aggregateID1,
-			GlobalSequenceNumber: 1,
-			StreamSequenceNumber: 1,
-			InsertTimestamp:      0,
-			EventID:              uuid.Get(1),
-			EventType:            "ThingWasDone",
-			Data: map[string]interface{}{
-				"id":     aggregateID1,
-				"number": "100",
-			},
-			Metadata: nil,
-		}
-		expectedRecord2 := &rangedb.Record{
-			AggregateType:        "thing",
-			AggregateID:          aggregateID1,
-			GlobalSequenceNumber: 2,
-			StreamSequenceNumber: 2,
-			InsertTimestamp:      1,
-			EventID:              uuid.Get(2),
-			EventType:            "ThingWasDone",
-			Data: map[string]interface{}{
-				"id":     aggregateID1,
-				"number": "200",
-			},
-			Metadata: nil,
-		}
 		ioStream := msgpackrecordiostream.New()
 		recordIterator := ioStream.Read(base64.NewDecoder(base64.RawStdEncoding, response.Body))
 		rangedbtest.AssertRecordsInIterator(t, recordIterator,
-			expectedRecord1,
-			expectedRecord2,
+			&rangedb.Record{
+				StreamName:           streamNameA,
+				AggregateType:        "thing",
+				AggregateID:          aggregateIDA,
+				GlobalSequenceNumber: 1,
+				StreamSequenceNumber: 1,
+				InsertTimestamp:      0,
+				EventID:              uuid.Get(1),
+				EventType:            "ThingWasDone",
+				Data: map[string]interface{}{
+					"id":     aggregateIDA,
+					"number": "100",
+				},
+				Metadata: nil,
+			},
+			&rangedb.Record{
+				StreamName:           streamNameA,
+				AggregateType:        "thing",
+				AggregateID:          aggregateIDA,
+				GlobalSequenceNumber: 2,
+				StreamSequenceNumber: 2,
+				InsertTimestamp:      1,
+				EventID:              uuid.Get(2),
+				EventType:            "ThingWasDone",
+				Data: map[string]interface{}{
+					"id":     aggregateIDA,
+					"number": "200",
+				},
+				Metadata: nil,
+			},
 		)
 	})
 
 	t.Run("get events by aggregate type", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest(http.MethodGet, "/events/thing.json", nil)
+		request := httptest.NewRequest(http.MethodGet, "/events-by-aggregate-type/thing.json", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -689,6 +682,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
 		expectedJson := fmt.Sprintf(`[
 			{
+				"streamName": "thing-f187760f4d8c4d1c9d9cf17b66766abd",
 				"aggregateType": "thing",
 				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
 				"globalSequenceNumber":1,
@@ -703,6 +697,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"metadata":null
 			},
 			{
+				"streamName": "thing-f187760f4d8c4d1c9d9cf17b66766abd",
 				"aggregateType": "thing",
 				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
 				"globalSequenceNumber":2,
@@ -717,6 +712,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"metadata":null
 			},
 			{
+				"streamName": "thing-5b36ae984b724685917b69ae47968be1",
 				"aggregateType": "thing",
 				"aggregateID": "5b36ae984b724685917b69ae47968be1",
 				"globalSequenceNumber": 3,
@@ -740,7 +736,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 
 	t.Run("get events by aggregate types", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest(http.MethodGet, "/events/thing,another.json", nil)
+		request := httptest.NewRequest(http.MethodGet, "/events-by-aggregate-type/thing,another.json", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -751,6 +747,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 		assert.Equal(t, "application/json", response.Header().Get("Content-Type"))
 		expectedJson := fmt.Sprintf(`[
 			{
+				"streamName": "thing-f187760f4d8c4d1c9d9cf17b66766abd",
 				"aggregateType": "thing",
 				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
 				"globalSequenceNumber":1,
@@ -765,6 +762,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"metadata":null
 			},
 			{
+				"streamName": "thing-f187760f4d8c4d1c9d9cf17b66766abd",
 				"aggregateType": "thing",
 				"aggregateID": "f187760f4d8c4d1c9d9cf17b66766abd",
 				"globalSequenceNumber":2,
@@ -779,6 +777,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"metadata":null
 			},
 			{
+				"streamName": "thing-5b36ae984b724685917b69ae47968be1",
 				"aggregateType": "thing",
 				"aggregateID": "5b36ae984b724685917b69ae47968be1",
 				"globalSequenceNumber": 3,
@@ -793,6 +792,7 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 				"metadata":null
 			},
 			{
+				"streamName": "another-9bc181144cef4fd19da1f32a17363997",
 				"aggregateType": "another",
 				"aggregateID": "9bc181144cef4fd19da1f32a17363997",
 				"globalSequenceNumber": 4,
@@ -817,16 +817,22 @@ func TestApi_WithFourEventsSaved(t *testing.T) {
 
 func TestApi_ListAggregates(t *testing.T) {
 	// Given
-	store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
-	event1 := rangedbtest.ThingWasDone{ID: "A", Number: 1}
-	event2 := rangedbtest.ThingWasDone{ID: "A", Number: 2}
-	event3 := rangedbtest.AnotherWasComplete{ID: "B"}
-	rangedbtest.BlockingSaveEvents(t, store,
-		&rangedb.EventRecord{Event: event1},
-		&rangedb.EventRecord{Event: event2},
+	const (
+		aggregateIDA = "486d40dc075d465e91e7d7b677ac452c"
+		aggregateIDB = "5374b75555e14cbc89862ff11277d4cc"
 	)
-	rangedbtest.BlockingSaveEvents(t, store,
-		&rangedb.EventRecord{Event: event3},
+	store := inmemorystore.New(inmemorystore.WithClock(sequentialclock.New()))
+	eventA1 := rangedbtest.ThingWasDone{ID: aggregateIDA, Number: 1}
+	eventA2 := rangedbtest.ThingWasDone{ID: aggregateIDA, Number: 2}
+	eventB1 := rangedbtest.AnotherWasComplete{ID: aggregateIDB}
+	streamNameA := rangedb.GetEventStream(eventA1)
+	streamNameB := rangedb.GetEventStream(eventB1)
+	rangedbtest.BlockingSaveEvents(t, store, streamNameA,
+		&rangedb.EventRecord{Event: eventA1},
+		&rangedb.EventRecord{Event: eventA2},
+	)
+	rangedbtest.BlockingSaveEvents(t, store, streamNameB,
+		&rangedb.EventRecord{Event: eventB1},
 	)
 	api, err := rangedbapi.New(
 		rangedbapi.WithStore(store),
@@ -846,14 +852,14 @@ func TestApi_ListAggregates(t *testing.T) {
 		"data":[
 			{
 				"links": {
-					"self": "http://0.0.0.0:8080/events/another.json"
+					"self": "http://0.0.0.0:8080/events-by-aggregate-type/another.json"
 				},
 				"name": "another",
 				"totalEvents": 1
 			},
 			{
 				"links": {
-					"self": "http://0.0.0.0:8080/events/thing.json"
+					"self": "http://0.0.0.0:8080/events-by-aggregate-type/thing.json"
 				},
 				"name": "thing",
 				"totalEvents": 2
@@ -861,7 +867,7 @@ func TestApi_ListAggregates(t *testing.T) {
 		],
 		"totalEvents": 3,
 		"links": {
-			"allEvents": "http://0.0.0.0:8080/events.json",
+			"allEvents": "http://0.0.0.0:8080/all-events.json",
 			"self": "http://0.0.0.0:8080/list-aggregate-types"
 		}
 	}`
@@ -923,11 +929,11 @@ func assertJsonEqual(t *testing.T, expectedJson, actualJson string) {
 	assert.Equal(t, jsontools.PrettyJSONString(expectedJson), jsontools.PrettyJSONString(actualJson))
 }
 
-func saveEvents(t *testing.T, api http.Handler, aggregateType, aggregateID string, requests ...SaveEventRequest) {
+func saveEvents(t *testing.T, api http.Handler, streamName string, requests ...SaveEventRequest) {
 	saveJson, err := json.Marshal(requests)
 	require.NoError(t, err)
 
-	saveUri := fmt.Sprintf("/save-events/%s/%s", aggregateType, aggregateID)
+	saveUri := fmt.Sprintf("/save-events/%s", streamName)
 	saveRequest := httptest.NewRequest(http.MethodPost, saveUri, bytes.NewReader(saveJson))
 	saveRequest.Header.Set("Content-Type", "application/json")
 	saveResponse := httptest.NewRecorder()
@@ -946,9 +952,11 @@ func readGzippedBody(t *testing.T, body io.Reader) string {
 }
 
 type SaveEventRequest struct {
-	EventType string      `msgpack:"t" json:"eventType"`
-	Data      interface{} `msgpack:"d" json:"data"`
-	Metadata  interface{} `msgpack:"m" json:"metadata"`
+	AggregateType string      `msgpack:"a" json:"aggregateType"`
+	AggregateID   string      `msgpack:"i" json:"aggregateID"`
+	EventType     string      `msgpack:"t" json:"eventType"`
+	Data          interface{} `msgpack:"d" json:"data"`
+	Metadata      interface{} `msgpack:"m" json:"metadata"`
 }
 
 type failingSnapshotStore struct{}

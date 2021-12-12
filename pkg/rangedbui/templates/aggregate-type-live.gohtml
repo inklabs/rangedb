@@ -13,7 +13,7 @@
             <nav aria-label="You are here:" role="navigation">
                 <ul class="breadcrumbs">
                     <li><a href="/aggregate-types/live">Aggregate</a></li>
-                    <li><a href="/e/{{.AggregateTypeInfo.Name}}">{{.AggregateTypeInfo.Name}}</a></li>
+                    <li><a href="/a/{{.AggregateTypeInfo.Name}}">{{.AggregateTypeInfo.Name}}</a></li>
                     <li>
                         Realtime (${ Number(totalEvents).toLocaleString() })
                     </li>
@@ -26,7 +26,8 @@
                     <th title="Global Sequence Number">GSN</th>
                     <th title="Stream Sequence Number">SSN</th>
                     <th>Event Type</th>
-                    <th>Aggregate ID</th>
+                    <th>Aggregate Type</th>
+                    <th>Stream</th>
                     <th>Insert Date</th>
                     <th>Data</th>
                 </tr>
@@ -36,7 +37,8 @@
                     <td>${record.globalSequenceNumber}</td>
                     <td>${record.streamSequenceNumber}</td>
                     <td>${record.eventType}</td>
-                    <td><a :href="'/e/' + record.aggregateType + '/' + record.aggregateID">${record.aggregateID}</a></td>
+                    <td><a :href="'/a/' + record.aggregateType + '/live'">${record.aggregateType}</a></td>
+                    <td><a :href="'/s/' + record.streamName">${record.streamName}</a></td>
                     <td class="date">${formatDate(record.insertTimestamp)}</td>
                     <td class="event-data">${record.data}</td>
                 </tr>
@@ -67,7 +69,7 @@
                 return new Intl.DateTimeFormat('default', {dateStyle: 'medium', timeStyle: 'long'}).format(date);
             },
             connect() {
-                let ws = new WebSocket('ws://{{.UIHost}}/live/e/{{.AggregateTypeInfo.Name}}');
+                let ws = new WebSocket('ws://{{.UIHost}}/live/a/{{.AggregateTypeInfo.Name}}');
                 ws.onmessage = (event) => {
                     if (this.wasDisconnected) {
                         this.records = [];

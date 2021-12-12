@@ -53,15 +53,13 @@ message OptimisticDeleteStreamResponse {
 
 message OptimisticSaveRequest {
   uint64 ExpectedStreamSequenceNumber = 1;
-  string AggregateType = 2;
-  string AggregateID = 3;
-  repeated Event Events = 4;
+  string StreamName = 2;
+  repeated Event Events = 3;
 }
 
 message SaveRequest {
-  string AggregateType = 1;
-  string AggregateID = 2;
-  repeated Event Events = 3;
+  string StreamName = 1;
+  repeated Event Events = 2;
 }
 
 message SaveResponse {
@@ -82,19 +80,22 @@ message TotalEventsInStreamResponse {
 }
 
 message Event {
-  string Type = 1;
-  string Data = 2;
-  string Metadata = 3;
+  string AggregateType = 1;
+  string AggregateID = 2;
+  string EventType = 3;
+  string Data = 4;
+  string Metadata = 5;
 }
 
 message Record {
-  string AggregateType = 1;
-  string AggregateID = 2;
-  uint64 GlobalSequenceNumber = 3;
-  uint64 StreamSequenceNumber = 4;
-  uint64 InsertTimestamp = 5;
-  string EventID = 6;
-  string EventType = 7;
-  string Data = 8;
-  string Metadata = 9;
+  string StreamName = 1;
+  string AggregateType = 2;
+  string AggregateID = 3;
+  uint64 GlobalSequenceNumber = 4;
+  uint64 StreamSequenceNumber = 5;
+  uint64 InsertTimestamp = 6;
+  string EventID = 7;
+  string EventType = 8;
+  string Data = 9;
+  string Metadata = 10;
 }

@@ -83,6 +83,7 @@ func getNRecords(n int) rangedb.RecordIterator {
 
 		for i := 1; i <= n; i++ {
 			record := &rangedb.Record{
+				StreamName:           "thing-c2077176843a49189ae0d746eb131e05",
 				AggregateType:        "thing",
 				AggregateID:          "c2077176843a49189ae0d746eb131e05",
 				GlobalSequenceNumber: uint64(i),

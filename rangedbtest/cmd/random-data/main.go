@@ -36,11 +36,12 @@ func main() {
 	go func() {
 		defer close(done)
 
+		aggregateType := "foo"
+		aggregateID := shortuuid.New().String()
 		for {
 			request := &rangedbpb.SaveRequest{
-				AggregateType: "foo",
-				AggregateID:   shortuuid.New().String(),
-				Events:        getRandomEvents(),
+				StreamName: fmt.Sprintf("%s-%s", aggregateType, aggregateID),
+				Events:     getRandomEvents(aggregateType, aggregateID),
 			}
 
 			response, err := rangeDBClient.Save(ctx, request)
@@ -66,14 +67,16 @@ func main() {
 	fmt.Printf("Sent %d events\n", totalEvents)
 }
 
-func getRandomEvents() []*rangedbpb.Event {
+func getRandomEvents(aggregateType, aggregateID string) []*rangedbpb.Event {
 	total := rand.Intn(99) + 1
 	events := make([]*rangedbpb.Event, total)
 	for i := range events {
 		events[i] = &rangedbpb.Event{
-			Type:     "FooBar",
-			Data:     fmt.Sprintf(`{"number":%d}`, i),
-			Metadata: "",
+			AggregateType: aggregateType,
+			AggregateID:   aggregateID,
+			EventType:     "FooBar",
+			Data:          fmt.Sprintf(`{"number":%d}`, i),
+			Metadata:      "",
 		}
 	}
 

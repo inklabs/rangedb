@@ -28,7 +28,9 @@ import (
 const (
 	broadcastRecordBuffSize = 100
 	separator               = "!"
-	allEventsPrefix         = "$all$" + separator
+	allEventsPrefix         = "$all$"
+	streamPrefix            = "$s$"
+	aggregateTypePrefix     = "$at$"
 	globalSequenceNumberKey = "$gsn$"
 )
 
@@ -123,7 +125,7 @@ func (s *levelDbStore) EventsByAggregateTypes(ctx context.Context, globalSequenc
 }
 
 func (s *levelDbStore) EventsByStream(ctx context.Context, streamSequenceNumber uint64, stream string) rangedb.RecordIterator {
-	return s.getEventsByPrefix(ctx, stream, streamSequenceNumber)
+	return s.getEventsByPrefix(ctx, getStreamKeyPrefix(stream), streamSequenceNumber)
 }
 
 func (s *levelDbStore) OptimisticDeleteStream(ctx context.Context, expectedStreamSequenceNumber uint64, streamName string) error {
@@ -142,7 +144,7 @@ func (s *levelDbStore) OptimisticDeleteStream(ctx context.Context, expectedStrea
 		return err
 	}
 
-	iter := s.db.NewIterator(util.BytesPrefix([]byte(streamName)), nil)
+	iter := s.db.NewIterator(util.BytesPrefix([]byte(getStreamKeyPrefix(streamName))), nil)
 	defer iter.Release()
 
 	cnt := uint64(0)
@@ -188,15 +190,15 @@ func (s *levelDbStore) OptimisticDeleteStream(ctx context.Context, expectedStrea
 	return nil
 }
 
-func (s *levelDbStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
-	return s.saveEvents(ctx, &expectedStreamSequenceNumber, eventRecords...)
+func (s *levelDbStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, streamName string, eventRecords ...*rangedb.EventRecord) (uint64, error) {
+	return s.saveEvents(ctx, &expectedStreamSequenceNumber, streamName, eventRecords...)
 }
 
-func (s *levelDbStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRecord) (uint64, error) {
-	return s.saveEvents(ctx, nil, eventRecords...)
+func (s *levelDbStore) Save(ctx context.Context, streamName string, eventRecords ...*rangedb.EventRecord) (uint64, error) {
+	return s.saveEvents(ctx, nil, streamName, eventRecords...)
 }
 
-func (s *levelDbStore) saveEvents(ctx context.Context, expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
+func (s *levelDbStore) saveEvents(ctx context.Context, expectedStreamSequenceNumber *uint64, streamName string, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	if len(eventRecords) < 1 {
 		return 0, fmt.Errorf("missing events")
 	}
@@ -231,6 +233,7 @@ func (s *levelDbStore) saveEvents(ctx context.Context, expectedStreamSequenceNum
 		data, lastStreamSequenceNumber, err = s.saveEvent(
 			ctx,
 			transaction,
+			streamName,
 			aggregateType,
 			aggregateID,
 			eventRecord.Event.EventType(),
@@ -268,10 +271,7 @@ func (s *levelDbStore) saveEvents(ctx context.Context, expectedStreamSequenceNum
 }
 
 // saveEvent persists a single event without locking the mutex, or notifying subscribers.
-func (s *levelDbStore) saveEvent(ctx context.Context, transaction *leveldb.Transaction,
-	aggregateType, aggregateID, eventType, eventID string,
-	expectedStreamSequenceNumber *uint64,
-	event, metadata interface{}) ([]byte, uint64, error) {
+func (s *levelDbStore) saveEvent(ctx context.Context, transaction *leveldb.Transaction, streamName, aggregateType, aggregateID, eventType, eventID string, expectedStreamSequenceNumber *uint64, event, metadata interface{}) ([]byte, uint64, error) {
 
 	select {
 	case <-ctx.Done():
@@ -280,8 +280,7 @@ func (s *levelDbStore) saveEvent(ctx context.Context, transaction *leveldb.Trans
 	default:
 	}
 
-	stream := rangedb.GetStream(aggregateType, aggregateID)
-	streamSequenceNumber := s.getStreamSequenceNumber(transaction, stream)
+	streamSequenceNumber := s.getStreamSequenceNumber(transaction, streamName)
 
 	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber != streamSequenceNumber {
 		return nil, 0, &rangedberror.UnexpectedSequenceNumber{
@@ -293,6 +292,7 @@ func (s *levelDbStore) saveEvent(ctx context.Context, transaction *leveldb.Trans
 	globalSequenceNumber := s.getGlobalSequenceNumber(transaction) + 1
 
 	record := &rangedb.Record{
+		StreamName:           streamName,
 		AggregateType:        aggregateType,
 		AggregateID:          aggregateID,
 		GlobalSequenceNumber: globalSequenceNumber,
@@ -312,7 +312,7 @@ func (s *levelDbStore) saveEvent(ctx context.Context, transaction *leveldb.Trans
 	batch := new(leveldb.Batch)
 	batch.Put([]byte(globalSequenceNumberKey), uint64ToBytes(globalSequenceNumber))
 
-	streamKey := getKeyWithNumber(stream+separator, record.StreamSequenceNumber)
+	streamKey := getKeyWithNumber(getStreamKeyPrefix(streamName), record.StreamSequenceNumber)
 	batch.Put(streamKey, data)
 
 	allAggregateTypeKey := getKeyWithNumber(getAggregateTypeKeyPrefix(aggregateType), record.GlobalSequenceNumber)
@@ -464,8 +464,12 @@ func (s *levelDbStore) getRecordByValue(value []byte) (*rangedb.Record, error) {
 	return record, nil
 }
 
+func getStreamKeyPrefix(stream string) string {
+	return fmt.Sprintf("%s%s$%s", streamPrefix, stream, separator)
+}
+
 func getAggregateTypeKeyPrefix(aggregateType string) string {
-	return fmt.Sprintf("$%s$%s", aggregateType, separator)
+	return fmt.Sprintf("%s%s$%s", aggregateTypePrefix, aggregateType, separator)
 }
 
 func getKeyWithNumber(inputKey string, number uint64) []byte {
@@ -499,7 +503,7 @@ func (s *levelDbStore) getGlobalSequenceNumber(transaction *leveldb.Transaction)
 }
 
 func (s *levelDbStore) getStreamSequenceNumber(iterable dbNewIterable, stream string) uint64 {
-	return s.getSequenceNumber(iterable, stream+separator)
+	return s.getSequenceNumber(iterable, getStreamKeyPrefix(stream))
 }
 
 func (s *levelDbStore) getSequenceNumber(iterable dbNewIterable, key string) uint64 {

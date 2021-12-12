@@ -32,14 +32,17 @@ func Example_getAllEvents() {
 
 	serverURL, err := url.Parse(server.URL)
 	PrintError(err)
-	serverURL.Path = "/events.json"
+	serverURL.Path = "/all-events.json"
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+
+	streamNameA := "thing-605f20348fb940e386c171d51c877bf1"
+	streamNameB := "another-a095086e52bc4617a1763a62398cd645"
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx, streamNameA,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "605f20348fb940e386c171d51c877bf1", Number: 100}},
 	)))
-	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx, streamNameB,
 		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a095086e52bc4617a1763a62398cd645"}},
 	)))
 
@@ -56,6 +59,7 @@ func Example_getAllEvents() {
 	// Output:
 	// [
 	//   {
+	//     "streamName": "thing-605f20348fb940e386c171d51c877bf1",
 	//     "aggregateType": "thing",
 	//     "aggregateID": "605f20348fb940e386c171d51c877bf1",
 	//     "globalSequenceNumber": 1,
@@ -70,6 +74,7 @@ func Example_getAllEvents() {
 	//     "metadata": null
 	//   },
 	//   {
+	//     "streamName": "another-a095086e52bc4617a1763a62398cd645",
 	//     "aggregateType": "another",
 	//     "aggregateID": "a095086e52bc4617a1763a62398cd645",
 	//     "globalSequenceNumber": 2,

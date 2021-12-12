@@ -22,6 +22,7 @@ func ToPbRecord(record *rangedb.Record) (*Record, error) {
 	}
 
 	return &Record{
+		StreamName:           record.StreamName,
 		AggregateType:        record.AggregateType,
 		AggregateID:          record.AggregateID,
 		GlobalSequenceNumber: record.GlobalSequenceNumber,
@@ -54,6 +55,7 @@ func ToRecord(pbRecord *Record, eventTypeIdentifier rangedb.EventTypeIdentifier)
 	}
 
 	return &rangedb.Record{
+		StreamName:           pbRecord.StreamName,
 		AggregateType:        pbRecord.AggregateType,
 		AggregateID:          pbRecord.AggregateID,
 		GlobalSequenceNumber: pbRecord.GlobalSequenceNumber,

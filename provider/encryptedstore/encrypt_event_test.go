@@ -31,11 +31,12 @@ func ExampleNew_automatically_encrypt_decrypt() {
 	inMemoryStore := inmemorystore.New()
 	encryptedStore := encryptedstore.New(inMemoryStore, eventEncryptor)
 	encryptedStore.Bind(&cryptotest.CustomerSignedUp{})
+	streamName := rangedb.GetEventStream(event)
 
 	ctx := context.Background()
 
 	// When
-	_, err := encryptedStore.Save(ctx, &rangedb.EventRecord{Event: event})
+	_, err := encryptedStore.Save(ctx, streamName, &rangedb.EventRecord{Event: event})
 	PrintError(err)
 
 	fmt.Println("Auto Decrypted Event:")

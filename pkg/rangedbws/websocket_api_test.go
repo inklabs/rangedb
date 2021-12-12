@@ -32,14 +32,15 @@ func Test_WebsocketApi(t *testing.T) {
 				inmemorystore.WithUUIDGenerator(uuid),
 			)
 			const (
-				aggregateID1 = "0315b9a9c2cf460483551b6bb8b59671"
-				aggregateID2 = "477c1dac64c745dbb3968a75af5d23f5"
+				aggregateIDA = "0315b9a9c2cf460483551b6bb8b59671"
+				aggregateIDB = "477c1dac64c745dbb3968a75af5d23f5"
 			)
-
-			event1 := &rangedbtest.ThingWasDone{ID: aggregateID1, Number: 1}
-			event2 := &rangedbtest.ThingWasDone{ID: aggregateID2, Number: 2}
-			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event1})
-			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event2})
+			eventA1 := &rangedbtest.ThingWasDone{ID: aggregateIDA, Number: 1}
+			eventB1 := &rangedbtest.ThingWasDone{ID: aggregateIDB, Number: 2}
+			streamNameA := rangedb.GetEventStream(eventA1)
+			streamNameB := rangedb.GetEventStream(eventB1)
+			rangedbtest.BlockingSaveEvents(t, store, streamNameA, &rangedb.EventRecord{Event: eventA1})
+			rangedbtest.BlockingSaveEvents(t, store, streamNameB, &rangedb.EventRecord{Event: eventB1})
 			api, err := rangedbws.New(rangedbws.WithStore(store))
 			require.NoError(t, err)
 			t.Cleanup(api.Stop)
@@ -63,6 +64,7 @@ func Test_WebsocketApi(t *testing.T) {
 			_, actualBytes2, err := socket.ReadMessage()
 			require.NoError(t, err)
 			expectedEvent1 := fmt.Sprintf(`{
+				"streamName": "thing!0315b9a9c2cf460483551b6bb8b59671",
 				"aggregateType": "thing",
 				"aggregateID": "%s",
 				"globalSequenceNumber":1,
@@ -76,11 +78,12 @@ func Test_WebsocketApi(t *testing.T) {
 				},
 				"metadata":null
 			}`,
-				aggregateID1,
+				aggregateIDA,
 				uuid.Get(1),
-				aggregateID1,
+				aggregateIDA,
 			)
 			expectedEvent2 := fmt.Sprintf(`{
+				"streamName": "thing!477c1dac64c745dbb3968a75af5d23f5",
 				"aggregateType": "thing",
 				"aggregateID": "%s",
 				"globalSequenceNumber":2,
@@ -94,9 +97,9 @@ func Test_WebsocketApi(t *testing.T) {
 				},
 				"metadata":null
 			}`,
-				aggregateID2,
+				aggregateIDB,
 				uuid.Get(2),
-				aggregateID2,
+				aggregateIDB,
 			)
 			assert.Equal(t, http.StatusSwitchingProtocols, response.StatusCode)
 			assertJsonEqual(t, expectedEvent1, string(actualBytes1))
@@ -111,16 +114,19 @@ func Test_WebsocketApi(t *testing.T) {
 				inmemorystore.WithUUIDGenerator(uuid),
 			)
 			const (
-				aggregateID1 = "0d18c8603167498ca4004519a24268a7"
-				aggregateID2 = "153d2820edee4fa5ac040640bd1900ed"
-				aggregateID3 = "4a32af1f745c4975a7f5784695e1ba49"
+				aggregateIDA = "0d18c8603167498ca4004519a24268a7"
+				aggregateIDB = "153d2820edee4fa5ac040640bd1900ed"
+				aggregateIDC = "4a32af1f745c4975a7f5784695e1ba49"
 			)
-			event1 := &rangedbtest.ThingWasDone{ID: aggregateID1, Number: 1}
-			event2 := &rangedbtest.ThingWasDone{ID: aggregateID2, Number: 2}
-			event3 := &rangedbtest.ThingWasDone{ID: aggregateID3, Number: 3}
-			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event1})
-			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event2})
-			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event3})
+			eventA1 := &rangedbtest.ThingWasDone{ID: aggregateIDA, Number: 1}
+			eventB1 := &rangedbtest.ThingWasDone{ID: aggregateIDB, Number: 2}
+			eventC1 := &rangedbtest.ThingWasDone{ID: aggregateIDC, Number: 3}
+			streamNameA := rangedb.GetEventStream(eventA1)
+			streamNameB := rangedb.GetEventStream(eventB1)
+			streamNameC := rangedb.GetEventStream(eventC1)
+			rangedbtest.BlockingSaveEvents(t, store, streamNameA, &rangedb.EventRecord{Event: eventA1})
+			rangedbtest.BlockingSaveEvents(t, store, streamNameB, &rangedb.EventRecord{Event: eventB1})
+			rangedbtest.BlockingSaveEvents(t, store, streamNameC, &rangedb.EventRecord{Event: eventC1})
 			api, err := rangedbws.New(rangedbws.WithStore(store))
 			require.NoError(t, err)
 			t.Cleanup(api.Stop)
@@ -149,6 +155,7 @@ func Test_WebsocketApi(t *testing.T) {
 			_, actualBytes2, err := socket.ReadMessage()
 			require.NoError(t, err)
 			expectedEvent1 := fmt.Sprintf(`{
+				"streamName": "thing!153d2820edee4fa5ac040640bd1900ed",
 				"aggregateType": "thing",
 				"aggregateID": "%s",
 				"globalSequenceNumber":2,
@@ -162,11 +169,12 @@ func Test_WebsocketApi(t *testing.T) {
 				},
 				"metadata":null
 			}`,
-				aggregateID2,
+				aggregateIDB,
 				uuid.Get(2),
-				aggregateID2,
+				aggregateIDB,
 			)
 			expectedEvent2 := fmt.Sprintf(`{
+				"streamName": "thing!4a32af1f745c4975a7f5784695e1ba49",
 				"aggregateType": "thing",
 				"aggregateID": "%s",
 				"globalSequenceNumber":3,
@@ -180,9 +188,9 @@ func Test_WebsocketApi(t *testing.T) {
 				},
 				"metadata":null
 			}`,
-				aggregateID3,
+				aggregateIDC,
 				uuid.Get(3),
-				aggregateID3,
+				aggregateIDC,
 			)
 			assert.Equal(t, http.StatusSwitchingProtocols, response.StatusCode)
 			assertJsonEqual(t, expectedEvent1, string(actualBytes1))
@@ -272,16 +280,19 @@ func Test_WebsocketApi(t *testing.T) {
 				inmemorystore.WithUUIDGenerator(uuid),
 			)
 			const (
-				aggregateID1 = "66b7516e209a4ec39ca798a35467021b"
-				aggregateID2 = "8e09afd055214ca0bae59b38ddb7d8b8"
-				aggregateID3 = "e1eb6179b4034183a55d8315111db3fa"
+				aggregateIDA = "66b7516e209a4ec39ca798a35467021b"
+				aggregateIDB = "8e09afd055214ca0bae59b38ddb7d8b8"
+				aggregateIDC = "e1eb6179b4034183a55d8315111db3fa"
 			)
-			event1 := &rangedbtest.ThingWasDone{ID: aggregateID1, Number: 1}
-			event2 := &rangedbtest.AnotherWasComplete{ID: aggregateID2}
-			event3 := &rangedbtest.ThatWasDone{ID: aggregateID3}
-			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event1})
-			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event2})
-			rangedbtest.BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event3})
+			eventA1 := &rangedbtest.ThingWasDone{ID: aggregateIDA, Number: 1}
+			eventB1 := &rangedbtest.AnotherWasComplete{ID: aggregateIDB}
+			eventC1 := &rangedbtest.ThatWasDone{ID: aggregateIDC}
+			streamNameA := rangedb.GetEventStream(eventA1)
+			streamNameB := rangedb.GetEventStream(eventB1)
+			streamNameC := rangedb.GetEventStream(eventC1)
+			rangedbtest.BlockingSaveEvents(t, store, streamNameA, &rangedb.EventRecord{Event: eventA1})
+			rangedbtest.BlockingSaveEvents(t, store, streamNameB, &rangedb.EventRecord{Event: eventB1})
+			rangedbtest.BlockingSaveEvents(t, store, streamNameC, &rangedb.EventRecord{Event: eventC1})
 			api, err := rangedbws.New(rangedbws.WithStore(store))
 			require.NoError(t, err)
 			t.Cleanup(api.Stop)
@@ -306,6 +317,7 @@ func Test_WebsocketApi(t *testing.T) {
 			_, actualBytes2, err := socket.ReadMessage()
 			require.NoError(t, err)
 			expectedEvent1 := fmt.Sprintf(`{
+				"streamName": "thing!66b7516e209a4ec39ca798a35467021b",
 				"aggregateType": "thing",
 				"aggregateID": "%s",
 				"globalSequenceNumber":1,
@@ -319,11 +331,12 @@ func Test_WebsocketApi(t *testing.T) {
 				},
 				"metadata":null
 			}`,
-				aggregateID1,
+				aggregateIDA,
 				uuid.Get(1),
-				aggregateID1,
+				aggregateIDA,
 			)
 			expectedEvent2 := fmt.Sprintf(`{
+				"streamName": "that!e1eb6179b4034183a55d8315111db3fa",
 				"aggregateType": "that",
 				"aggregateID": "%s",
 				"globalSequenceNumber":3,
@@ -336,9 +349,9 @@ func Test_WebsocketApi(t *testing.T) {
 				},
 				"metadata":null
 			}`,
-				aggregateID3,
+				aggregateIDC,
 				uuid.Get(3),
-				aggregateID3,
+				aggregateIDC,
 			)
 			assert.Equal(t, http.StatusSwitchingProtocols, response.StatusCode)
 			assertJsonEqual(t, expectedEvent1, string(actualBytes1))
@@ -414,9 +427,8 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		// Given
 		store := inmemorystore.New()
 		event := &rangedbtest.ThingWasDone{ID: "372b47686e1b43d29d2fd48f2a0e83f0", Number: 1}
-		rangedbtest.BlockingSaveEvents(t, store,
-			&rangedb.EventRecord{Event: event},
-		)
+		streamName := rangedb.GetEventStream(event)
+		rangedbtest.BlockingSaveEvents(t, store, streamName, &rangedb.EventRecord{Event: event})
 		api, err := rangedbws.New(rangedbws.WithStore(store))
 		require.NoError(t, err)
 		t.Cleanup(api.Stop)

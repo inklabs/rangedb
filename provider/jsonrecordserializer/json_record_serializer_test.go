@@ -77,14 +77,16 @@ func Test_Failures(t *testing.T) {
 	})
 }
 
-func ExampleNew_serialize() {
+func ExampleNew_serialize_and_deserialize_with_bound_event() {
 	// Given
 	serializer := jsonrecordserializer.New()
+	serializer.Bind(rangedbtest.ThingWasDone{})
 	event := &rangedbtest.ThingWasDone{
 		ID:     "A",
 		Number: 1,
 	}
 	record := &rangedb.Record{
+		StreamName:           "thing-60f01cc527844cde9953c998a2c077a7",
 		AggregateType:        "thing",
 		AggregateID:          "60f01cc527844cde9953c998a2c077a7",
 		GlobalSequenceNumber: 100,
@@ -96,36 +98,44 @@ func ExampleNew_serialize() {
 	}
 
 	// When
-	output, _ := serializer.Serialize(record)
-	fmt.Println(string(output))
+	jsonOutput, _ := serializer.Serialize(record)
+	fmt.Println(string(jsonOutput))
+
+	outputRecord, _ := serializer.Deserialize(jsonOutput)
+	fmt.Printf("%#v\n", outputRecord.Data)
 
 	// Output:
-	// {"aggregateType":"thing","aggregateID":"60f01cc527844cde9953c998a2c077a7","globalSequenceNumber":100,"streamSequenceNumber":2,"insertTimestamp":1576892379,"eventID":"","eventType":"ThingWasDone","data":{"id":"A","number":1},"metadata":null}
-}
-
-func ExampleNew_deserializeWithBoundEvent() {
-	// Given
-	serializer := jsonrecordserializer.New()
-	serializer.Bind(rangedbtest.ThingWasDone{})
-	json := `{"aggregateType":"thing","aggregateID":"60f01cc527844cde9953c998a2c077a7","globalSequenceNumber":100,"streamSequenceNumber":2,"insertTimestamp":1576892379,"eventID":"","eventType":"ThingWasDone","data":{"id":"A","number":1},"metadata":null}`
-
-	// When
-	record, _ := serializer.Deserialize([]byte(json))
-	fmt.Printf("%#v\n", record.Data)
-
-	// Output:
+	// {"streamName":"thing-60f01cc527844cde9953c998a2c077a7","aggregateType":"thing","aggregateID":"60f01cc527844cde9953c998a2c077a7","globalSequenceNumber":100,"streamSequenceNumber":2,"insertTimestamp":1576892379,"eventID":"","eventType":"ThingWasDone","data":{"id":"A","number":1},"metadata":null}
 	// &rangedbtest.ThingWasDone{ID:"A", Number:1}
 }
 
-func ExampleNew_deserializeWithUnboundEvent() {
+func ExampleNew_serialize_and_deserialize_with_unbound_event() {
 	// Given
 	serializer := jsonrecordserializer.New()
-	json := `{"aggregateType":"thing","aggregateID":"60f01cc527844cde9953c998a2c077a7","globalSequenceNumber":100,"streamSequenceNumber":2,"insertTimestamp":1576892379,"eventID":"","eventType":"ThingWasDone","data":{"id":"A","number":1},"metadata":null}`
+	event := &rangedbtest.ThingWasDone{
+		ID:     "A",
+		Number: 1,
+	}
+	record := &rangedb.Record{
+		StreamName:           "thing-60f01cc527844cde9953c998a2c077a7",
+		AggregateType:        "thing",
+		AggregateID:          "60f01cc527844cde9953c998a2c077a7",
+		GlobalSequenceNumber: 100,
+		StreamSequenceNumber: 2,
+		EventType:            "ThingWasDone",
+		InsertTimestamp:      1576892379,
+		Data:                 event,
+		Metadata:             nil,
+	}
 
 	// When
-	record, _ := serializer.Deserialize([]byte(json))
-	fmt.Printf("%#v\n", record.Data)
+	jsonOutput, _ := serializer.Serialize(record)
+	fmt.Println(string(jsonOutput))
+
+	outputRecord, _ := serializer.Deserialize(jsonOutput)
+	fmt.Printf("%#v\n", outputRecord.Data)
 
 	// Output:
+	// {"streamName":"thing-60f01cc527844cde9953c998a2c077a7","aggregateType":"thing","aggregateID":"60f01cc527844cde9953c998a2c077a7","globalSequenceNumber":100,"streamSequenceNumber":2,"insertTimestamp":1576892379,"eventID":"","eventType":"ThingWasDone","data":{"id":"A","number":1},"metadata":null}
 	// map[string]interface {}{"id":"A", "number":"1"}
 }

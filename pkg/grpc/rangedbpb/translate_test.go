@@ -17,6 +17,7 @@ func TestToPbRecord(t *testing.T) {
 	t.Run("translates rangedb.Record to rangedbpb.Record", func(t *testing.T) {
 		// Given
 		input := &rangedb.Record{
+			StreamName:           "thing-60f01cc527844cde9953c998a2c077a7",
 			AggregateType:        "thing",
 			AggregateID:          "60f01cc527844cde9953c998a2c077a7",
 			GlobalSequenceNumber: 1,
@@ -32,6 +33,7 @@ func TestToPbRecord(t *testing.T) {
 
 		// Then
 		require.NoError(t, err)
+		assert.Equal(t, "thing-60f01cc527844cde9953c998a2c077a7", actual.StreamName)
 		assert.Equal(t, "thing", actual.AggregateType)
 		assert.Equal(t, "60f01cc527844cde9953c998a2c077a7", actual.AggregateID)
 		assert.Equal(t, uint64(1), actual.GlobalSequenceNumber)
@@ -47,6 +49,7 @@ func TestToPbRecord(t *testing.T) {
 		serializer := jsonrecordserializer.New()
 		serializer.Bind(rangedbtest.ThingWasDone{})
 		input := &rangedb.Record{
+			StreamName:           "thing-60f01cc527844cde9953c998a2c077a7",
 			AggregateType:        "thing",
 			AggregateID:          "60f01cc527844cde9953c998a2c077a7",
 			GlobalSequenceNumber: 1,
@@ -101,6 +104,7 @@ func TestToPbRecord(t *testing.T) {
 	t.Run("fails with invalid data", func(t *testing.T) {
 		// Given
 		input := &rangedb.Record{
+			StreamName:           "thing-60f01cc527844cde9953c998a2c077a7",
 			AggregateType:        "thing",
 			AggregateID:          "60f01cc527844cde9953c998a2c077a7",
 			GlobalSequenceNumber: 1,
@@ -122,6 +126,7 @@ func TestToPbRecord(t *testing.T) {
 	t.Run("fails with invalid metadata", func(t *testing.T) {
 		// Given
 		input := &rangedb.Record{
+			StreamName:           "thing-60f01cc527844cde9953c998a2c077a7",
 			AggregateType:        "thing",
 			AggregateID:          "60f01cc527844cde9953c998a2c077a7",
 			GlobalSequenceNumber: 1,

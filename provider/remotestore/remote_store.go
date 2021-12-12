@@ -143,7 +143,7 @@ func (s *remoteStore) OptimisticDeleteStream(ctx context.Context, expectedStream
 	return nil
 }
 
-func (s *remoteStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
+func (s *remoteStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, streamName string, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	if len(eventRecords) < 1 {
 		return 0, fmt.Errorf("missing events")
 	}
@@ -152,10 +152,12 @@ func (s *remoteStore) OptimisticSave(ctx context.Context, expectedStreamSequence
 
 	var events []*rangedbpb.Event
 	for _, eventRecord := range eventRecords {
+		// TODO: Allow mixed aggregate types?
 		if aggregateType != "" && aggregateType != eventRecord.Event.AggregateType() {
 			return 0, fmt.Errorf("unmatched aggregate type")
 		}
 
+		// TODO: Allow mixed aggregate IDs?
 		if aggregateID != "" && aggregateID != eventRecord.Event.AggregateID() {
 			return 0, fmt.Errorf("unmatched aggregate ID")
 		}
@@ -174,15 +176,16 @@ func (s *remoteStore) OptimisticSave(ctx context.Context, expectedStreamSequence
 		}
 
 		events = append(events, &rangedbpb.Event{
-			Type:     eventRecord.Event.EventType(),
-			Data:     string(jsonData),
-			Metadata: string(jsonMetadata),
+			AggregateType: eventRecord.Event.AggregateType(),
+			AggregateID:   eventRecord.Event.AggregateID(),
+			EventType:     eventRecord.Event.EventType(),
+			Data:          string(jsonData),
+			Metadata:      string(jsonMetadata),
 		})
 	}
 
 	request := &rangedbpb.OptimisticSaveRequest{
-		AggregateType:                aggregateType,
-		AggregateID:                  aggregateID,
+		StreamName:                   streamName,
 		Events:                       events,
 		ExpectedStreamSequenceNumber: expectedStreamSequenceNumber,
 	}
@@ -203,7 +206,7 @@ func (s *remoteStore) OptimisticSave(ctx context.Context, expectedStreamSequence
 	return response.LastStreamSequenceNumber, nil
 }
 
-func (s *remoteStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRecord) (uint64, error) {
+func (s *remoteStore) Save(ctx context.Context, streamName string, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	if len(eventRecords) < 1 {
 		return 0, fmt.Errorf("missing events")
 	}
@@ -212,10 +215,12 @@ func (s *remoteStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRe
 
 	var events []*rangedbpb.Event
 	for _, eventRecord := range eventRecords {
+		// TODO: Allow mixed aggregate types?
 		if aggregateType != "" && aggregateType != eventRecord.Event.AggregateType() {
 			return 0, fmt.Errorf("unmatched aggregate type")
 		}
 
+		// TODO: Allow mixed aggregate IDs?
 		if aggregateID != "" && aggregateID != eventRecord.Event.AggregateID() {
 			return 0, fmt.Errorf("unmatched aggregate ID")
 		}
@@ -234,16 +239,17 @@ func (s *remoteStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRe
 		}
 
 		events = append(events, &rangedbpb.Event{
-			Type:     eventRecord.Event.EventType(),
-			Data:     string(jsonData),
-			Metadata: string(jsonMetadata),
+			AggregateType: eventRecord.Event.AggregateType(),
+			AggregateID:   eventRecord.Event.AggregateID(),
+			EventType:     eventRecord.Event.EventType(),
+			Data:          string(jsonData),
+			Metadata:      string(jsonMetadata),
 		})
 	}
 
 	request := &rangedbpb.SaveRequest{
-		AggregateType: aggregateType,
-		AggregateID:   aggregateID,
-		Events:        events,
+		StreamName: streamName,
+		Events:     events,
 	}
 
 	response, err := s.client.Save(ctx, request)

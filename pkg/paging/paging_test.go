@@ -67,11 +67,11 @@ func TestNewLinks_HasPreviousAndNextPage(t *testing.T) {
 	pagination := paging.NewPagination(10, 2)
 
 	// When
-	links := pagination.Links("/e/thing", totalRecords)
+	links := pagination.Links("/a/thing", totalRecords)
 
 	// Then
-	assert.Equal(t, "/e/thing?itemsPerPage=10&page=1", links.Previous)
-	assert.Equal(t, "/e/thing?itemsPerPage=10&page=3", links.Next)
+	assert.Equal(t, "/a/thing?itemsPerPage=10&page=1", links.Previous)
+	assert.Equal(t, "/a/thing?itemsPerPage=10&page=3", links.Next)
 }
 
 func TestNewLinks_HasPreviousAndNoNextPage(t *testing.T) {
@@ -80,10 +80,10 @@ func TestNewLinks_HasPreviousAndNoNextPage(t *testing.T) {
 	pagination := paging.NewPagination(10, 2)
 
 	// When
-	links := pagination.Links("/e/thing", totalRecords)
+	links := pagination.Links("/a/thing", totalRecords)
 
 	// Then
-	assert.Equal(t, "/e/thing?itemsPerPage=10&page=1", links.Previous)
+	assert.Equal(t, "/a/thing?itemsPerPage=10&page=1", links.Previous)
 	assert.Equal(t, "", links.Next)
 }
 

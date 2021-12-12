@@ -30,6 +30,7 @@ func TestNewDecryptingRecordIterator(t *testing.T) {
 		}
 		require.NoError(t, eventEncryptor.Encrypt(encryptedEvent))
 		record := &rangedb.Record{
+			StreamName:           "customer-fa14d796bab84c9f9c2026a5324d6a34",
 			AggregateType:        encryptedEvent.AggregateType(),
 			AggregateID:          encryptedEvent.AggregateID(),
 			GlobalSequenceNumber: 1,
@@ -73,6 +74,7 @@ func TestNewDecryptingRecordIterator(t *testing.T) {
 		}
 		require.NoError(t, eventEncryptor.Encrypt(encryptedEvent))
 		record := &rangedb.Record{
+			StreamName:           "customer-fa14d796bab84c9f9c2026a5324d6a34",
 			AggregateType:        encryptedEvent.AggregateType(),
 			AggregateID:          encryptedEvent.AggregateID(),
 			GlobalSequenceNumber: 1,
@@ -118,6 +120,7 @@ func TestNewDecryptingRecordIterator(t *testing.T) {
 		eventEncryptor := eventencryptor.New(keyStore, aesEncryptor)
 		require.NoError(t, eventEncryptor.Encrypt(encryptedEvent))
 		record := &rangedb.Record{
+			StreamName:           "customer-fa14d796bab84c9f9c2026a5324d6a34",
 			AggregateType:        encryptedEvent.AggregateType(),
 			AggregateID:          encryptedEvent.AggregateID(),
 			GlobalSequenceNumber: 1,

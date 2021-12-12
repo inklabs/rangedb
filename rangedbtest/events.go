@@ -1,6 +1,8 @@
 package rangedbtest
 
 import (
+	"fmt"
+
 	"github.com/inklabs/rangedb"
 )
 
@@ -126,6 +128,7 @@ func DummyRecord() *rangedb.Record {
 		Number: 100,
 	}
 	return &rangedb.Record{
+		StreamName:           "thing-" + event.AggregateID(),
 		AggregateType:        event.AggregateType(),
 		AggregateID:          event.AggregateID(),
 		GlobalSequenceNumber: 1,
@@ -141,6 +144,7 @@ func DummyRecord() *rangedb.Record {
 // DummyRecordFromEvent returns a dummy rangedb.Record
 func DummyRecordFromEvent(event rangedb.Event) *rangedb.Record {
 	return &rangedb.Record{
+		StreamName:           fmt.Sprintf("%s-%s", event.EventType(), event.AggregateID()),
 		AggregateType:        event.AggregateType(),
 		AggregateID:          event.AggregateID(),
 		GlobalSequenceNumber: 1,

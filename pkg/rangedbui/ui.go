@@ -88,22 +88,22 @@ func New(
 }
 
 func (a *webUI) initRoutes() {
+	const streamName = "{streamName}"
 	const aggregateType = "{aggregateType:[a-zA-Z-]+}"
-	const stream = aggregateType + "/{aggregateID:[0-9a-f]{32}}"
 	router := mux.NewRouter().StrictSlash(true)
 
 	main := router.PathPrefix("/").Subrouter()
 	main.HandleFunc("/", a.index)
 	main.HandleFunc("/aggregate-types", a.aggregateTypes)
 	main.HandleFunc("/aggregate-types/live", a.aggregateTypesLive)
-	main.HandleFunc("/e/"+aggregateType, a.aggregateType)
-	main.HandleFunc("/e/"+aggregateType+"/live", a.aggregateTypeLive)
-	main.HandleFunc("/e/"+stream, a.stream)
+	main.HandleFunc("/a/"+aggregateType, a.aggregateType)
+	main.HandleFunc("/a/"+aggregateType+"/live", a.aggregateTypeLive)
+	main.HandleFunc("/s/"+streamName, a.stream)
 	main.PathPrefix("/static/").Handler(http.FileServer(http.FS(StaticAssets)))
 	main.Use(handlers.CompressHandler)
 
 	websocketRouter := router.PathPrefix("/live").Subrouter()
-	websocketRouter.HandleFunc("/e/"+aggregateType, a.realtimeEventsByAggregateType)
+	websocketRouter.HandleFunc("/a/"+aggregateType, a.realtimeEventsByAggregateType)
 	websocketRouter.HandleFunc("/aggregate-types", a.realtimeAggregateTypes)
 
 	a.handler = router
@@ -181,7 +181,7 @@ func (a *webUI) aggregateType(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 
-	baseURI := fmt.Sprintf("/e/%s", aggregateTypeName)
+	baseURI := fmt.Sprintf("/a/%s", aggregateTypeName)
 	totalRecords := a.aggregateTypeStats.TotalEventsByAggregateType(aggregateTypeName)
 
 	a.renderWithValues(w, "aggregate-type.gohtml", aggregateTypeTemplateVars{
@@ -195,19 +195,15 @@ func (a *webUI) aggregateType(w http.ResponseWriter, r *http.Request) {
 }
 
 type streamTemplateVars struct {
-	PaginationLinks  paging.Links
-	Records          []*rangedb.Record
-	StreamInfo       StreamInfo
-	AggregateType    string
-	AggregateTypeURL string
+	PaginationLinks paging.Links
+	Records         []*rangedb.Record
+	StreamInfo      StreamInfo
 }
 
 func (a *webUI) stream(w http.ResponseWriter, r *http.Request) {
-	aggregateTypeName := mux.Vars(r)["aggregateType"]
-	aggregateID := mux.Vars(r)["aggregateID"]
+	streamName := mux.Vars(r)["streamName"]
 	pagination := paging.NewPaginationFromQuery(r.URL.Query())
 
-	streamName := rangedb.GetStream(aggregateTypeName, aggregateID)
 	streamSequenceNumber := uint64(pagination.FirstRecordPosition())
 	records := rangedb.ReadNRecords(
 		uint64(pagination.ItemsPerPage),
@@ -217,7 +213,7 @@ func (a *webUI) stream(w http.ResponseWriter, r *http.Request) {
 		},
 	)
 
-	baseURI := fmt.Sprintf("/e/%s/%s", aggregateTypeName, aggregateID)
+	baseURI := fmt.Sprintf("/s/%s", streamName)
 	totalRecords, err := a.store.TotalEventsInStream(r.Context(), streamName)
 	if err != nil {
 		if errors.Is(err, context.Canceled) {
@@ -229,8 +225,6 @@ func (a *webUI) stream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	aggregateURL := fmt.Sprintf("/e/%s", aggregateTypeName)
-
 	a.renderWithValues(w, "stream.gohtml", streamTemplateVars{
 		PaginationLinks: pagination.Links(baseURI, totalRecords),
 		Records:         records,
@@ -238,8 +232,6 @@ func (a *webUI) stream(w http.ResponseWriter, r *http.Request) {
 			Name:        streamName,
 			TotalEvents: totalRecords,
 		},
-		AggregateType:    aggregateTypeName,
-		AggregateTypeURL: aggregateURL,
 	})
 }
 

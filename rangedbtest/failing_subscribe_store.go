@@ -32,11 +32,11 @@ func (f failingSubscribeEventStore) OptimisticDeleteStream(_ context.Context, _ 
 	return nil
 }
 
-func (f failingSubscribeEventStore) OptimisticSave(_ context.Context, _ uint64, _ ...*rangedb.EventRecord) (uint64, error) {
+func (f failingSubscribeEventStore) OptimisticSave(_ context.Context, _ uint64, _ string, _ ...*rangedb.EventRecord) (uint64, error) {
 	return 0, nil
 }
 
-func (f failingSubscribeEventStore) Save(_ context.Context, _ ...*rangedb.EventRecord) (uint64, error) {
+func (f failingSubscribeEventStore) Save(_ context.Context, _ string, _ ...*rangedb.EventRecord) (uint64, error) {
 	return 0, nil
 }
 

@@ -50,18 +50,21 @@ func ExampleRangeDBServer_Save() {
 	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
 	defer done()
 	request := &rangedbpb.SaveRequest{
-		AggregateType: "thing",
-		AggregateID:   "141b39d2b9854f8093ef79dc47dae6af",
+		StreamName: "thing-141b39d2b9854f8093ef79dc47dae6af",
 		Events: []*rangedbpb.Event{
 			{
-				Type:     "ThingWasDone",
-				Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
-				Metadata: "",
+				AggregateType: "thing",
+				AggregateID:   "141b39d2b9854f8093ef79dc47dae6af",
+				EventType:     "ThingWasDone",
+				Data:          `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":100}`,
+				Metadata:      "",
 			},
 			{
-				Type:     "ThingWasDone",
-				Data:     `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":200}`,
-				Metadata: "",
+				AggregateType: "thing",
+				AggregateID:   "141b39d2b9854f8093ef79dc47dae6af",
+				EventType:     "ThingWasDone",
+				Data:          `{"id":"141b39d2b9854f8093ef79dc47dae6af","number":200}`,
+				Metadata:      "",
 			},
 		},
 	}

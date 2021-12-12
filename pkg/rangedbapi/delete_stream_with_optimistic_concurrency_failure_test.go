@@ -27,7 +27,9 @@ func Example_optimisticDeleteStream_failure() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+
+	streamName := "thing-4b9a415c53734b69ac459a7e53eb4c1b"
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx, streamName,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "4b9a415c53734b69ac459a7e53eb4c1b", Number: 100}},
 	)))
 
@@ -36,7 +38,7 @@ func Example_optimisticDeleteStream_failure() {
 
 	serverURL, err := url.Parse(server.URL)
 	PrintError(err)
-	serverURL.Path = "/delete-stream/thing/4b9a415c53734b69ac459a7e53eb4c1b"
+	serverURL.Path = "/delete-stream/thing-4b9a415c53734b69ac459a7e53eb4c1b"
 
 	request, err := http.NewRequest(http.MethodPost, serverURL.String(), nil)
 	PrintError(err)

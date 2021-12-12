@@ -30,24 +30,27 @@ func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 		inmemorystore.WithUUIDGenerator(uuid),
 	)
 	const (
-		aggregateID1 = "f187760f4d8c4d1c9d9cf17b66766abd"
-		aggregateID2 = "5b36ae984b724685917b69ae47968be1"
-		aggregateID3 = "9bc181144cef4fd19da1f32a17363997"
+		aggregateIDA = "f187760f4d8c4d1c9d9cf17b66766abd"
+		aggregateIDB = "5b36ae984b724685917b69ae47968be1"
+		aggregateIDC = "9bc181144cef4fd19da1f32a17363997"
 	)
 
-	event1 := rangedbtest.ThingWasDone{ID: aggregateID1, Number: 100}
-	event2 := rangedbtest.ThingWasDone{ID: aggregateID1, Number: 200}
-	event3 := rangedbtest.ThingWasDone{ID: aggregateID2, Number: 300}
-	event4 := rangedbtest.AnotherWasComplete{ID: aggregateID3}
-	rangedbtest.BlockingSaveEvents(t, store,
-		&rangedb.EventRecord{Event: event1},
-		&rangedb.EventRecord{Event: event2},
+	eventA1 := rangedbtest.ThingWasDone{ID: aggregateIDA, Number: 100}
+	eventA2 := rangedbtest.ThingWasDone{ID: aggregateIDA, Number: 200}
+	eventB1 := rangedbtest.ThingWasDone{ID: aggregateIDB, Number: 300}
+	eventC1 := rangedbtest.AnotherWasComplete{ID: aggregateIDC}
+	streamNameA := rangedb.GetEventStream(eventA1)
+	streamNameB := rangedb.GetEventStream(eventB1)
+	streamNameC := rangedb.GetEventStream(eventC1)
+	rangedbtest.BlockingSaveEvents(t, store, streamNameA,
+		&rangedb.EventRecord{Event: eventA1},
+		&rangedb.EventRecord{Event: eventA2},
 	)
-	rangedbtest.BlockingSaveEvents(t, store,
-		&rangedb.EventRecord{Event: event3},
+	rangedbtest.BlockingSaveEvents(t, store, streamNameB,
+		&rangedb.EventRecord{Event: eventB1},
 	)
-	rangedbtest.BlockingSaveEvents(t, store,
-		&rangedb.EventRecord{Event: event4},
+	rangedbtest.BlockingSaveEvents(t, store, streamNameC,
+		&rangedb.EventRecord{Event: eventC1},
 	)
 
 	t.Run("get all events", func(t *testing.T) {
@@ -72,8 +75,9 @@ func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 		close(actualRecords)
 
 		expectedRecord1 := &rangedbpb.Record{
+			StreamName:           streamNameA,
 			AggregateType:        "thing",
-			AggregateID:          aggregateID1,
+			AggregateID:          aggregateIDA,
 			GlobalSequenceNumber: 1,
 			StreamSequenceNumber: 1,
 			InsertTimestamp:      0,
@@ -83,8 +87,9 @@ func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 			Metadata:             "null",
 		}
 		expectedRecord2 := &rangedbpb.Record{
+			StreamName:           streamNameA,
 			AggregateType:        "thing",
-			AggregateID:          aggregateID1,
+			AggregateID:          aggregateIDA,
 			GlobalSequenceNumber: 2,
 			StreamSequenceNumber: 2,
 			InsertTimestamp:      1,
@@ -94,8 +99,9 @@ func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 			Metadata:             "null",
 		}
 		expectedRecord3 := &rangedbpb.Record{
+			StreamName:           streamNameB,
 			AggregateType:        "thing",
-			AggregateID:          aggregateID2,
+			AggregateID:          aggregateIDB,
 			GlobalSequenceNumber: 3,
 			StreamSequenceNumber: 1,
 			InsertTimestamp:      2,
@@ -105,8 +111,9 @@ func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 			Metadata:             "null",
 		}
 		expectedRecord4 := &rangedbpb.Record{
+			StreamName:           streamNameC,
 			AggregateType:        "another",
-			AggregateID:          aggregateID3,
+			AggregateID:          aggregateIDC,
 			GlobalSequenceNumber: 4,
 			StreamSequenceNumber: 1,
 			InsertTimestamp:      3,
@@ -127,7 +134,7 @@ func TestRangeDBServer_WithFourEventsSaved(t *testing.T) {
 		rangeDBClient := getClient(t, store)
 		ctx := rangedbtest.TimeoutContext(t)
 		request := &rangedbpb.TotalEventsInStreamRequest{
-			StreamName: rangedb.GetEventStream(event1),
+			StreamName: rangedb.GetEventStream(eventA1),
 		}
 
 		// When
@@ -144,17 +151,23 @@ func TestRangeDBServer_SubscribeToLiveEvents(t *testing.T) {
 		// Given
 		uuid := rangedbtest.NewSeededUUIDGenerator()
 		const (
-			aggregateID1 = "f187760f4d8c4d1c9d9cf17b66766abd"
-			aggregateID2 = "5b36ae984b724685917b69ae47968be1"
+			aggregateIDA = "f187760f4d8c4d1c9d9cf17b66766abd"
+			aggregateIDB = "5b36ae984b724685917b69ae47968be1"
 		)
 		store := inmemorystore.New(
 			inmemorystore.WithClock(sequentialclock.New()),
 			inmemorystore.WithUUIDGenerator(uuid),
 		)
+		eventA1 := rangedbtest.ThingWasDone{ID: aggregateIDA, Number: 100}
+		eventA2 := rangedbtest.ThingWasDone{ID: aggregateIDA, Number: 200}
+		eventA3 := rangedbtest.ThingWasDone{ID: aggregateIDA, Number: 300}
+		eventB1 := rangedbtest.AnotherWasComplete{ID: aggregateIDB}
+		streamNameA := rangedb.GetEventStream(eventA1)
+		streamNameB := rangedb.GetEventStream(eventB1)
 		ctx := rangedbtest.TimeoutContext(t)
-		rangedbtest.BlockingSaveEvents(t, store,
-			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 100}},
-			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 200}},
+		rangedbtest.BlockingSaveEvents(t, store, streamNameA,
+			&rangedb.EventRecord{Event: eventA1},
+			&rangedb.EventRecord{Event: eventA2},
 		)
 		rangeDBClient := getClient(t, store)
 		request := &rangedbpb.SubscribeToLiveEventsRequest{}
@@ -167,12 +180,8 @@ func TestRangeDBServer_SubscribeToLiveEvents(t *testing.T) {
 		time.Sleep(time.Millisecond * 5)
 		actualRecords := make(chan *rangedbpb.Record, 10)
 
-		rangedbtest.BlockingSaveEvents(t, store,
-			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 300}},
-		)
-		rangedbtest.BlockingSaveEvents(t, store,
-			&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: aggregateID2}},
-		)
+		rangedbtest.BlockingSaveEvents(t, store, streamNameA, &rangedb.EventRecord{Event: eventA3})
+		rangedbtest.BlockingSaveEvents(t, store, streamNameB, &rangedb.EventRecord{Event: eventB1})
 
 		for i := 0; i < 2; i++ {
 			record, err := events.Recv()
@@ -182,8 +191,9 @@ func TestRangeDBServer_SubscribeToLiveEvents(t *testing.T) {
 		close(actualRecords)
 
 		expectedRecord1 := &rangedbpb.Record{
+			StreamName:           streamNameA,
 			AggregateType:        "thing",
-			AggregateID:          aggregateID1,
+			AggregateID:          aggregateIDA,
 			GlobalSequenceNumber: 3,
 			StreamSequenceNumber: 3,
 			InsertTimestamp:      2,
@@ -193,8 +203,9 @@ func TestRangeDBServer_SubscribeToLiveEvents(t *testing.T) {
 			Metadata:             "null",
 		}
 		expectedRecord2 := &rangedbpb.Record{
+			StreamName:           streamNameB,
 			AggregateType:        "another",
-			AggregateID:          aggregateID2,
+			AggregateID:          aggregateIDB,
 			GlobalSequenceNumber: 4,
 			StreamSequenceNumber: 1,
 			InsertTimestamp:      3,
@@ -214,17 +225,23 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 		// Given
 		uuid := rangedbtest.NewSeededUUIDGenerator()
 		const (
-			aggregateID1 = "f187760f4d8c4d1c9d9cf17b66766abd"
-			aggregateID2 = "5b36ae984b724685917b69ae47968be1"
+			aggregateIDA = "f187760f4d8c4d1c9d9cf17b66766abd"
+			aggregateIDB = "5b36ae984b724685917b69ae47968be1"
 		)
 		store := inmemorystore.New(
 			inmemorystore.WithClock(sequentialclock.New()),
 			inmemorystore.WithUUIDGenerator(uuid),
 		)
 		ctx := rangedbtest.TimeoutContext(t)
-		rangedbtest.BlockingSaveEvents(t, store,
-			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 100}},
-			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 200}},
+		eventA1 := rangedbtest.ThingWasDone{ID: aggregateIDA, Number: 100}
+		eventA2 := rangedbtest.ThingWasDone{ID: aggregateIDA, Number: 200}
+		eventA3 := rangedbtest.ThingWasDone{ID: aggregateIDA, Number: 300}
+		eventB1 := rangedbtest.AnotherWasComplete{ID: aggregateIDB}
+		streamNameA := rangedb.GetEventStream(eventA1)
+		streamNameB := rangedb.GetEventStream(eventB1)
+		rangedbtest.BlockingSaveEvents(t, store, streamNameA,
+			&rangedb.EventRecord{Event: eventA1},
+			&rangedb.EventRecord{Event: eventA2},
 		)
 		rangeDBClient := getClient(t, store)
 		request := &rangedbpb.SubscribeToEventsRequest{
@@ -242,12 +259,8 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 		require.NoError(t, err)
 		actualRecords <- record
 
-		rangedbtest.BlockingSaveEvents(t, store,
-			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 300}},
-		)
-		rangedbtest.BlockingSaveEvents(t, store,
-			&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: aggregateID2}},
-		)
+		rangedbtest.BlockingSaveEvents(t, store, streamNameA, &rangedb.EventRecord{Event: eventA3})
+		rangedbtest.BlockingSaveEvents(t, store, streamNameB, &rangedb.EventRecord{Event: eventB1})
 
 		for i := 0; i < 2; i++ {
 			record, err := events.Recv()
@@ -257,8 +270,9 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 		close(actualRecords)
 
 		expectedRecord1 := &rangedbpb.Record{
+			StreamName:           streamNameA,
 			AggregateType:        "thing",
-			AggregateID:          aggregateID1,
+			AggregateID:          aggregateIDA,
 			GlobalSequenceNumber: 2,
 			StreamSequenceNumber: 2,
 			InsertTimestamp:      1,
@@ -268,8 +282,9 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 			Metadata:             "null",
 		}
 		expectedRecord2 := &rangedbpb.Record{
+			StreamName:           streamNameA,
 			AggregateType:        "thing",
-			AggregateID:          aggregateID1,
+			AggregateID:          aggregateIDA,
 			GlobalSequenceNumber: 3,
 			StreamSequenceNumber: 3,
 			InsertTimestamp:      2,
@@ -279,8 +294,9 @@ func TestRangeDBServer_SubscribeToEvents(t *testing.T) {
 			Metadata:             "null",
 		}
 		expectedRecord3 := &rangedbpb.Record{
+			StreamName:           streamNameB,
 			AggregateType:        "another",
-			AggregateID:          aggregateID2,
+			AggregateID:          aggregateIDB,
 			GlobalSequenceNumber: 4,
 			StreamSequenceNumber: 1,
 			InsertTimestamp:      3,
@@ -301,8 +317,9 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 		// Given
 		uuid := rangedbtest.NewSeededUUIDGenerator()
 		const (
-			aggregateID1 = "f187760f4d8c4d1c9d9cf17b66766abd"
-			aggregateID2 = "5b36ae984b724685917b69ae47968be1"
+			aggregateIDA = "f187760f4d8c4d1c9d9cf17b66766abd"
+			aggregateIDB = "5b36ae984b724685917b69ae47968be1"
+			aggregateIDC = "a94e2d29c5d04c9181b7579ecb63fa96"
 		)
 
 		store := inmemorystore.New(
@@ -310,9 +327,17 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 			inmemorystore.WithUUIDGenerator(uuid),
 		)
 		ctx := rangedbtest.TimeoutContext(t)
-		rangedbtest.BlockingSaveEvents(t, store,
-			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 100}},
-			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 200}},
+		eventA1 := rangedbtest.ThingWasDone{ID: aggregateIDA, Number: 100}
+		eventA2 := rangedbtest.ThingWasDone{ID: aggregateIDA, Number: 200}
+		eventA3 := rangedbtest.ThingWasDone{ID: aggregateIDA, Number: 300}
+		eventB1 := rangedbtest.ThatWasDone{ID: aggregateIDB}
+		eventC1 := rangedbtest.AnotherWasComplete{ID: aggregateIDC}
+		streamNameA := rangedb.GetEventStream(eventA1)
+		streamNameB := rangedb.GetEventStream(eventB1)
+		streamNameC := rangedb.GetEventStream(eventC1)
+		rangedbtest.BlockingSaveEvents(t, store, streamNameA,
+			&rangedb.EventRecord{Event: eventA1},
+			&rangedb.EventRecord{Event: eventA2},
 		)
 		rangeDBClient := getClient(t, store)
 		request := &rangedbpb.SubscribeToEventsByAggregateTypeRequest{
@@ -331,15 +356,9 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 		require.NoError(t, err)
 		actualRecords <- record
 
-		rangedbtest.BlockingSaveEvents(t, store,
-			&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: aggregateID1, Number: 300}},
-		)
-		rangedbtest.BlockingSaveEvents(t, store,
-			&rangedb.EventRecord{Event: rangedbtest.ThatWasDone{ID: aggregateID2}},
-		)
-		rangedbtest.BlockingSaveEvents(t, store,
-			&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: aggregateID2}},
-		)
+		rangedbtest.BlockingSaveEvents(t, store, streamNameA, &rangedb.EventRecord{Event: eventA3})
+		rangedbtest.BlockingSaveEvents(t, store, streamNameB, &rangedb.EventRecord{Event: eventB1})
+		rangedbtest.BlockingSaveEvents(t, store, streamNameC, &rangedb.EventRecord{Event: eventC1})
 
 		for i := 0; i < 2; i++ {
 			record, err := events.Recv()
@@ -349,8 +368,9 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 		close(actualRecords)
 
 		expectedRecord1 := &rangedbpb.Record{
+			StreamName:           streamNameA,
 			AggregateType:        "thing",
-			AggregateID:          aggregateID1,
+			AggregateID:          aggregateIDA,
 			GlobalSequenceNumber: 2,
 			StreamSequenceNumber: 2,
 			InsertTimestamp:      1,
@@ -360,8 +380,9 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 			Metadata:             "null",
 		}
 		expectedRecord2 := &rangedbpb.Record{
+			StreamName:           streamNameA,
 			AggregateType:        "thing",
-			AggregateID:          aggregateID1,
+			AggregateID:          aggregateIDA,
 			GlobalSequenceNumber: 3,
 			StreamSequenceNumber: 3,
 			InsertTimestamp:      2,
@@ -371,14 +392,15 @@ func TestRangeDBServer_SubscribeToEventsByAggregateType(t *testing.T) {
 			Metadata:             "null",
 		}
 		expectedRecord3 := &rangedbpb.Record{
+			StreamName:           streamNameC,
 			AggregateType:        "another",
-			AggregateID:          aggregateID2,
+			AggregateID:          aggregateIDC,
 			GlobalSequenceNumber: 5,
 			StreamSequenceNumber: 1,
 			InsertTimestamp:      4,
 			EventID:              uuid.Get(5),
 			EventType:            "AnotherWasComplete",
-			Data:                 `{"id":"5b36ae984b724685917b69ae47968be1"}`,
+			Data:                 `{"id":"a94e2d29c5d04c9181b7579ecb63fa96"}`,
 			Metadata:             "null",
 		}
 		assertPbRecordsEqual(t, expectedRecord1, <-actualRecords)
@@ -399,18 +421,22 @@ func TestRangeDBServer_Save(t *testing.T) {
 		rangeDBClient := getClient(t, store)
 		ctx := rangedbtest.TimeoutContext(t)
 		const aggregateID = "69ac39e8df52419c98fe71e2f8692b72"
+		const streamName = "thing-" + aggregateID
 		request := &rangedbpb.SaveRequest{
-			AggregateType: "thing",
-			AggregateID:   aggregateID,
+			StreamName: streamName,
 			Events: []*rangedbpb.Event{
 				{
-					Type:     "ThingWasDone",
-					Data:     `{"id":"69ac39e8df52419c98fe71e2f8692b72","number":100}`,
-					Metadata: "",
+					AggregateType: "thing",
+					AggregateID:   aggregateID,
+					EventType:     "ThingWasDone",
+					Data:          `{"id":"69ac39e8df52419c98fe71e2f8692b72","number":100}`,
+					Metadata:      "",
 				},
 				{
-					Type: "ThingWasDone",
-					Data: `{"id":"69ac39e8df52419c98fe71e2f8692b72","number":200}`,
+					AggregateType: "thing",
+					AggregateID:   aggregateID,
+					EventType:     "ThingWasDone",
+					Data:          `{"id":"69ac39e8df52419c98fe71e2f8692b72","number":200}`,
 				},
 			},
 		}
@@ -425,6 +451,7 @@ func TestRangeDBServer_Save(t *testing.T) {
 		recordIterator := store.Events(ctx, 0)
 		rangedbtest.AssertRecordsInIterator(t, recordIterator,
 			&rangedb.Record{
+				StreamName:           streamName,
 				AggregateType:        "thing",
 				AggregateID:          aggregateID,
 				GlobalSequenceNumber: 1,
@@ -439,6 +466,7 @@ func TestRangeDBServer_Save(t *testing.T) {
 				Metadata: nil,
 			},
 			&rangedb.Record{
+				StreamName:           streamName,
 				AggregateType:        "thing",
 				AggregateID:          aggregateID,
 				GlobalSequenceNumber: 2,
@@ -466,17 +494,20 @@ func TestRangeDBServer_Save(t *testing.T) {
 		ctx := rangedbtest.TimeoutContext(t)
 		const aggregateID = "7501649949fc46b389772a3e7df6c563"
 		request := &rangedbpb.SaveRequest{
-			AggregateType: "thing",
-			AggregateID:   aggregateID,
+			StreamName: "thing-7501649949fc46b389772a3e7df6c563",
 			Events: []*rangedbpb.Event{
 				{
-					Type:     "ThingWasDone",
-					Data:     `{"id":"7501649949fc46b389772a3e7df6c563","number":100}`,
-					Metadata: "",
+					AggregateType: "thing",
+					AggregateID:   aggregateID,
+					EventType:     "ThingWasDone",
+					Data:          `{"id":"7501649949fc46b389772a3e7df6c563","number":100}`,
+					Metadata:      "",
 				},
 				{
-					Type: "ThingWasDone",
-					Data: `{invalid-json`,
+					AggregateType: "thing",
+					AggregateID:   aggregateID,
+					EventType:     "ThingWasDone",
+					Data:          `{invalid-json`,
 				},
 			},
 		}
@@ -502,18 +533,21 @@ func TestRangeDBServer_Save(t *testing.T) {
 		ctx := rangedbtest.TimeoutContext(t)
 		const aggregateID = "340e6f63af8b4fcc8d66ba02adb7d92d"
 		request := &rangedbpb.SaveRequest{
-			AggregateType: "thing",
-			AggregateID:   aggregateID,
+			StreamName: "thing-340e6f63af8b4fcc8d66ba02adb7d92d",
 			Events: []*rangedbpb.Event{
 				{
-					Type:     "ThingWasDone",
-					Data:     `{"id":"340e6f63af8b4fcc8d66ba02adb7d92d","number":100}`,
-					Metadata: "",
+					AggregateType: "thing",
+					AggregateID:   aggregateID,
+					EventType:     "ThingWasDone",
+					Data:          `{"id":"340e6f63af8b4fcc8d66ba02adb7d92d","number":100}`,
+					Metadata:      "",
 				},
 				{
-					Type:     "ThingWasDone",
-					Data:     `{"id":"340e6f63af8b4fcc8d66ba02adb7d92d","number":100}`,
-					Metadata: `{invalid-json`,
+					AggregateType: "thing",
+					AggregateID:   aggregateID,
+					EventType:     "ThingWasDone",
+					Data:          `{"id":"340e6f63af8b4fcc8d66ba02adb7d92d","number":100}`,
+					Metadata:      `{invalid-json`,
 				},
 			},
 		}
@@ -535,18 +569,21 @@ func TestRangeDBServer_Save(t *testing.T) {
 		ctx := rangedbtest.TimeoutContext(t)
 		const aggregateID = "1193540fc0f3485b8dee57ae57fc745b"
 		request := &rangedbpb.SaveRequest{
-			AggregateType: "thing",
-			AggregateID:   aggregateID,
+			StreamName: "thing-1193540fc0f3485b8dee57ae57fc745b",
 			Events: []*rangedbpb.Event{
 				{
-					Type:     "ThingWasDone",
-					Data:     `{"id":"1193540fc0f3485b8dee57ae57fc745b","number":100}`,
-					Metadata: "",
+					AggregateType: "thing",
+					AggregateID:   aggregateID,
+					EventType:     "ThingWasDone",
+					Data:          `{"id":"1193540fc0f3485b8dee57ae57fc745b","number":100}`,
+					Metadata:      "",
 				},
 				{
-					Type:     "ThingWasDone",
-					Data:     `{"id":"1193540fc0f3485b8dee57ae57fc745b","number":100}`,
-					Metadata: "",
+					AggregateType: "thing",
+					AggregateID:   aggregateID,
+					EventType:     "ThingWasDone",
+					Data:          `{"id":"1193540fc0f3485b8dee57ae57fc745b","number":100}`,
+					Metadata:      "",
 				},
 			},
 		}
@@ -572,20 +609,27 @@ func TestRangeDBServer_OptimisticSave(t *testing.T) {
 		)
 		rangeDBClient := getClient(t, store)
 		ctx := rangedbtest.TimeoutContext(t)
-		const aggregateID = "c46671e5c22b478e9f5ccb5185910e5d"
+		const (
+			aggregateID = "c46671e5c22b478e9f5ccb5185910e5d"
+			streamName  = "thing-c46671e5c22b478e9f5ccb5185910e5d"
+		)
+
 		request := &rangedbpb.OptimisticSaveRequest{
 			ExpectedStreamSequenceNumber: 0,
-			AggregateType:                "thing",
-			AggregateID:                  aggregateID,
+			StreamName:                   streamName,
 			Events: []*rangedbpb.Event{
 				{
-					Type:     "ThingWasDone",
-					Data:     `{"id":"c46671e5c22b478e9f5ccb5185910e5d","number":100}`,
-					Metadata: "",
+					AggregateType: "thing",
+					AggregateID:   aggregateID,
+					EventType:     "ThingWasDone",
+					Data:          `{"id":"c46671e5c22b478e9f5ccb5185910e5d","number":100}`,
+					Metadata:      "",
 				},
 				{
-					Type: "ThingWasDone",
-					Data: `{"id":"c46671e5c22b478e9f5ccb5185910e5d","number":200}`,
+					AggregateType: "thing",
+					AggregateID:   aggregateID,
+					EventType:     "ThingWasDone",
+					Data:          `{"id":"c46671e5c22b478e9f5ccb5185910e5d","number":200}`,
 				},
 			},
 		}
@@ -599,6 +643,7 @@ func TestRangeDBServer_OptimisticSave(t *testing.T) {
 		recordIterator := store.Events(ctx, 0)
 		rangedbtest.AssertRecordsInIterator(t, recordIterator,
 			&rangedb.Record{
+				StreamName:           streamName,
 				AggregateType:        "thing",
 				AggregateID:          aggregateID,
 				GlobalSequenceNumber: 1,
@@ -613,6 +658,7 @@ func TestRangeDBServer_OptimisticSave(t *testing.T) {
 				Metadata: nil,
 			},
 			&rangedb.Record{
+				StreamName:           streamName,
 				AggregateType:        "thing",
 				AggregateID:          aggregateID,
 				GlobalSequenceNumber: 2,
@@ -641,17 +687,20 @@ func TestRangeDBServer_OptimisticSave(t *testing.T) {
 		const aggregateID = "618d9342a96c4a7f811ff5264e2ea813"
 		request := &rangedbpb.OptimisticSaveRequest{
 			ExpectedStreamSequenceNumber: 0,
-			AggregateType:                "thing",
-			AggregateID:                  aggregateID,
+			StreamName:                   "thing-618d9342a96c4a7f811ff5264e2ea813",
 			Events: []*rangedbpb.Event{
 				{
-					Type:     "ThingWasDone",
-					Data:     `{"id":"618d9342a96c4a7f811ff5264e2ea813","number":100}`,
-					Metadata: "",
+					AggregateType: "thing",
+					AggregateID:   aggregateID,
+					EventType:     "ThingWasDone",
+					Data:          `{"id":"618d9342a96c4a7f811ff5264e2ea813","number":100}`,
+					Metadata:      "",
 				},
 				{
-					Type: "ThingWasDone",
-					Data: `{invalid-json`,
+					AggregateType: "thing",
+					AggregateID:   aggregateID,
+					EventType:     "ThingWasDone",
+					Data:          `{invalid-json`,
 				},
 			},
 		}
@@ -677,18 +726,21 @@ func TestRangeDBServer_OptimisticSave(t *testing.T) {
 		ctx := rangedbtest.TimeoutContext(t)
 		const aggregateID = "01745588c1854a2c84ed5a13c6fd133c"
 		request := &rangedbpb.OptimisticSaveRequest{
-			AggregateType: "thing",
-			AggregateID:   aggregateID,
+			StreamName: "thing-01745588c1854a2c84ed5a13c6fd133c",
 			Events: []*rangedbpb.Event{
 				{
-					Type:     "ThingWasDone",
-					Data:     `{"id":"01745588c1854a2c84ed5a13c6fd133c","number":100}`,
-					Metadata: "",
+					AggregateType: "thing",
+					AggregateID:   aggregateID,
+					EventType:     "ThingWasDone",
+					Data:          `{"id":"01745588c1854a2c84ed5a13c6fd133c","number":100}`,
+					Metadata:      "",
 				},
 				{
-					Type:     "ThingWasDone",
-					Data:     `{"id":"01745588c1854a2c84ed5a13c6fd133c","number":100}`,
-					Metadata: `{invalid-json`,
+					AggregateType: "thing",
+					AggregateID:   aggregateID,
+					EventType:     "ThingWasDone",
+					Data:          `{"id":"01745588c1854a2c84ed5a13c6fd133c","number":100}`,
+					Metadata:      `{invalid-json`,
 				},
 			},
 		}
@@ -710,18 +762,21 @@ func TestRangeDBServer_OptimisticSave(t *testing.T) {
 		ctx := rangedbtest.TimeoutContext(t)
 		const aggregateID = "92256cc1d6af4d5f96f31eff23de61cd"
 		request := &rangedbpb.OptimisticSaveRequest{
-			AggregateType: "thing",
-			AggregateID:   aggregateID,
+			StreamName: "thing-92256cc1d6af4d5f96f31eff23de61cd",
 			Events: []*rangedbpb.Event{
 				{
-					Type:     "ThingWasDone",
-					Data:     `{"id":"92256cc1d6af4d5f96f31eff23de61cd","number":100}`,
-					Metadata: "",
+					AggregateType: "thing",
+					AggregateID:   aggregateID,
+					EventType:     "ThingWasDone",
+					Data:          `{"id":"92256cc1d6af4d5f96f31eff23de61cd","number":100}`,
+					Metadata:      "",
 				},
 				{
-					Type:     "ThingWasDone",
-					Data:     `{"id":"92256cc1d6af4d5f96f31eff23de61cd","number":100}`,
-					Metadata: "",
+					AggregateType: "thing",
+					AggregateID:   aggregateID,
+					EventType:     "ThingWasDone",
+					Data:          `{"id":"92256cc1d6af4d5f96f31eff23de61cd","number":100}`,
+					Metadata:      "",
 				},
 			},
 		}

@@ -30,7 +30,8 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 	rangedbtest.BindEvents(inMemoryStore)
 	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
 	defer done()
-	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+	streamName := "thing-9f5b723b51fe4703883bde0d6d6f3fa9"
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx, streamName,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "9f5b723b51fe4703883bde0d6d6f3fa9", Number: 1}},
 	)))
 
@@ -81,13 +82,16 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 		wg.Done()
 	}()
 
-	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+	streamNameA := "thing-52e247a7c0a54a65906e006dac9be108"
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx, streamNameA,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "52e247a7c0a54a65906e006dac9be108", Number: 2}},
 	)))
-	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+	streamNameB := "that-de33dd02222f443b86861a9fb4574ce9"
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx, streamNameB,
 		&rangedb.EventRecord{Event: rangedbtest.ThatWasDone{ID: "de33dd02222f443b86861a9fb4574ce9"}},
 	)))
-	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+	streamNameC := "another-a3d9faa7614a46b388c6dce9984b6620"
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx, streamNameC,
 		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a3d9faa7614a46b388c6dce9984b6620"}},
 	)))
 
@@ -95,6 +99,7 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 
 	// Output:
 	// {
+	//   "StreamName": "thing-9f5b723b51fe4703883bde0d6d6f3fa9",
 	//   "AggregateType": "thing",
 	//   "AggregateID": "9f5b723b51fe4703883bde0d6d6f3fa9",
 	//   "GlobalSequenceNumber": 1,
@@ -105,6 +110,7 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 	//   "Metadata": "null"
 	// }
 	// {
+	//   "StreamName": "thing-52e247a7c0a54a65906e006dac9be108",
 	//   "AggregateType": "thing",
 	//   "AggregateID": "52e247a7c0a54a65906e006dac9be108",
 	//   "GlobalSequenceNumber": 2,
@@ -116,6 +122,7 @@ func ExampleRangeDBServer_SubscribeToEventsByAggregateType() {
 	//   "Metadata": "null"
 	// }
 	// {
+	//   "StreamName": "another-a3d9faa7614a46b388c6dce9984b6620",
 	//   "AggregateType": "another",
 	//   "AggregateID": "a3d9faa7614a46b388c6dce9984b6620",
 	//   "GlobalSequenceNumber": 4,

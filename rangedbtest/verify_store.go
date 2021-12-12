@@ -25,27 +25,32 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 		t.Run("returns 2 events", func(t *testing.T) {
 			// Given
 			uuid := NewSeededUUIDGenerator()
-			const aggregateIDA = "e332c377d5874a1d884033dac45dedab"
-			const aggregateIDB = "7188fc63d29a4f58a007406160139320"
+			const (
+				aggregateIDA = "e332c377d5874a1d884033dac45dedab"
+				aggregateIDB = "7188fc63d29a4f58a007406160139320"
+			)
 			store := newStore(t, sequentialclock.New(), uuid)
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
 			eventB := &ThingWasDone{ID: aggregateIDB, Number: 3}
+			streamNameA := rangedb.GetEventStream(eventA1)
+			streamNameB := rangedb.GetEventStream(eventB)
 			ctx := TimeoutContext(t)
-			SaveEvents(t, store,
+			SaveEvents(t, store, streamNameA,
 				&rangedb.EventRecord{Event: eventA1},
 				&rangedb.EventRecord{Event: eventA2},
 			)
-			SaveEvents(t, store,
+			SaveEvents(t, store, streamNameB,
 				&rangedb.EventRecord{Event: eventB},
 			)
 
 			// When
-			recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(eventA1))
+			recordIterator := store.EventsByStream(ctx, 0, streamNameA)
 
 			// Then
 			AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
+					StreamName:           streamNameA,
 					AggregateType:        eventA1.AggregateType(),
 					AggregateID:          eventA1.AggregateID(),
 					GlobalSequenceNumber: 1,
@@ -57,6 +62,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 					Metadata:             nil,
 				},
 				&rangedb.Record{
+					StreamName:           streamNameA,
 					AggregateType:        eventA2.AggregateType(),
 					AggregateID:          eventA2.AggregateID(),
 					GlobalSequenceNumber: 2,
@@ -80,22 +86,25 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
 			eventA3 := &ThingWasDone{ID: aggregateIDA, Number: 3}
 			eventB := &ThingWasDone{ID: aggregateIDB, Number: 3}
+			streamNameA := rangedb.GetEventStream(eventA1)
+			streamNameB := rangedb.GetEventStream(eventB)
 			ctx := TimeoutContext(t)
-			SaveEvents(t, store,
+			SaveEvents(t, store, streamNameA,
 				&rangedb.EventRecord{Event: eventA1},
 				&rangedb.EventRecord{Event: eventA2},
 				&rangedb.EventRecord{Event: eventA3},
 			)
-			SaveEvents(t, store,
+			SaveEvents(t, store, streamNameB,
 				&rangedb.EventRecord{Event: eventB},
 			)
 
 			// When
-			recordIterator := store.EventsByStream(ctx, 2, rangedb.GetEventStream(eventA1))
+			recordIterator := store.EventsByStream(ctx, 2, streamNameA)
 
 			// Then
 			AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
+					StreamName:           streamNameA,
 					AggregateType:        eventA2.AggregateType(),
 					AggregateID:          eventA2.AggregateID(),
 					GlobalSequenceNumber: 2,
@@ -107,6 +116,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 					Metadata:             nil,
 				},
 				&rangedb.Record{
+					StreamName:           streamNameA,
 					AggregateType:        eventA3.AggregateType(),
 					AggregateID:          eventA3.AggregateID(),
 					GlobalSequenceNumber: 3,
@@ -134,10 +144,11 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 				eventRecords = append(eventRecords, &rangedb.EventRecord{Event: event})
 			}
 			ctx := TimeoutContext(t)
-			SaveEvents(t, store, eventRecords...)
+			streamName := rangedb.GetEventStream(events[0])
+			SaveEvents(t, store, streamName, eventRecords...)
 
 			// When
-			recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(events[0]))
+			recordIterator := store.EventsByStream(ctx, 0, streamName)
 
 			// Then
 			for i, event := range events {
@@ -158,22 +169,25 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			store := newStore(t, sequentialclock.New(), uuid)
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
-			eventB := &ThingWasDone{ID: aggregateIDB, Number: 3}
+			eventB1 := &ThingWasDone{ID: aggregateIDB, Number: 3}
 			ctx := TimeoutContext(t)
-			SaveEvents(t, store,
+			streamNameA := rangedb.GetEventStream(eventA1)
+			streamNameB := rangedb.GetEventStream(eventB1)
+			SaveEvents(t, store, streamNameA,
 				&rangedb.EventRecord{Event: eventA1},
 				&rangedb.EventRecord{Event: eventA2},
 			)
-			SaveEvents(t, store,
-				&rangedb.EventRecord{Event: eventB},
+			SaveEvents(t, store, streamNameB,
+				&rangedb.EventRecord{Event: eventB1},
 			)
 
 			// When
-			recordIterator := store.EventsByStream(ctx, 2, rangedb.GetEventStream(eventA1))
+			recordIterator := store.EventsByStream(ctx, 2, streamNameA)
 
 			// Then
 			AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
+					StreamName:           streamNameA,
 					AggregateType:        eventA2.AggregateType(),
 					AggregateID:          eventA2.AggregateID(),
 					GlobalSequenceNumber: 2,
@@ -197,18 +211,13 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
 			eventA3 := &ThingWasDone{ID: aggregateIDA, Number: 3}
 			eventA4 := &ThingWasDone{ID: aggregateIDA, Number: 4}
-			eventB := &ThingWasDone{ID: aggregateIDB, Number: 4}
-			SaveEvents(t, store,
-				&rangedb.EventRecord{Event: eventA1},
-				&rangedb.EventRecord{Event: eventA2},
-				&rangedb.EventRecord{Event: eventA3},
-				&rangedb.EventRecord{Event: eventA4},
-			)
-			SaveEvents(t, store,
-				&rangedb.EventRecord{Event: eventB},
-			)
+			eventB1 := &ThingWasDone{ID: aggregateIDB, Number: 4}
+			streamNameA := rangedb.GetEventStream(eventA1)
+			streamNameB := rangedb.GetEventStream(eventB1)
+			SaveEvents(t, store, streamNameA, &rangedb.EventRecord{Event: eventA1}, &rangedb.EventRecord{Event: eventA2}, &rangedb.EventRecord{Event: eventA3}, &rangedb.EventRecord{Event: eventA4})
+			SaveEvents(t, store, streamNameB, &rangedb.EventRecord{Event: eventB1})
 			ctx, done := context.WithCancel(TimeoutContext(t))
-			recordIterator := store.EventsByStream(ctx, 2, rangedb.GetEventStream(eventA1))
+			recordIterator := store.EventsByStream(ctx, 2, streamNameA)
 
 			// When
 			require.True(t, recordIterator.Next(), recordIterator.Err())
@@ -216,6 +225,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 
 			// Then
 			expectedRecord := &rangedb.Record{
+				StreamName:           streamNameA,
 				AggregateType:        eventA2.AggregateType(),
 				AggregateID:          eventA2.AggregateID(),
 				GlobalSequenceNumber: 2,
@@ -236,12 +246,13 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			store := newStore(t, sequentialclock.New(), uuid)
 			const aggregateID = "a1a112b026cc4ee287df2b201ebeae31"
 			event := &ThingWasDone{ID: aggregateID, Number: 1}
-			SaveEvents(t, store, &rangedb.EventRecord{Event: event})
+			streamName := rangedb.GetEventStream(event)
+			SaveEvents(t, store, streamName, &rangedb.EventRecord{Event: event})
 			ctx, done := context.WithCancel(TimeoutContext(t))
 			done()
 
 			// When
-			recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event))
+			recordIterator := store.EventsByStream(ctx, 0, streamName)
 
 			// Then
 			assertCanceledIterator(t, recordIterator)
@@ -275,10 +286,13 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			thingWasDoneA1 := &ThingWasDone{ID: aggregateIDA, Number: 200}
 			thingWasDoneB0 := &ThingWasDone{ID: aggregateIDB, Number: 300}
 			AnotherWasCompleteX0 := &AnotherWasComplete{ID: aggregateIDX}
-			SaveEvents(t, store, &rangedb.EventRecord{Event: thingWasDoneA0})
-			SaveEvents(t, store, &rangedb.EventRecord{Event: thingWasDoneB0})
-			SaveEvents(t, store, &rangedb.EventRecord{Event: thingWasDoneA1})
-			SaveEvents(t, store, &rangedb.EventRecord{Event: AnotherWasCompleteX0})
+			streamNameA := rangedb.GetEventStream(thingWasDoneA0)
+			streamNameB := rangedb.GetEventStream(thingWasDoneB0)
+			streamNameX := rangedb.GetEventStream(AnotherWasCompleteX0)
+			SaveEvents(t, store, streamNameA, &rangedb.EventRecord{Event: thingWasDoneA0})
+			SaveEvents(t, store, streamNameB, &rangedb.EventRecord{Event: thingWasDoneB0})
+			SaveEvents(t, store, streamNameA, &rangedb.EventRecord{Event: thingWasDoneA1})
+			SaveEvents(t, store, streamNameX, &rangedb.EventRecord{Event: AnotherWasCompleteX0})
 			ctx := TimeoutContext(t)
 
 			// When
@@ -287,6 +301,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			// Then
 			AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
+					StreamName:           streamNameA,
 					AggregateType:        thingWasDoneA0.AggregateType(),
 					AggregateID:          thingWasDoneA0.AggregateID(),
 					GlobalSequenceNumber: 1,
@@ -298,6 +313,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 					Metadata:             nil,
 				},
 				&rangedb.Record{
+					StreamName:           streamNameB,
 					AggregateType:        thingWasDoneB0.AggregateType(),
 					AggregateID:          thingWasDoneB0.AggregateID(),
 					GlobalSequenceNumber: 2,
@@ -309,6 +325,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 					Metadata:             nil,
 				},
 				&rangedb.Record{
+					StreamName:           streamNameA,
 					AggregateType:        thingWasDoneA1.AggregateType(),
 					AggregateID:          thingWasDoneA1.AggregateID(),
 					GlobalSequenceNumber: 3,
@@ -320,6 +337,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 					Metadata:             nil,
 				},
 				&rangedb.Record{
+					StreamName:           streamNameX,
 					AggregateType:        AnotherWasCompleteX0.AggregateType(),
 					AggregateID:          AnotherWasCompleteX0.AggregateID(),
 					GlobalSequenceNumber: 4,
@@ -340,8 +358,9 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			const aggregateID = "796ad1e510d043fab6a4134efc4a841c"
 			event1 := &ThingWasDone{ID: aggregateID, Number: 1}
 			event2 := &ThingWasDone{ID: aggregateID, Number: 2}
+			streamName := rangedb.GetEventStream(event1)
 			ctx := TimeoutContext(t)
-			SaveEvents(t, store,
+			SaveEvents(t, store, streamName,
 				&rangedb.EventRecord{Event: event1},
 				&rangedb.EventRecord{Event: event2},
 			)
@@ -352,6 +371,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			// Then
 			AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
+					StreamName:           streamName,
 					AggregateType:        event2.AggregateType(),
 					AggregateID:          event2.AggregateID(),
 					GlobalSequenceNumber: 2,
@@ -375,12 +395,14 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
 			eventB1 := &ThingWasDone{ID: aggregateIDB, Number: 3}
 			eventB2 := &ThingWasDone{ID: aggregateIDB, Number: 4}
+			streamNameA := rangedb.GetEventStream(eventA1)
+			streamNameB := rangedb.GetEventStream(eventB1)
 			ctx := TimeoutContext(t)
-			SaveEvents(t, store,
+			SaveEvents(t, store, streamNameA,
 				&rangedb.EventRecord{Event: eventA1},
 				&rangedb.EventRecord{Event: eventA2},
 			)
-			SaveEvents(t, store,
+			SaveEvents(t, store, streamNameB,
 				&rangedb.EventRecord{Event: eventB1},
 				&rangedb.EventRecord{Event: eventB2},
 			)
@@ -391,6 +413,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			// Then
 			AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
+					StreamName:           streamNameB,
 					AggregateType:        eventB1.AggregateType(),
 					AggregateID:          eventB1.AggregateID(),
 					GlobalSequenceNumber: 3,
@@ -402,6 +425,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 					Metadata:             nil,
 				},
 				&rangedb.Record{
+					StreamName:           streamNameB,
 					AggregateType:        eventB2.AggregateType(),
 					AggregateID:          eventB2.AggregateID(),
 					GlobalSequenceNumber: 4,
@@ -421,7 +445,8 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			store := newStore(t, sequentialclock.New(), uuid)
 			const aggregateID = "af6e43e45b284fb2b8e3e8cf055acd93"
 			event := &ThingWasDone{ID: aggregateID, Number: 1}
-			SaveEvents(t, store, &rangedb.EventRecord{Event: event})
+			streamName := rangedb.GetEventStream(event)
+			SaveEvents(t, store, streamName, &rangedb.EventRecord{Event: event})
 			ctx, done := context.WithCancel(TimeoutContext(t))
 			done()
 
@@ -441,8 +466,9 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			event2 := &ThingWasDone{ID: aggregateID, Number: 2}
 			event3 := &ThingWasDone{ID: aggregateID, Number: 3}
 			event4 := &ThingWasDone{ID: aggregateID, Number: 4}
+			streamName := rangedb.GetEventStream(event1)
 			ctx, done := context.WithCancel(TimeoutContext(t))
-			SaveEvents(t, store,
+			SaveEvents(t, store, streamName,
 				&rangedb.EventRecord{Event: event1},
 				&rangedb.EventRecord{Event: event2},
 				&rangedb.EventRecord{Event: event3},
@@ -456,6 +482,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 
 			// Then
 			expectedRecord := &rangedb.Record{
+				StreamName:           streamName,
 				AggregateType:        event2.AggregateType(),
 				AggregateID:          event2.AggregateID(),
 				GlobalSequenceNumber: 2,
@@ -480,11 +507,14 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			thingWasDoneA1 := &ThingWasDone{ID: aggregateIDA, Number: 200}
 			thingWasDoneB0 := &ThingWasDone{ID: aggregateIDB, Number: 300}
 			AnotherWasCompleteX0 := &AnotherWasComplete{ID: aggregateIDX}
+			streamNameA := rangedb.GetEventStream(thingWasDoneA0)
+			streamNameB := rangedb.GetEventStream(thingWasDoneB0)
+			streamNameX := rangedb.GetEventStream(AnotherWasCompleteX0)
 			ctx := TimeoutContext(t)
-			SaveEvents(t, store, &rangedb.EventRecord{Event: thingWasDoneA0})
-			SaveEvents(t, store, &rangedb.EventRecord{Event: thingWasDoneB0})
-			SaveEvents(t, store, &rangedb.EventRecord{Event: thingWasDoneA1})
-			SaveEvents(t, store, &rangedb.EventRecord{Event: AnotherWasCompleteX0})
+			SaveEvents(t, store, streamNameA, &rangedb.EventRecord{Event: thingWasDoneA0})
+			SaveEvents(t, store, streamNameB, &rangedb.EventRecord{Event: thingWasDoneB0})
+			SaveEvents(t, store, streamNameA, &rangedb.EventRecord{Event: thingWasDoneA1})
+			SaveEvents(t, store, streamNameX, &rangedb.EventRecord{Event: AnotherWasCompleteX0})
 
 			// When
 			recordIterator := store.Events(ctx, 5)
@@ -503,13 +533,15 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			const aggregateIDB = "592b21138c024f1dbd626c24b00b8b4e"
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
-			eventB := &ThingWasDone{ID: aggregateIDB, Number: 3}
-			SaveEvents(t, store,
+			eventB1 := &ThingWasDone{ID: aggregateIDB, Number: 3}
+			streamNameA := rangedb.GetEventStream(eventA1)
+			streamNameB := rangedb.GetEventStream(eventB1)
+			SaveEvents(t, store, streamNameA,
 				&rangedb.EventRecord{Event: eventA1},
 				&rangedb.EventRecord{Event: eventA2},
 			)
-			SaveEvents(t, store,
-				&rangedb.EventRecord{Event: eventB},
+			SaveEvents(t, store, streamNameB,
+				&rangedb.EventRecord{Event: eventB1},
 			)
 			ctx := TimeoutContext(t)
 
@@ -519,6 +551,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			// Then
 			AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
+					StreamName:           streamNameA,
 					AggregateType:        eventA1.AggregateType(),
 					AggregateID:          eventA1.AggregateID(),
 					GlobalSequenceNumber: 1,
@@ -530,6 +563,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 					Metadata:             nil,
 				},
 				&rangedb.Record{
+					StreamName:           streamNameA,
 					AggregateType:        eventA2.AggregateType(),
 					AggregateID:          eventA2.AggregateID(),
 					GlobalSequenceNumber: 2,
@@ -541,14 +575,15 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 					Metadata:             nil,
 				},
 				&rangedb.Record{
-					AggregateType:        eventB.AggregateType(),
-					AggregateID:          eventB.AggregateID(),
+					StreamName:           streamNameB,
+					AggregateType:        eventB1.AggregateType(),
+					AggregateID:          eventB1.AggregateID(),
 					GlobalSequenceNumber: 3,
 					StreamSequenceNumber: 1,
-					EventType:            eventB.EventType(),
+					EventType:            eventB1.EventType(),
 					EventID:              uuid.Get(3),
 					InsertTimestamp:      2,
-					Data:                 eventB,
+					Data:                 eventB1,
 					Metadata:             nil,
 				},
 			)
@@ -562,14 +597,16 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			const aggregateIDB = "04761d396e1d4d44b9b6534927b0dd2d"
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
-			eventB := &AnotherWasComplete{ID: aggregateIDB}
+			eventB1 := &AnotherWasComplete{ID: aggregateIDB}
+			streamNameA := rangedb.GetEventStream(eventA1)
+			streamNameB := rangedb.GetEventStream(eventB1)
 			ctx := TimeoutContext(t)
-			SaveEvents(t, store,
+			SaveEvents(t, store, streamNameA,
 				&rangedb.EventRecord{Event: eventA1},
 				&rangedb.EventRecord{Event: eventA2},
 			)
-			SaveEvents(t, store,
-				&rangedb.EventRecord{Event: eventB},
+			SaveEvents(t, store, streamNameB,
+				&rangedb.EventRecord{Event: eventB1},
 			)
 
 			// When
@@ -577,12 +614,13 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 				ctx,
 				2,
 				eventA1.AggregateType(),
-				eventB.AggregateType(),
+				eventB1.AggregateType(),
 			)
 
 			// Then
 			AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
+					StreamName:           streamNameA,
 					AggregateType:        eventA2.AggregateType(),
 					AggregateID:          eventA2.AggregateID(),
 					GlobalSequenceNumber: 2,
@@ -594,14 +632,15 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 					Metadata:             nil,
 				},
 				&rangedb.Record{
-					AggregateType:        eventB.AggregateType(),
-					AggregateID:          eventB.AggregateID(),
+					StreamName:           streamNameB,
+					AggregateType:        eventB1.AggregateType(),
+					AggregateID:          eventB1.AggregateID(),
 					GlobalSequenceNumber: 3,
 					StreamSequenceNumber: 1,
-					EventType:            eventB.EventType(),
+					EventType:            eventB1.EventType(),
 					EventID:              uuid.Get(3),
 					InsertTimestamp:      2,
-					Data:                 eventB,
+					Data:                 eventB1,
 					Metadata:             nil,
 				},
 			)
@@ -613,8 +652,9 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			store := newStore(t, sequentialclock.New(), uuid)
 			const aggregateID = "7af380caca144040bcf3636c44ef0697"
 			event := &ThingWasDone{ID: aggregateID, Number: 1}
+			streamName := rangedb.GetEventStream(event)
 			ctx, done := context.WithCancel(TimeoutContext(t))
-			SaveEvents(t, store, &rangedb.EventRecord{Event: event})
+			SaveEvents(t, store, streamName, &rangedb.EventRecord{Event: event})
 			done()
 
 			// When
@@ -633,11 +673,11 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			store := newStore(t, sequentialclock.New(), uuid)
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
-			SaveEvents(t, store,
+			streamName := rangedb.GetEventStream(eventA1)
+			SaveEvents(t, store, streamName,
 				&rangedb.EventRecord{Event: eventA1},
 				&rangedb.EventRecord{Event: eventA2},
 			)
-			streamName := rangedb.GetEventStream(eventA1)
 			ctx := TimeoutContext(t)
 
 			// When
@@ -671,12 +711,12 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			store := newStore(t, sequentialclock.New(), uuid)
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
+			streamName := rangedb.GetEventStream(eventA1)
 			ctx := TimeoutContext(t)
-			SaveEvents(t, store,
+			SaveEvents(t, store, streamName,
 				&rangedb.EventRecord{Event: eventA1},
 				&rangedb.EventRecord{Event: eventA2},
 			)
-			streamName := rangedb.GetEventStream(eventA1)
 
 			// When
 			err := store.OptimisticDeleteStream(ctx, 5, streamName)
@@ -711,11 +751,11 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			store := newStore(t, sequentialclock.New(), uuid)
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
-			SaveEvents(t, store,
+			streamName := rangedb.GetEventStream(eventA1)
+			SaveEvents(t, store, streamName,
 				&rangedb.EventRecord{Event: eventA1},
 				&rangedb.EventRecord{Event: eventA2},
 			)
-			streamName := rangedb.GetEventStream(eventA1)
 			ctx, done := context.WithCancel(TimeoutContext(t))
 			done()
 
@@ -735,43 +775,47 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 				aggregateIDC = "1ede7e475b6c4766972dd95ec544548e"
 			)
 			store := newStore(t, sequentialclock.New(), uuid)
-			eventA := &ThingWasDone{ID: aggregateIDA, Number: 1}
-			eventB := &AnotherWasComplete{ID: aggregateIDB}
-			eventC := &ThatWasDone{ID: aggregateIDC}
+			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
+			eventB1 := &AnotherWasComplete{ID: aggregateIDB}
+			eventC1 := &ThatWasDone{ID: aggregateIDC}
+			streamNameA := rangedb.GetEventStream(eventA1)
+			streamNameB := rangedb.GetEventStream(eventB1)
+			streamNameC := rangedb.GetEventStream(eventC1)
 			ctx := TimeoutContext(t)
-			SaveEvents(t, store, &rangedb.EventRecord{Event: eventA})
-			SaveEvents(t, store, &rangedb.EventRecord{Event: eventB})
-			streamName := rangedb.GetEventStream(eventB)
+			SaveEvents(t, store, streamNameA, &rangedb.EventRecord{Event: eventA1})
+			SaveEvents(t, store, streamNameB, &rangedb.EventRecord{Event: eventB1})
 
 			// When
-			err := store.OptimisticDeleteStream(ctx, 1, streamName)
+			err := store.OptimisticDeleteStream(ctx, 1, streamNameB)
 
 			// Then
 			require.NoError(t, err)
-			SaveEvents(t, store, &rangedb.EventRecord{Event: eventC})
+			SaveEvents(t, store, streamNameC, &rangedb.EventRecord{Event: eventC1})
 			t.Run("can retrieve from all events", func(t *testing.T) {
 				recordIterator := store.Events(ctx, 0)
 				AssertRecordsInIterator(t, recordIterator,
 					&rangedb.Record{
-						AggregateType:        eventA.AggregateType(),
-						AggregateID:          eventA.AggregateID(),
+						StreamName:           streamNameA,
+						AggregateType:        eventA1.AggregateType(),
+						AggregateID:          eventA1.AggregateID(),
 						GlobalSequenceNumber: 1,
 						StreamSequenceNumber: 1,
-						EventType:            eventA.EventType(),
+						EventType:            eventA1.EventType(),
 						EventID:              uuid.Get(1),
 						InsertTimestamp:      0,
-						Data:                 eventA,
+						Data:                 eventA1,
 						Metadata:             nil,
 					},
 					&rangedb.Record{
-						AggregateType:        eventC.AggregateType(),
-						AggregateID:          eventC.AggregateID(),
+						StreamName:           streamNameC,
+						AggregateType:        eventC1.AggregateType(),
+						AggregateID:          eventC1.AggregateID(),
 						GlobalSequenceNumber: 3,
 						StreamSequenceNumber: 1,
-						EventType:            eventC.EventType(),
+						EventType:            eventC1.EventType(),
 						EventID:              uuid.Get(3),
 						InsertTimestamp:      2,
-						Data:                 eventC,
+						Data:                 eventC1,
 						Metadata:             nil,
 					},
 				)
@@ -779,38 +823,40 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 
 			t.Run("can retrieve by aggregate types", func(t *testing.T) {
 				recordIterator := store.EventsByAggregateTypes(ctx, 0,
-					eventA.AggregateType(),
-					eventB.AggregateType(),
-					eventC.AggregateType(),
+					eventA1.AggregateType(),
+					eventB1.AggregateType(),
+					eventC1.AggregateType(),
 				)
 				AssertRecordsInIterator(t, recordIterator,
 					&rangedb.Record{
-						AggregateType:        eventA.AggregateType(),
-						AggregateID:          eventA.AggregateID(),
+						StreamName:           streamNameA,
+						AggregateType:        eventA1.AggregateType(),
+						AggregateID:          eventA1.AggregateID(),
 						GlobalSequenceNumber: 1,
 						StreamSequenceNumber: 1,
-						EventType:            eventA.EventType(),
+						EventType:            eventA1.EventType(),
 						EventID:              uuid.Get(1),
 						InsertTimestamp:      0,
-						Data:                 eventA,
+						Data:                 eventA1,
 						Metadata:             nil,
 					},
 					&rangedb.Record{
-						AggregateType:        eventC.AggregateType(),
-						AggregateID:          eventC.AggregateID(),
+						StreamName:           streamNameC,
+						AggregateType:        eventC1.AggregateType(),
+						AggregateID:          eventC1.AggregateID(),
 						GlobalSequenceNumber: 3,
 						StreamSequenceNumber: 1,
-						EventType:            eventC.EventType(),
+						EventType:            eventC1.EventType(),
 						EventID:              uuid.Get(3),
 						InsertTimestamp:      2,
-						Data:                 eventC,
+						Data:                 eventC1,
 						Metadata:             nil,
 					},
 				)
 			})
 
 			t.Run("does not exist in stream", func(t *testing.T) {
-				recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(eventB))
+				recordIterator := store.EventsByStream(ctx, 0, streamNameB)
 				require.False(t, recordIterator.Next())
 				assert.Equal(t, rangedb.ErrStreamNotFound, recordIterator.Err())
 			})
@@ -824,21 +870,24 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			const aggregateID = "dea1755baf824f618888ec11785fc11c"
 			store := newStore(t, sequentialclock.New(), uuid)
 			event := &ThingWasDone{ID: aggregateID, Number: 1}
+			streamName := rangedb.GetEventStream(event)
 			ctx := TimeoutContext(t)
 
 			// When
 			newStreamSequenceNumber, err := store.OptimisticSave(
 				ctx,
 				0,
+				streamName,
 				&rangedb.EventRecord{Event: event},
 			)
 
 			// Then
 			require.NoError(t, err)
 			assert.Equal(t, 1, int(newStreamSequenceNumber))
-			recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event))
+			recordIterator := store.EventsByStream(ctx, 0, streamName)
 			AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
+					StreamName:           streamName,
 					AggregateType:        event.AggregateType(),
 					AggregateID:          event.AggregateID(),
 					GlobalSequenceNumber: 1,
@@ -859,22 +908,25 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			store := newStore(t, sequentialclock.New(), uuid)
 			event1 := &ThingWasDone{ID: aggregateID, Number: 1}
 			event2 := &ThingWasDone{ID: aggregateID, Number: 2}
+			streamName := rangedb.GetEventStream(event2)
 			ctx := TimeoutContext(t)
-			SaveEvents(t, store, &rangedb.EventRecord{Event: event1})
+			SaveEvents(t, store, streamName, &rangedb.EventRecord{Event: event1})
 
 			// When
 			newStreamSequenceNumber, err := store.OptimisticSave(
 				ctx,
 				1,
+				streamName,
 				&rangedb.EventRecord{Event: event2},
 			)
 
 			// Then
 			require.NoError(t, err)
 			assert.Equal(t, 2, int(newStreamSequenceNumber))
-			recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event2))
+			recordIterator := store.EventsByStream(ctx, 0, streamName)
 			AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
+					StreamName:           streamName,
 					AggregateType:        event1.AggregateType(),
 					AggregateID:          event1.AggregateID(),
 					GlobalSequenceNumber: 1,
@@ -886,6 +938,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 					Metadata:             nil,
 				},
 				&rangedb.Record{
+					StreamName:           streamName,
 					AggregateType:        event2.AggregateType(),
 					AggregateID:          event2.AggregateID(),
 					GlobalSequenceNumber: 2,
@@ -906,12 +959,14 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			store := newStore(t, sequentialclock.New(), uuid)
 			event1 := &ThingWasDone{ID: aggregateID, Number: 1}
 			event2 := &ThingWasDone{ID: aggregateID, Number: 2}
+			streamName := rangedb.GetEventStream(event1)
 			ctx := TimeoutContext(t)
 
 			// When
 			newStreamSequenceNumber, err := store.OptimisticSave(
 				ctx,
 				0,
+				streamName,
 				&rangedb.EventRecord{
 					Event:    event1,
 					Metadata: nil,
@@ -925,9 +980,10 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			// Then
 			require.NoError(t, err)
 			assert.Equal(t, 2, int(newStreamSequenceNumber))
-			recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event1))
+			recordIterator := store.EventsByStream(ctx, 0, streamName)
 			AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
+					StreamName:           streamName,
 					AggregateType:        event1.AggregateType(),
 					AggregateID:          event1.AggregateID(),
 					GlobalSequenceNumber: 1,
@@ -939,6 +995,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 					Metadata:             nil,
 				},
 				&rangedb.Record{
+					StreamName:           streamName,
 					AggregateType:        event2.AggregateType(),
 					AggregateID:          event2.AggregateID(),
 					GlobalSequenceNumber: 2,
@@ -958,12 +1015,14 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			store := newStore(t, sequentialclock.New(), uuid)
 			const aggregateID = "e332c377d5874a1d884033dac45dedab"
 			event := ThingWasDone{ID: aggregateID, Number: 1}
+			streamName := rangedb.GetEventStream(event)
 			ctx := TimeoutContext(t)
 
 			// When
 			lastStreamSequenceNumber, err := store.OptimisticSave(
 				ctx,
 				1,
+				streamName,
 				&rangedb.EventRecord{Event: event},
 			)
 
@@ -984,6 +1043,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			store := newStore(t, sequentialclock.New(), uuid)
 			const aggregateID = "db6625707734412ab530dd8818cc1e5b"
 			event1 := ThingWasDone{ID: aggregateID, Number: 1}
+			streamName := rangedb.GetEventStream(event1)
 			failingEvent := NewEventThatWillFailUnmarshal("thing", aggregateID)
 			ctx := TimeoutContext(t)
 
@@ -991,6 +1051,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			lastStreamSequenceNumber, err := store.OptimisticSave(
 				ctx,
 				0,
+				streamName,
 				&rangedb.EventRecord{Event: event1},
 				&rangedb.EventRecord{Event: failingEvent},
 			)
@@ -1000,7 +1061,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			assert.Equal(t, uint64(0), lastStreamSequenceNumber)
 
 			t.Run("does not exist in stream", func(t *testing.T) {
-				recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event1))
+				recordIterator := store.EventsByStream(ctx, 0, streamName)
 				require.False(t, recordIterator.Next())
 				assert.Equal(t, rangedb.ErrStreamNotFound, recordIterator.Err())
 			})
@@ -1025,14 +1086,16 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			const aggregateID = "db6625707734412ab530dd8818cc1e5b"
 			event1 := &ThingWasDone{ID: aggregateID, Number: 1}
 			event2 := &ThingWasDone{ID: aggregateID, Number: 2}
+			streamName := rangedb.GetEventStream(event1)
 			failingEvent := NewEventThatWillFailUnmarshal("thing", aggregateID)
 			ctx := TimeoutContext(t)
-			SaveEvents(t, store, &rangedb.EventRecord{Event: event1})
+			SaveEvents(t, store, streamName, &rangedb.EventRecord{Event: event1})
 
 			// When
 			lastStreamSequenceNumber, err := store.OptimisticSave(
 				ctx,
 				0,
+				streamName,
 				&rangedb.EventRecord{Event: event2},
 				&rangedb.EventRecord{Event: failingEvent},
 			)
@@ -1041,6 +1104,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			require.Error(t, err)
 			assert.Equal(t, uint64(0), lastStreamSequenceNumber)
 			expectedRecord := &rangedb.Record{
+				StreamName:           streamName,
 				AggregateType:        event1.AggregateType(),
 				AggregateID:          event1.AggregateID(),
 				GlobalSequenceNumber: 1,
@@ -1053,7 +1117,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			}
 			allEventsIter := store.Events(ctx, 0)
 			AssertRecordsInIterator(t, allEventsIter, expectedRecord)
-			streamEventsIter := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event1))
+			streamEventsIter := store.EventsByStream(ctx, 0, streamName)
 			AssertRecordsInIterator(t, streamEventsIter, expectedRecord)
 			aggregateTypeEventsIter := store.EventsByAggregateTypes(ctx, 0, event1.AggregateType())
 			AssertRecordsInIterator(t, aggregateTypeEventsIter, expectedRecord)
@@ -1066,12 +1130,14 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			const aggregateIDB = "16f623eae8ec492aa83b081abd63415d"
 			eventA := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventB := &AnotherWasComplete{ID: aggregateIDB}
+			streamName := rangedb.GetEventStream(eventA)
 			ctx := TimeoutContext(t)
 
 			// When
 			lastStreamSequenceNumber, err := store.OptimisticSave(
 				ctx,
 				0,
+				streamName,
 				&rangedb.EventRecord{Event: eventA},
 				&rangedb.EventRecord{Event: eventB},
 			)
@@ -1083,17 +1149,20 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 
 		t.Run("does not allow saving multiple events from different streams", func(t *testing.T) {
 			// Given
+			// TODO: should this test be removed?
 			store := newStore(t, sequentialclock.New(), NewSeededUUIDGenerator())
 			const aggregateIDA = "59ad4a670c644687a28cea140398283c"
 			const aggregateIDB = "28c28e267ea9455cb3b43ab8067824b3"
 			eventA := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventB := &ThingWasDone{ID: aggregateIDB, Number: 2}
+			streamName := rangedb.GetEventStream(eventA)
 			ctx := TimeoutContext(t)
 
 			// When
 			lastStreamSequenceNumber, err := store.OptimisticSave(
 				ctx,
 				0,
+				streamName,
 				&rangedb.EventRecord{Event: eventA},
 				&rangedb.EventRecord{Event: eventB},
 			)
@@ -1109,6 +1178,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			store := newStore(t, sequentialclock.New(), uuid)
 			const aggregateID = "6a073d2113544c37a8ae3cfdef78b164"
 			event := &ThingWasDone{ID: aggregateID, Number: 1}
+			streamName := rangedb.GetEventStream(event)
 			ctx, done := context.WithCancel(TimeoutContext(t))
 			done()
 
@@ -1116,6 +1186,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			lastStreamSequenceNumber, err := store.OptimisticSave(
 				ctx,
 				0,
+				streamName,
 				&rangedb.EventRecord{Event: event},
 			)
 
@@ -1126,12 +1197,13 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 
 		t.Run("errors from missing events", func(t *testing.T) {
 			// Given
+			const streamName = "some-stream"
 			uuid := NewSeededUUIDGenerator()
 			store := newStore(t, sequentialclock.New(), uuid)
 			ctx := TimeoutContext(t)
 
 			// When
-			lastStreamSequenceNumber, err := store.OptimisticSave(ctx, 0)
+			lastStreamSequenceNumber, err := store.OptimisticSave(ctx, 0, streamName)
 
 			// Then
 			assert.EqualError(t, err, "missing events")
@@ -1146,16 +1218,51 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			const aggregateID = "3d28f73abf2c40fea57aa0a3de2bd7b9"
 			store := newStore(t, sequentialclock.New(), uuid)
 			event := &ThingWasDone{ID: aggregateID, Number: 1}
+			streamName := rangedb.GetEventStream(event)
 			ctx := TimeoutContext(t)
 
 			// When
-			_, err := store.Save(ctx, &rangedb.EventRecord{Event: event})
+			_, err := store.Save(ctx, streamName, &rangedb.EventRecord{Event: event})
 
 			// Then
 			require.NoError(t, err)
-			recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event))
+			recordIterator := store.EventsByStream(ctx, 0, streamName)
 			AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
+					StreamName:           streamName,
+					AggregateType:        event.AggregateType(),
+					AggregateID:          event.AggregateID(),
+					GlobalSequenceNumber: 1,
+					StreamSequenceNumber: 1,
+					EventType:            event.EventType(),
+					EventID:              uuid.Get(1),
+					InsertTimestamp:      0,
+					Data:                 event,
+					Metadata:             nil,
+				},
+			)
+		})
+
+		t.Run("with custom stream name", func(t *testing.T) {
+			// Given
+			uuid := NewSeededUUIDGenerator()
+			const (
+				aggregateID = "3d28f73abf2c40fea57aa0a3de2bd7b9"
+				streamName  = "custom-stream-name"
+			)
+			store := newStore(t, sequentialclock.New(), uuid)
+			event := &ThingWasDone{ID: aggregateID, Number: 1}
+			ctx := TimeoutContext(t)
+
+			// When
+			_, err := store.Save(ctx, streamName, &rangedb.EventRecord{Event: event})
+
+			// Then
+			require.NoError(t, err)
+			recordIterator := store.EventsByStream(ctx, 0, streamName)
+			AssertRecordsInIterator(t, recordIterator,
+				&rangedb.Record{
+					StreamName:           streamName,
 					AggregateType:        event.AggregateType(),
 					AggregateID:          event.AggregateID(),
 					GlobalSequenceNumber: 1,
@@ -1176,10 +1283,11 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			const aggregateIDB = "03b2db3441164859a8c1a111af0d38b8"
 			eventA := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventB := &AnotherWasComplete{ID: aggregateIDB}
+			streamName := rangedb.GetEventStream(eventA)
 			ctx := TimeoutContext(t)
 
 			// When
-			_, err := store.Save(ctx,
+			_, err := store.Save(ctx, streamName,
 				&rangedb.EventRecord{Event: eventA},
 				&rangedb.EventRecord{Event: eventB},
 			)
@@ -1189,16 +1297,18 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 		})
 
 		t.Run("does not allow saving multiple events from different streams", func(t *testing.T) {
+			// TODO: I think we want to allow this
 			// Given
 			store := newStore(t, sequentialclock.New(), NewSeededUUIDGenerator())
 			const aggregateIDA = "30afca29f919413d849f83e201e47e05"
 			const aggregateIDB = "463bfd65d0944e7f877ed5294bc842d3"
 			eventA := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventB := &ThingWasDone{ID: aggregateIDB, Number: 2}
+			streamName := rangedb.GetEventStream(eventA)
 			ctx := TimeoutContext(t)
 
 			// When
-			_, err := store.Save(ctx,
+			_, err := store.Save(ctx, streamName,
 				&rangedb.EventRecord{Event: eventA},
 				&rangedb.EventRecord{Event: eventB},
 			)
@@ -1213,11 +1323,12 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			store := newStore(t, sequentialclock.New(), uuid)
 			const aggregateID = "6a073d2113544c37a8ae3cfdef78b164"
 			event := &ThingWasDone{ID: aggregateID, Number: 1}
+			streamName := rangedb.GetEventStream(event)
 			ctx, done := context.WithCancel(TimeoutContext(t))
 			done()
 
 			// When
-			_, err := store.Save(ctx, &rangedb.EventRecord{Event: event})
+			_, err := store.Save(ctx, streamName, &rangedb.EventRecord{Event: event})
 
 			// Then
 			assert.Equal(t, context.Canceled, err)
@@ -1225,12 +1336,13 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 
 		t.Run("errors from missing events", func(t *testing.T) {
 			// Given
+			const streamName = "some-stream"
 			uuid := NewSeededUUIDGenerator()
 			store := newStore(t, sequentialclock.New(), uuid)
 			ctx := TimeoutContext(t)
 
 			// When
-			_, err := store.Save(ctx)
+			_, err := store.Save(ctx, streamName)
 
 			// Then
 			assert.EqualError(t, err, "missing events")
@@ -1245,9 +1357,10 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			store := newStore(t, sequentialclock.New(), uuid)
 			event1 := &ThingWasDone{ID: aggregateID, Number: 2}
 			event2 := &ThingWasDone{ID: aggregateID, Number: 3}
+			streamName := rangedb.GetEventStream(event2)
 			countSubscriber := NewCountSubscriber()
 			ctx := TimeoutContext(t)
-			BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event1})
+			BlockingSaveEvents(t, store, streamName, &rangedb.EventRecord{Event: event1})
 			subscription := store.AllEventsSubscription(ctx, 10, countSubscriber)
 
 			// When
@@ -1255,12 +1368,13 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 
 			// Then
 			require.NoError(t, err)
-			_, err = store.Save(ctx, &rangedb.EventRecord{Event: event2})
+			_, err = store.Save(ctx, streamName, &rangedb.EventRecord{Event: event2})
 			require.NoError(t, err)
 			ReadRecord(t, countSubscriber.AcceptRecordChan)
 			require.Equal(t, 1, countSubscriber.TotalEvents())
 			assert.Equal(t, 3, countSubscriber.TotalThingWasDoneNumber())
 			expectedRecord := &rangedb.Record{
+				StreamName:           streamName,
 				AggregateType:        event2.AggregateType(),
 				AggregateID:          event2.AggregateID(),
 				GlobalSequenceNumber: 2,
@@ -1298,8 +1412,10 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			store := newStore(t, sequentialclock.New(), uuid)
 			event1 := &ThingWasDone{ID: aggregateID, Number: 2}
 			event2 := &ThingWasDone{ID: aggregateID, Number: 3}
+			streamName := rangedb.GetEventStream(event1)
 			ctx := TimeoutContext(t)
 			BlockingSaveEvents(t, store,
+				streamName,
 				&rangedb.EventRecord{Event: event1},
 				&rangedb.EventRecord{Event: event2},
 			)
@@ -1319,36 +1435,42 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 		t.Run("Save sends new events by aggregate type to subscriber on save", func(t *testing.T) {
 			// Given
 			uuid := NewSeededUUIDGenerator()
-			const aggregateID1 = "db353641085f462ca2d18b0baa9b0e66"
-			const aggregateID2 = "b14ae3514a5d4a28b5be23567faa3c67"
+			const (
+				aggregateIDA = "db353641085f462ca2d18b0baa9b0e66"
+				aggregateIDB = "b14ae3514a5d4a28b5be23567faa3c67"
+			)
+
 			store := newStore(t, sequentialclock.New(), uuid)
-			event1 := &ThingWasDone{ID: aggregateID1, Number: 2}
-			event2 := &AnotherWasComplete{ID: aggregateID2}
-			event3 := &ThingWasDone{ID: aggregateID1, Number: 3}
+			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 2}
+			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 3}
+			eventB1 := &AnotherWasComplete{ID: aggregateIDB}
+			streamNameA := rangedb.GetEventStream(eventA1)
+			streamNameB := rangedb.GetEventStream(eventB1)
 			ctx := TimeoutContext(t)
-			BlockingSaveEvents(t, store, &rangedb.EventRecord{Event: event1})
+			BlockingSaveEvents(t, store, streamNameA, &rangedb.EventRecord{Event: eventA1})
 			countSubscriber := NewCountSubscriber()
-			subscription := store.AggregateTypesSubscription(ctx, 10, countSubscriber, event1.AggregateType())
+			subscription := store.AggregateTypesSubscription(ctx, 10, countSubscriber, eventA1.AggregateType())
 
 			// When
 			err := subscription.Start()
 
 			// Then
 			require.NoError(t, err)
-			SaveEvents(t, store, &rangedb.EventRecord{Event: event2})
-			SaveEvents(t, store, &rangedb.EventRecord{Event: event3})
+			SaveEvents(t, store, streamNameB, &rangedb.EventRecord{Event: eventB1})
+			SaveEvents(t, store, streamNameA, &rangedb.EventRecord{Event: eventA2})
 			ReadRecord(t, countSubscriber.AcceptRecordChan)
 			require.Equal(t, 1, countSubscriber.TotalEvents())
 			assert.Equal(t, 3, countSubscriber.TotalThingWasDoneNumber())
 			expectedRecord := &rangedb.Record{
-				AggregateType:        event3.AggregateType(),
-				AggregateID:          event3.AggregateID(),
+				StreamName:           streamNameA,
+				AggregateType:        eventA2.AggregateType(),
+				AggregateID:          eventA2.AggregateID(),
 				GlobalSequenceNumber: 3,
 				StreamSequenceNumber: 2,
-				EventType:            event3.EventType(),
+				EventType:            eventA2.EventType(),
 				EventID:              uuid.Get(3),
 				InsertTimestamp:      2,
-				Data:                 event3,
+				Data:                 eventA2,
 				Metadata:             nil,
 			}
 			require.Equal(t, 1, len(countSubscriber.AcceptedRecords))
@@ -1378,13 +1500,14 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 		const aggregateID = "b0ec7e41cf56445382ce7d823937abef"
 		store := newStore(t, sequentialclock.New(), uuid)
 		event := ThingWasDone{ID: aggregateID, Number: 2}
+		streamNameA := rangedb.GetEventStream(event)
 		triggerProcessManager := newTriggerProcessManager(store.Save)
 		ctx := TimeoutContext(t)
 		subscription := store.AllEventsSubscription(ctx, 10, triggerProcessManager)
 		require.NoError(t, subscription.Start())
 
 		// When
-		_, err := store.Save(ctx, &rangedb.EventRecord{Event: event})
+		_, err := store.Save(ctx, streamNameA, &rangedb.EventRecord{Event: event})
 		require.NoError(t, err)
 
 		// Then
@@ -1395,6 +1518,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 		}
 		AssertRecordsInIterator(t, recordIterator,
 			&rangedb.Record{
+				StreamName:           streamNameA,
 				AggregateType:        event.AggregateType(),
 				AggregateID:          event.AggregateID(),
 				GlobalSequenceNumber: 1,
@@ -1406,6 +1530,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 				Metadata:             nil,
 			},
 			&rangedb.Record{
+				StreamName:           "another!2",
 				AggregateType:        expectedTriggeredEvent.AggregateType(),
 				AggregateID:          expectedTriggeredEvent.AggregateID(),
 				GlobalSequenceNumber: 2,
@@ -1425,8 +1550,9 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 		store := newStore(t, sequentialclock.New(), uuid)
 		const aggregateID = "30d438b5214740259761acc015ad7af8"
 		event := ThingWasDone{ID: aggregateID, Number: 1}
+		streamName := rangedb.GetEventStream(event)
 		ctx := TimeoutContext(t)
-		SaveEvents(t, store, &rangedb.EventRecord{Event: event})
+		SaveEvents(t, store, streamName, &rangedb.EventRecord{Event: event})
 
 		// When
 		recordIterator := store.Events(ctx, 0)
@@ -1434,6 +1560,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 		// Then
 		AssertRecordsInIterator(t, recordIterator,
 			&rangedb.Record{
+				StreamName:           streamName,
 				AggregateType:        event.AggregateType(),
 				AggregateID:          event.AggregateID(),
 				GlobalSequenceNumber: 1,
@@ -1455,18 +1582,20 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			const aggregateIDB = "fa02fbd78a8b4d5a9a7aaaf9edae8216"
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
-			eventB := &ThingWasDone{ID: aggregateIDB, Number: 3}
+			eventB1 := &ThingWasDone{ID: aggregateIDB, Number: 3}
+			streamNameA := rangedb.GetEventStream(eventA1)
+			streamNameB := rangedb.GetEventStream(eventB1)
 			ctx := TimeoutContext(t)
-			SaveEvents(t, store,
+			SaveEvents(t, store, streamNameA,
 				&rangedb.EventRecord{Event: eventA1},
 				&rangedb.EventRecord{Event: eventA2},
 			)
-			SaveEvents(t, store,
-				&rangedb.EventRecord{Event: eventB},
+			SaveEvents(t, store, streamNameB,
+				&rangedb.EventRecord{Event: eventB1},
 			)
 
 			// When
-			totalEvents, err := store.TotalEventsInStream(ctx, rangedb.GetEventStream(eventA1))
+			totalEvents, err := store.TotalEventsInStream(ctx, streamNameA)
 
 			// Then
 			assert.Equal(t, 2, int(totalEvents))
@@ -1478,12 +1607,13 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			store := newStore(t, sequentialclock.New(), NewSeededUUIDGenerator())
 			const aggregateID = "6a073d2113544c37a8ae3cfdef78b164"
 			event := &ThingWasDone{ID: aggregateID, Number: 1}
+			streamName := rangedb.GetEventStream(event)
 			ctx, done := context.WithCancel(TimeoutContext(t))
-			SaveEvents(t, store, &rangedb.EventRecord{Event: event})
+			SaveEvents(t, store, streamName, &rangedb.EventRecord{Event: event})
 			done()
 
 			// When
-			totalEvents, err := store.TotalEventsInStream(ctx, rangedb.GetEventStream(event))
+			totalEvents, err := store.TotalEventsInStream(ctx, streamName)
 
 			// Then
 			assert.Equal(t, 0, int(totalEvents))
@@ -1528,7 +1658,8 @@ func AssertRecordsInIterator(t *testing.T, recordIterator rangedb.RecordIterator
 
 // AssertNoMoreResultsInIterator asserts no more rangedb.Record exist in the rangedb.RecordIterator.
 func AssertNoMoreResultsInIterator(t *testing.T, iter rangedb.RecordIterator) {
-	require.False(t, iter.Next())
+	recordDebug := fmt.Sprintf("%#v (%v)", iter.Record(), iter.Err())
+	require.False(t, iter.Next(), recordDebug)
 	require.Nil(t, iter.Record())
 	require.Nil(t, iter.Err())
 }
@@ -1578,7 +1709,7 @@ func (c *countSubscriber) TotalThingWasDoneNumber() int {
 }
 
 // EventSaver a function that accepts eventRecords for saving.
-type EventSaver func(ctx context.Context, eventRecord ...*rangedb.EventRecord) (uint64, error)
+type EventSaver func(ctx context.Context, streamName string, eventRecord ...*rangedb.EventRecord) (uint64, error)
 
 type triggerProcessManager struct {
 	eventSaver      EventSaver
@@ -1597,10 +1728,13 @@ func (t *triggerProcessManager) Accept(record *rangedb.Record) {
 	switch event := record.Data.(type) {
 	case *ThingWasDone:
 		ctx := context.Background()
-		_, _ = t.eventSaver(ctx, &rangedb.EventRecord{
-			Event: AnotherWasComplete{
-				ID: fmt.Sprintf("%d", event.Number),
-			}})
+		anotherEvent := AnotherWasComplete{
+			ID: fmt.Sprintf("%d", event.Number),
+		}
+		streamName := rangedb.GetEventStream(anotherEvent)
+		_, _ = t.eventSaver(ctx, streamName, &rangedb.EventRecord{
+			Event: anotherEvent,
+		})
 	}
 
 	t.ReceivedRecords <- record
@@ -1622,12 +1756,13 @@ func LoadIterator(records ...*rangedb.Record) rangedb.RecordIterator {
 }
 
 // BlockingSaveEvents helper to save events, ensuring the broadcaster has processed every record.
-func BlockingSaveEvents(t *testing.T, store rangedb.Store, records ...*rangedb.EventRecord) {
+func BlockingSaveEvents(t *testing.T, store rangedb.Store, streamName string, records ...*rangedb.EventRecord) {
 	ctx := TimeoutContext(t)
 	blockingSubscriber := NewBlockingSubscriber(nil)
 	subscription := store.AllEventsSubscription(ctx, 10, blockingSubscriber)
 	require.NoError(t, subscription.Start())
-	_, err := store.Save(ctx, records...)
+	require.Greater(t, len(records), 0)
+	_, err := store.Save(ctx, streamName, records...)
 	require.NoError(t, err)
 	for i := 0; i < len(records); i++ {
 		ReadRecord(t, blockingSubscriber.Records)
@@ -1635,8 +1770,9 @@ func BlockingSaveEvents(t *testing.T, store rangedb.Store, records ...*rangedb.E
 }
 
 // SaveEvents helper to save events with a timeout.
-func SaveEvents(t *testing.T, store rangedb.Store, records ...*rangedb.EventRecord) {
+func SaveEvents(t *testing.T, store rangedb.Store, streamName string, records ...*rangedb.EventRecord) {
+	require.Greater(t, len(records), 0)
 	ctx := TimeoutContext(t)
-	_, err := store.Save(ctx, records...)
+	_, err := store.Save(ctx, streamName, records...)
 	require.NoError(t, err)
 }

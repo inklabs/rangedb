@@ -27,7 +27,7 @@ func Example_optimisticSaveEvents() {
 
 	serverURL, err := url.Parse(server.URL)
 	PrintError(err)
-	serverURL.Path = "/save-events/thing/141b39d2b9854f8093ef79dc47dae6af"
+	serverURL.Path = "/save-events/thing-141b39d2b9854f8093ef79dc47dae6af"
 
 	const requestBody = `[
 		{

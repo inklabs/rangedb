@@ -29,7 +29,7 @@
                     </thead>
                     <tbody>
                     <tr v-for="aggregateType in aggregateTypes" :key="aggregateType.Name">
-                        <td><a :href="'/e/' + aggregateType.Name + '/live'">${aggregateType.Name}</a></td>
+                        <td><a :href="'/a/' + aggregateType.Name + '/live'">${aggregateType.Name}</a></td>
                         <td>${ Number(aggregateType.TotalEvents).toLocaleString() }</td>
                     </tr>
                     </tbody>

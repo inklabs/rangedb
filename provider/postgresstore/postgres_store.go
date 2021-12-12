@@ -29,6 +29,7 @@ const (
 )
 
 type batchSQLRecord struct {
+	StreamName           string
 	AggregateType        string
 	AggregateID          string
 	StreamSequenceNumber uint64
@@ -122,7 +123,21 @@ func (s *postgresStore) Events(ctx context.Context, globalSequenceNumber uint64)
 	go func() {
 		defer close(resultRecords)
 
-		rows, err := s.db.QueryContext(ctx, "SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE GlobalSequenceNumber >= $1 ORDER BY GlobalSequenceNumber",
+		query := `SELECT
+			StreamName,
+			AggregateType,
+			AggregateID,
+			GlobalSequenceNumber,
+			StreamSequenceNumber,
+			InsertTimestamp,
+			EventID,
+			EventType,
+			Data,
+			Metadata
+		FROM record
+		WHERE GlobalSequenceNumber >= $1
+		ORDER BY GlobalSequenceNumber`
+		rows, err := s.db.QueryContext(ctx, query,
 			globalSequenceNumber)
 		if err != nil {
 			resultRecords <- rangedb.ResultRecord{Err: err}
@@ -144,7 +159,21 @@ func (s *postgresStore) EventsByAggregateTypes(ctx context.Context, globalSequen
 
 	go func() {
 		defer close(resultRecords)
-		rows, err := s.db.QueryContext(ctx, "SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE AggregateType = ANY($1) AND GlobalSequenceNumber >= $2 ORDER BY GlobalSequenceNumber",
+		query := `SELECT
+			StreamName,
+			AggregateType,
+			AggregateID,
+			GlobalSequenceNumber,
+			StreamSequenceNumber,
+			InsertTimestamp,
+			EventID,
+			EventType,
+			Data,
+			Metadata
+		FROM record
+		WHERE AggregateType = ANY($1) AND GlobalSequenceNumber >= $2
+		ORDER BY GlobalSequenceNumber`
+		rows, err := s.db.QueryContext(ctx, query,
 			pq.Array(aggregateTypes), globalSequenceNumber)
 		if err != nil {
 			resultRecords <- rangedb.ResultRecord{Err: err}
@@ -162,9 +191,22 @@ func (s *postgresStore) EventsByStream(ctx context.Context, streamSequenceNumber
 
 	go func() {
 		defer close(resultRecords)
-		aggregateType, aggregateID := rangedb.ParseStream(streamName)
-		rows, err := s.db.QueryContext(ctx, "SELECT AggregateType,AggregateID,GlobalSequenceNumber,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata FROM record WHERE AggregateType = $1 AND AggregateID = $2 AND StreamSequenceNumber >= $3 ORDER BY GlobalSequenceNumber",
-			aggregateType, aggregateID, streamSequenceNumber)
+		query := `SELECT 
+				StreamName,
+				AggregateType,
+				AggregateID,
+				GlobalSequenceNumber,
+				StreamSequenceNumber,
+				InsertTimestamp,
+				EventID,
+				EventType,
+				Data,
+				Metadata 
+		FROM record
+		WHERE StreamName = $1 AND StreamSequenceNumber >= $2 
+		ORDER BY GlobalSequenceNumber`
+		rows, err := s.db.QueryContext(ctx, query,
+			streamName, streamSequenceNumber)
 		if err != nil {
 			resultRecords <- rangedb.ResultRecord{Err: err}
 			return
@@ -186,8 +228,7 @@ func (s *postgresStore) OptimisticDeleteStream(ctx context.Context, expectedStre
 		return err
 	}
 
-	aggregateType, aggregateID := rangedb.ParseStream(streamName)
-	streamSequenceNumber, err := s.getStreamSequenceNumber(ctx, transaction, aggregateType, aggregateID)
+	streamSequenceNumber, err := s.getStreamSequenceNumber(ctx, transaction, streamName)
 	if err != nil {
 		return err
 	}
@@ -203,7 +244,7 @@ func (s *postgresStore) OptimisticDeleteStream(ctx context.Context, expectedStre
 		}
 	}
 
-	_, err = transaction.ExecContext(ctx, "DELETE FROM record WHERE AggregateType = $1 AND AggregateID = $2", aggregateType, aggregateID)
+	_, err = transaction.ExecContext(ctx, `DELETE FROM record WHERE StreamName = $1`, streamName)
 	if err != nil {
 		_ = transaction.Rollback()
 		return err
@@ -217,12 +258,12 @@ func (s *postgresStore) OptimisticDeleteStream(ctx context.Context, expectedStre
 	return nil
 }
 
-func (s *postgresStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
-	return s.transactionalSaveEvents(ctx, &expectedStreamSequenceNumber, eventRecords...)
+func (s *postgresStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, streamName string, eventRecords ...*rangedb.EventRecord) (uint64, error) {
+	return s.transactionalSaveEvents(ctx, &expectedStreamSequenceNumber, streamName, eventRecords...)
 }
 
-func (s *postgresStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRecord) (uint64, error) {
-	return s.transactionalSaveEvents(ctx, nil, eventRecords...)
+func (s *postgresStore) Save(ctx context.Context, streamName string, eventRecords ...*rangedb.EventRecord) (uint64, error) {
+	return s.transactionalSaveEvents(ctx, nil, streamName, eventRecords...)
 }
 
 type saveResults struct {
@@ -231,13 +272,13 @@ type saveResults struct {
 	BatchRecords             []*batchSQLRecord
 }
 
-func (s *postgresStore) transactionalSaveEvents(ctx context.Context, expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
+func (s *postgresStore) transactionalSaveEvents(ctx context.Context, expectedStreamSequenceNumber *uint64, streamName string, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	transaction, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return 0, err
 	}
 
-	saveResult, err := s.saveEvents(ctx, transaction, expectedStreamSequenceNumber, eventRecords)
+	saveResult, err := s.saveEvents(ctx, transaction, expectedStreamSequenceNumber, streamName, eventRecords)
 	if err != nil {
 		_ = transaction.Rollback()
 		return 0, err
@@ -258,25 +299,28 @@ func (s *postgresStore) transactionalSaveEvents(ctx context.Context, expectedStr
 	return saveResult.LastStreamSequenceNumber, nil
 }
 
-func (s *postgresStore) saveEvents(ctx context.Context, transaction *sql.Tx, expectedStreamSequenceNumber *uint64, eventRecords []*rangedb.EventRecord) (*saveResults, error) {
+func (s *postgresStore) saveEvents(
+	ctx context.Context,
+	transaction *sql.Tx,
+	expectedStreamSequenceNumber *uint64,
+	streamName string,
+	eventRecords []*rangedb.EventRecord,
+) (*saveResults, error) {
 	if len(eventRecords) < 1 {
 		return nil, fmt.Errorf("missing events")
 	}
 
-	aggregateType := eventRecords[0].Event.AggregateType()
-	aggregateID := eventRecords[0].Event.AggregateID()
-
-	err := s.lockStream(ctx, transaction, aggregateID)
+	err := s.lockStream(ctx, transaction, streamName)
 	if err != nil {
 		return nil, err
 	}
 
-	streamSequenceNumber, err := s.validateStreamSequenceNumber(ctx, transaction, expectedStreamSequenceNumber, aggregateType, aggregateID)
+	streamSequenceNumber, err := s.validateStreamSequenceNumber(ctx, transaction, expectedStreamSequenceNumber, streamName)
 	if err != nil {
 		return nil, err
 	}
 
-	batchRecords, err := s.eventRecordsToBatchRecords(eventRecords, streamSequenceNumber)
+	batchRecords, err := s.eventRecordsToBatchRecords(eventRecords, streamName, streamSequenceNumber)
 	if err != nil {
 		return nil, err
 	}
@@ -315,12 +359,11 @@ func (s *postgresStore) AggregateTypesSubscription(ctx context.Context, bufferSi
 }
 
 func (s *postgresStore) TotalEventsInStream(ctx context.Context, streamName string) (uint64, error) {
-	aggregateType, aggregateID := rangedb.ParseStream(streamName)
-	return s.getStreamSequenceNumber(ctx, s.db, aggregateType, aggregateID)
+	return s.getStreamSequenceNumber(ctx, s.db, streamName)
 }
 
-func (s *postgresStore) validateStreamSequenceNumber(ctx context.Context, queryable dbRowQueryable, expectedStreamSequenceNumber *uint64, aggregateType string, aggregateID string) (uint64, error) {
-	streamSequenceNumber, err := s.getStreamSequenceNumber(ctx, queryable, aggregateType, aggregateID)
+func (s *postgresStore) validateStreamSequenceNumber(ctx context.Context, queryable dbRowQueryable, expectedStreamSequenceNumber *uint64, streamName string) (uint64, error) {
+	streamSequenceNumber, err := s.getStreamSequenceNumber(ctx, queryable, streamName)
 	if err != nil {
 		return 0, err
 	}
@@ -338,6 +381,7 @@ func (s *postgresStore) validateStreamSequenceNumber(ctx context.Context, querya
 func (s *postgresStore) batchNotifySubscribers(saveResult *saveResults) error {
 	for i, batchRecord := range saveResult.BatchRecords {
 		record := &rangedb.Record{
+			StreamName:           batchRecord.StreamName,
 			AggregateType:        batchRecord.AggregateType,
 			AggregateID:          batchRecord.AggregateID,
 			GlobalSequenceNumber: saveResult.GlobalSequenceNumbers[i],
@@ -374,17 +418,19 @@ func (s *postgresStore) batchNotifySubscribers(saveResult *saveResults) error {
 	return nil
 }
 
-func (s *postgresStore) eventRecordsToBatchRecords(eventRecords []*rangedb.EventRecord, streamSequenceNumber uint64) ([]*batchSQLRecord, error) {
+func (s *postgresStore) eventRecordsToBatchRecords(eventRecords []*rangedb.EventRecord, streamName string, streamSequenceNumber uint64) ([]*batchSQLRecord, error) {
 	aggregateType := eventRecords[0].Event.AggregateType()
 	aggregateID := eventRecords[0].Event.AggregateID()
 
 	var batchEvents []*batchSQLRecord
 
 	for _, eventRecord := range eventRecords {
+		// TODO: Allow mixing aggregate types?
 		if aggregateType != eventRecord.Event.AggregateType() {
 			return nil, fmt.Errorf("unmatched aggregate type")
 		}
 
+		// TODO: Allow mixing aggregate IDs?
 		if aggregateID != eventRecord.Event.AggregateID() {
 			return nil, fmt.Errorf("unmatched aggregate ID")
 		}
@@ -401,8 +447,9 @@ func (s *postgresStore) eventRecordsToBatchRecords(eventRecords []*rangedb.Event
 
 		streamSequenceNumber++
 		batchEvents = append(batchEvents, &batchSQLRecord{
-			AggregateType:        aggregateType,
-			AggregateID:          aggregateID,
+			StreamName:           streamName,
+			AggregateType:        eventRecord.Event.AggregateType(),
+			AggregateID:          eventRecord.Event.AggregateID(),
 			StreamSequenceNumber: streamSequenceNumber,
 			EventID:              s.uuidGenerator.New(),
 			EventType:            eventRecord.Event.EventType(),
@@ -422,8 +469,9 @@ func (s *postgresStore) batchInsert(ctx context.Context, transaction dbQueryable
 
 	i := 0
 	for _, batchRecord := range batchRecords {
-		valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d)", i*8+1, i*8+2, i*8+3, i*8+4, i*8+5, i*8+6, i*8+7, i*8+8))
+		valueStrings = append(valueStrings, fmt.Sprintf("($%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d, $%d)", i*9+1, i*9+2, i*9+3, i*9+4, i*9+5, i*9+6, i*9+7, i*9+8, i*9+9))
 		valueArgs = append(valueArgs,
+			batchRecord.StreamName,
 			batchRecord.AggregateType,
 			batchRecord.AggregateID,
 			batchRecord.StreamSequenceNumber,
@@ -439,7 +487,7 @@ func (s *postgresStore) batchInsert(ctx context.Context, transaction dbQueryable
 	}
 
 	sqlStatement := fmt.Sprintf(
-		"INSERT INTO record (AggregateType,AggregateID,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata) VALUES %s",
+		"INSERT INTO record (StreamName,AggregateType,AggregateID,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata) VALUES %s",
 		strings.Join(valueStrings, ","))
 
 	if !s.pgNotifyIsEnabled {
@@ -468,15 +516,15 @@ func (s *postgresStore) batchInsert(ctx context.Context, transaction dbQueryable
 	return globalSequenceNumbers, lastStreamSequenceNumber, nil
 }
 
-func (s *postgresStore) lockStream(ctx context.Context, transaction dbExecAble, aggregateID string) error {
+func (s *postgresStore) lockStream(ctx context.Context, transaction dbExecAble, streamName string) error {
 	lockCtx, cancel := context.WithTimeout(ctx, streamAdvisoryLockTimeout)
 	defer cancel()
 
 	h := fnv.New32a()
-	_, _ = h.Write([]byte(aggregateID))
+	_, _ = h.Write([]byte(streamName))
 	lockKey := h.Sum32()
 
-	_, err := transaction.ExecContext(lockCtx, "SELECT pg_advisory_xact_lock($1)", lockKey)
+	_, err := transaction.ExecContext(lockCtx, `SELECT pg_advisory_xact_lock($1)`, lockKey)
 	if err != nil {
 		return fmt.Errorf("unable to obtain lock: %v", err)
 	}
@@ -486,6 +534,7 @@ func (s *postgresStore) lockStream(ctx context.Context, transaction dbExecAble, 
 func (s *postgresStore) InitDB() error {
 	sqlStatements := []string{
 		`CREATE TABLE IF NOT EXISTS record (
+			StreamName TEXT,
 			AggregateType TEXT,
 			AggregateID TEXT,
 			GlobalSequenceNumber SERIAL PRIMARY KEY,
@@ -496,11 +545,11 @@ func (s *postgresStore) InitDB() error {
 			Data TEXT,
 			Metadata TEXT
 		);`,
+		`CREATE INDEX IF NOT EXISTS record_idx_stream_name ON record USING HASH (
+			StreamName
+		);`,
 		`CREATE INDEX IF NOT EXISTS record_idx_aggregate_type ON record USING HASH (
 			AggregateType
-		);`,
-		`CREATE INDEX IF NOT EXISTS record_idx_aggregate_id ON record USING HASH (
-			AggregateID
 		);`,
 	}
 
@@ -528,12 +577,15 @@ func (s *postgresStore) InitDB() error {
 	return nil
 }
 
-func (s *postgresStore) getStreamSequenceNumber(ctx context.Context, queryable dbRowQueryable, aggregateType, aggregateID string) (uint64, error) {
+func (s *postgresStore) getStreamSequenceNumber(ctx context.Context, queryable dbRowQueryable, streamName string) (uint64, error) {
 	var lastStreamSequenceNumber uint64
 
-	err := queryable.QueryRowContext(ctx, "SELECT MAX(StreamSequenceNumber) FROM record WHERE AggregateType = $1 AND AggregateID = $2 GROUP BY AggregateType, AggregateID",
-		aggregateType,
-		aggregateID,
+	query := `SELECT MAX(StreamSequenceNumber) 
+		FROM record 
+		WHERE StreamName = $1
+		GROUP BY StreamName`
+	err := queryable.QueryRowContext(ctx, query,
+		streamName,
 	).Scan(&lastStreamSequenceNumber)
 
 	if err != nil {
@@ -551,6 +603,7 @@ func (s *postgresStore) readResultRecords(ctx context.Context, rows *sql.Rows, r
 	recordsRead := 0
 	for rows.Next() {
 		var (
+			streamName           string
 			aggregateType        string
 			aggregateID          string
 			globalSequenceNumber uint64
@@ -561,7 +614,18 @@ func (s *postgresStore) readResultRecords(ctx context.Context, rows *sql.Rows, r
 			serializedData       string
 			serializedMetadata   string
 		)
-		err := rows.Scan(&aggregateType, &aggregateID, &globalSequenceNumber, &streamSequenceNumber, &insertTimestamp, &eventID, &eventType, &serializedData, &serializedMetadata)
+		err := rows.Scan(
+			&streamName,
+			&aggregateType,
+			&aggregateID,
+			&globalSequenceNumber,
+			&streamSequenceNumber,
+			&insertTimestamp,
+			&eventID,
+			&eventType,
+			&serializedData,
+			&serializedMetadata,
+		)
 		if err != nil {
 			resultRecords <- rangedb.ResultRecord{Err: err}
 			return 0, err
@@ -589,6 +653,7 @@ func (s *postgresStore) readResultRecords(ctx context.Context, rows *sql.Rows, r
 		}
 
 		record := &rangedb.Record{
+			StreamName:           streamName,
 			AggregateType:        aggregateType,
 			AggregateID:          aggregateID,
 			GlobalSequenceNumber: globalSequenceNumber,
@@ -652,6 +717,7 @@ func (s *postgresStore) startPQListener() error {
 
 // PostgresJsonRecord holds a JSON record sent via pg_notify.
 type PostgresJsonRecord struct {
+	StreamName           string `json:"streamname"`
 	AggregateType        string `json:"aggregatetype"`
 	AggregateID          string `json:"aggregateid"`
 	GlobalSequenceNumber uint64 `json:"globalsequencenumber"`
@@ -694,6 +760,7 @@ func (s *postgresStore) listen(listener *pq.Listener) {
 			}
 
 			record := &rangedb.Record{
+				StreamName:           jsonRecord.StreamName,
 				AggregateType:        jsonRecord.AggregateType,
 				AggregateID:          jsonRecord.AggregateID,
 				GlobalSequenceNumber: jsonRecord.GlobalSequenceNumber,
