@@ -15,6 +15,20 @@ import (
 )
 
 func TestAggregateTypeStats(t *testing.T) {
+	// Given
+	const (
+		aggregateIDA = "107cfb7172a64d3f81eb07dca95ba35e"
+		aggregateIDB = "2400af829cf84a3b9739fa4aea253d4b"
+		aggregateIDC = "b0225de257b3453c827c3130417c2260"
+	)
+
+	eventA1 := rangedbtest.ThingWasDone{ID: aggregateIDA, Number: 1}
+	eventB1 := rangedbtest.ThingWasDone{ID: aggregateIDB, Number: 2}
+	eventC1 := rangedbtest.AnotherWasComplete{ID: aggregateIDC}
+	streamNameA := rangedb.GetEventStream(eventA1)
+	streamNameB := rangedb.GetEventStream(eventB1)
+	streamNameC := rangedb.GetEventStream(eventC1)
+
 	t.Run("counts events", func(t *testing.T) {
 		// Given
 		aggregateTypeStats := projection.NewAggregateTypeStats()
@@ -24,18 +38,11 @@ func TestAggregateTypeStats(t *testing.T) {
 		blockingSubscriber := rangedbtest.NewBlockingSubscriber(aggregateTypeStats)
 		subscription := store.AllEventsSubscription(ctx, 10, blockingSubscriber)
 		require.NoError(t, subscription.Start())
-		const aggregateIDA = "107cfb7172a64d3f81eb07dca95ba35e"
-		const aggregateIDB = "2400af829cf84a3b9739fa4aea253d4b"
-		const aggregateIDC = "b0225de257b3453c827c3130417c2260"
-
-		event1 := rangedbtest.ThingWasDone{ID: aggregateIDA, Number: 1}
-		event2 := rangedbtest.ThingWasDone{ID: aggregateIDB, Number: 2}
-		event3 := rangedbtest.AnotherWasComplete{ID: aggregateIDC}
 
 		// When
-		rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event1})
-		rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event2})
-		rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event3})
+		rangedbtest.SaveEvents(t, store, streamNameA, &rangedb.EventRecord{Event: eventA1})
+		rangedbtest.SaveEvents(t, store, streamNameB, &rangedb.EventRecord{Event: eventB1})
+		rangedbtest.SaveEvents(t, store, streamNameC, &rangedb.EventRecord{Event: eventC1})
 
 		// Then
 		rangedbtest.ReadRecord(t, blockingSubscriber.Records)
@@ -43,8 +50,8 @@ func TestAggregateTypeStats(t *testing.T) {
 		rangedbtest.ReadRecord(t, blockingSubscriber.Records)
 		assert.Equal(t, uint64(3), aggregateTypeStats.TotalEvents())
 		assert.Equal(t, uint64(3), aggregateTypeStats.LatestGlobalSequenceNumber())
-		assert.Equal(t, uint64(2), aggregateTypeStats.TotalEventsByAggregateType(event1.AggregateType()))
-		assert.Equal(t, uint64(1), aggregateTypeStats.TotalEventsByAggregateType(event3.AggregateType()))
+		assert.Equal(t, uint64(2), aggregateTypeStats.TotalEventsByAggregateType(eventA1.AggregateType()))
+		assert.Equal(t, uint64(1), aggregateTypeStats.TotalEventsByAggregateType(eventC1.AggregateType()))
 		assert.Equal(t, []string{"another", "thing"}, aggregateTypeStats.SortedAggregateTypes())
 	})
 
@@ -57,15 +64,9 @@ func TestAggregateTypeStats(t *testing.T) {
 		blockingSubscriber := rangedbtest.NewBlockingSubscriber(aggregateTypeStats)
 		subscription := store.AllEventsSubscription(ctx, 10, blockingSubscriber)
 		require.NoError(t, subscription.Start())
-		const aggregateIDA = "f64c58e4c25d4635923e655cd058ff72"
-		const aggregateIDB = "944b33c4122d4246aa321ea9236db953"
-		const aggregateIDC = "c34485e284be4b0588eccddca36b8c3f"
-		event1 := rangedbtest.ThingWasDone{ID: aggregateIDA, Number: 1}
-		event2 := rangedbtest.ThingWasDone{ID: aggregateIDB, Number: 2}
-		event3 := rangedbtest.AnotherWasComplete{ID: aggregateIDC}
-		rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event1})
-		rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event2})
-		rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event3})
+		rangedbtest.SaveEvents(t, store, streamNameA, &rangedb.EventRecord{Event: eventA1})
+		rangedbtest.SaveEvents(t, store, streamNameB, &rangedb.EventRecord{Event: eventB1})
+		rangedbtest.SaveEvents(t, store, streamNameC, &rangedb.EventRecord{Event: eventC1})
 		rangedbtest.ReadRecord(t, blockingSubscriber.Records)
 		rangedbtest.ReadRecord(t, blockingSubscriber.Records)
 		rangedbtest.ReadRecord(t, blockingSubscriber.Records)
@@ -80,8 +81,8 @@ func TestAggregateTypeStats(t *testing.T) {
 		assert.Equal(t, "AggregateTypeStats", aggregateTypeStats2.SnapshotName())
 		assert.Equal(t, uint64(3), aggregateTypeStats2.TotalEvents())
 		assert.Equal(t, uint64(3), aggregateTypeStats2.LatestGlobalSequenceNumber())
-		assert.Equal(t, uint64(2), aggregateTypeStats2.TotalEventsByAggregateType(event1.AggregateType()))
-		assert.Equal(t, uint64(1), aggregateTypeStats2.TotalEventsByAggregateType(event3.AggregateType()))
+		assert.Equal(t, uint64(2), aggregateTypeStats2.TotalEventsByAggregateType(eventA1.AggregateType()))
+		assert.Equal(t, uint64(1), aggregateTypeStats2.TotalEventsByAggregateType(eventC1.AggregateType()))
 	})
 
 	t.Run("fails to load from snapshot", func(t *testing.T) {

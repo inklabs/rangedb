@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 
 	"github.com/inklabs/rangedb/pkg/clock/provider/sequentialclock"
@@ -24,6 +25,10 @@ func Example_saveEvent() {
 	server := httptest.NewServer(api)
 	defer server.Close()
 
+	serverURL, err := url.Parse(server.URL)
+	PrintError(err)
+	serverURL.Path = "/save-events/thing-141b39d2b9854f8093ef79dc47dae6af"
+
 	const requestBody = `[
 		{
 			"eventType": "ThingWasDone",
@@ -42,10 +47,9 @@ func Example_saveEvent() {
 			"metadata":null
 		}
 	]`
-	url := fmt.Sprintf("%s/save-events/thing/141b39d2b9854f8093ef79dc47dae6af", server.URL)
 
 	// When
-	response, err := http.Post(url, "application/json", strings.NewReader(requestBody))
+	response, err := http.Post(serverURL.String(), "application/json", strings.NewReader(requestBody))
 	PrintError(err)
 	defer Close(response.Body)
 

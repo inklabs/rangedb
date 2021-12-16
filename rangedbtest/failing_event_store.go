@@ -32,11 +32,11 @@ func (f failingEventStore) OptimisticDeleteStream(_ context.Context, _ uint64, _
 	return fmt.Errorf("failingEventStore.OptimisitDeleteStream")
 }
 
-func (f failingEventStore) OptimisticSave(_ context.Context, _ uint64, _ ...*rangedb.EventRecord) (uint64, error) {
+func (f failingEventStore) OptimisticSave(_ context.Context, _ uint64, _ string, _ ...*rangedb.EventRecord) (uint64, error) {
 	return 0, fmt.Errorf("failingEventStore.OptimisticSave")
 }
 
-func (f failingEventStore) Save(_ context.Context, _ ...*rangedb.EventRecord) (uint64, error) {
+func (f failingEventStore) Save(_ context.Context, _ string, _ ...*rangedb.EventRecord) (uint64, error) {
 	return 0, fmt.Errorf("failingEventStore.Save")
 }
 

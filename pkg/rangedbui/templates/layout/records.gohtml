@@ -2,9 +2,11 @@
 <table class="records">
     <thead>
     <tr>
-        <th>Event #</th>
+        <th title="Global Sequence Number">GSN</th>
+        <th title="Stream Sequence Number">SSN</th>
         <th>Event Type</th>
-        <th>Aggregate ID</th>
+        <th>Aggregate Type</th>
+        <th>Stream</th>
         <th>Insert Date</th>
         <th>Data</th>
     </tr>
@@ -14,11 +16,13 @@
     {{range .}}
         {{- /*gotype: github.com/inklabs/rangedb.Record*/ -}}
         <tr>
+            <td>{{.GlobalSequenceNumber}}</td>
             <td>{{.StreamSequenceNumber}}</td>
             <td>{{.EventType}}</td>
-            <td><a href="/e/{{.AggregateType}}/{{.AggregateID}}">{{.AggregateID}}</a></td>
+            <td><a href="/a/{{.AggregateType}}">{{.AggregateType}}</a></td>
+            <td><a href="/s/{{.StreamName}}">{{.StreamName}}</a></td>
             <td class="date">{{formatDate .InsertTimestamp "Jan 02, 2006 15:04:05 UTC"}}</td>
-            <td>{{formatJson .Data}}</td>
+            <td class="event-data">{{formatJson .Data}}</td>
         </tr>
     {{end}}
     </tbody>

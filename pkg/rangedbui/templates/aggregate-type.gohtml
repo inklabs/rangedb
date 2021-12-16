@@ -1,0 +1,26 @@
+{{- /*gotype: github.com/inklabs/rangedb/pkg/rangedbui.aggregateTypeTemplateVars*/ -}}
+
+{{template "base" .}}
+{{define "pageTitle"}}{{.AggregateTypeInfo.Name}}{{end}}
+
+{{define "content"}}
+    <div class="grid-container">
+        <div class="grid-x grid-padding-x">
+            <div class="cell medium-12 medium-order-1">
+                <nav aria-label="You are here:" role="navigation">
+                    <ul class="breadcrumbs">
+                        <li><a href="/aggregate-types">Aggregate</a></li>
+                        <li>
+                            {{.AggregateTypeInfo.Name}} ({{.AggregateTypeInfo.TotalEvents | formatUint64}})
+                        </li>
+                        <li>
+                            <a href="/a/{{.AggregateTypeInfo.Name}}/live">Realtime</a>
+                        </li>
+                    </ul>
+                </nav>
+                {{template "records" .Records}}
+                {{template "pagination" .PaginationLinks}}
+            </div>
+        </div>
+    </div>
+{{end}}

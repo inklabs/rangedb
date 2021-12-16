@@ -40,7 +40,7 @@ func (e *encryptedStore) OptimisticDeleteStream(ctx context.Context, expectedStr
 	return e.parent.OptimisticDeleteStream(ctx, expectedStreamSequenceNumber, streamName)
 }
 
-func (e *encryptedStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
+func (e *encryptedStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, streamName string, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	for _, record := range eventRecords {
 		err := e.eventEncryptor.Encrypt(record.Event)
 		if err != nil {
@@ -48,10 +48,10 @@ func (e *encryptedStore) OptimisticSave(ctx context.Context, expectedStreamSeque
 		}
 	}
 
-	return e.parent.OptimisticSave(ctx, expectedStreamSequenceNumber, eventRecords...)
+	return e.parent.OptimisticSave(ctx, expectedStreamSequenceNumber, streamName, eventRecords...)
 }
 
-func (e *encryptedStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRecord) (uint64, error) {
+func (e *encryptedStore) Save(ctx context.Context, streamName string, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	for _, record := range eventRecords {
 		err := e.eventEncryptor.Encrypt(record.Event)
 		if err != nil {
@@ -59,7 +59,7 @@ func (e *encryptedStore) Save(ctx context.Context, eventRecords ...*rangedb.Even
 		}
 	}
 
-	return e.parent.Save(ctx, eventRecords...)
+	return e.parent.Save(ctx, streamName, eventRecords...)
 }
 
 func (e *encryptedStore) AllEventsSubscription(ctx context.Context, bufferSize int, subscriber rangedb.RecordSubscriber) rangedb.RecordSubscription {

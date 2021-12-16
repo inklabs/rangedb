@@ -33,5 +33,9 @@
 
 .records .date {
     white-space: nowrap;
+    font-size: x-small;
+}
+
+.records .event-data {
     font-size: small;
 }

@@ -3,6 +3,9 @@ package encryptedstore_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
 	"github.com/inklabs/rangedb/pkg/crypto/aes"
@@ -13,8 +16,6 @@ import (
 	"github.com/inklabs/rangedb/provider/encryptedstore"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/rangedbtest"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_EncryptedStore_VerifyStoreInterface(t *testing.T) {
@@ -49,10 +50,11 @@ func TestEncryptedStore(t *testing.T) {
 			Email:  email,
 			Status: "active",
 		}
+		streamName := rangedb.GetEventStream(event)
 		ctx := rangedbtest.TimeoutContext(t)
 
 		// When
-		_, err := encryptedStore.OptimisticSave(ctx, 0, &rangedb.EventRecord{Event: event})
+		_, err := encryptedStore.OptimisticSave(ctx, 0, streamName, &rangedb.EventRecord{Event: event})
 
 		// Then
 		require.NoError(t, err)
@@ -80,10 +82,11 @@ func TestEncryptedStore(t *testing.T) {
 			Email:  email,
 			Status: "active",
 		}
+		streamName := rangedb.GetEventStream(event)
 		ctx := rangedbtest.TimeoutContext(t)
 
 		// When
-		_, err := encryptedStore.Save(ctx, &rangedb.EventRecord{Event: event})
+		_, err := encryptedStore.Save(ctx, streamName, &rangedb.EventRecord{Event: event})
 
 		// Then
 		require.NoError(t, err)
@@ -111,10 +114,11 @@ func TestEncryptedStore(t *testing.T) {
 			Email:  email,
 			Status: "active",
 		}
+		streamName := rangedb.GetEventStream(event)
 		ctx := rangedbtest.TimeoutContext(t)
 
 		// When
-		_, err := encryptedStore.Save(ctx, &rangedb.EventRecord{Event: event})
+		_, err := encryptedStore.Save(ctx, streamName, &rangedb.EventRecord{Event: event})
 
 		// Then
 		require.NoError(t, err)
@@ -142,10 +146,11 @@ func TestEncryptedStore(t *testing.T) {
 			Email:  email,
 			Status: "active",
 		}
+		streamName := rangedb.GetEventStream(event)
 		ctx := rangedbtest.TimeoutContext(t)
 
 		// When
-		_, err := encryptedStore.Save(ctx, &rangedb.EventRecord{Event: event})
+		_, err := encryptedStore.Save(ctx, streamName, &rangedb.EventRecord{Event: event})
 
 		// Then
 		require.NoError(t, err)
@@ -173,6 +178,7 @@ func TestEncryptedStore(t *testing.T) {
 			Email:  email,
 			Status: "active",
 		}
+		streamName := rangedb.GetEventStream(event)
 		records := make(chan *rangedb.Record)
 		defer close(records)
 		subscriber := rangedb.RecordSubscriberFunc(func(record *rangedb.Record) {
@@ -184,7 +190,7 @@ func TestEncryptedStore(t *testing.T) {
 		ctx = rangedbtest.TimeoutContext(t)
 
 		// When
-		_, err := encryptedStore.Save(ctx, &rangedb.EventRecord{Event: event})
+		_, err := encryptedStore.Save(ctx, streamName, &rangedb.EventRecord{Event: event})
 
 		// Then
 		require.NoError(t, err)
@@ -208,6 +214,7 @@ func TestEncryptedStore(t *testing.T) {
 			Email:  email,
 			Status: "active",
 		}
+		streamName := rangedb.GetEventStream(event)
 		records := make(chan *rangedb.Record)
 		defer close(records)
 		subscriber := rangedb.RecordSubscriberFunc(func(record *rangedb.Record) {
@@ -219,7 +226,7 @@ func TestEncryptedStore(t *testing.T) {
 		ctx = rangedbtest.TimeoutContext(t)
 
 		// When
-		_, err := encryptedStore.Save(ctx, &rangedb.EventRecord{Event: event})
+		_, err := encryptedStore.Save(ctx, streamName, &rangedb.EventRecord{Event: event})
 
 		// Then
 		require.NoError(t, err)

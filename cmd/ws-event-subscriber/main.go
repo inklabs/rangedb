@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
@@ -26,19 +27,21 @@ func main() {
 		fmt.Println("Subscribing to all events")
 	}
 
-	var uri string
-	if *aggregateTypesCSV == "" {
-		uri = "/ws/events"
-	} else {
-		uri = fmt.Sprintf("/ws/events/%s", *aggregateTypesCSV)
+	serverURL := url.URL{
+		Scheme: "ws",
+		Host:   *host,
+		Path:   "/ws/events",
 	}
 
-	url := fmt.Sprintf("ws://%s%s", *host, uri)
+	if *aggregateTypesCSV != "" {
+		serverURL.Path += "/" + *aggregateTypesCSV
+	}
+
 	ctx, done := context.WithCancel(context.Background())
 	defer done()
-	socket, _, err := websocket.DefaultDialer.DialContext(ctx, url, nil)
+	socket, _, err := websocket.DefaultDialer.DialContext(ctx, serverURL.String(), nil)
 	if err != nil {
-		log.Fatalf("unable to dial (%s): %v", url, err)
+		log.Fatalf("unable to dial (%s): %v", serverURL.String(), err)
 	}
 	defer closeOrLog(socket)
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http/httptest"
-	"strings"
+	"net/url"
 	"sync"
 	"time"
 
@@ -32,9 +32,12 @@ func Example_streamAllEvents() {
 	server := httptest.NewServer(websocketApi)
 	defer server.Close()
 
-	serverAddress := strings.TrimPrefix(server.URL, "http://")
-	websocketUrl := fmt.Sprintf("ws://%s/events", serverAddress)
-	socket, _, err := websocket.DefaultDialer.Dial(websocketUrl, nil)
+	serverURL, err := url.Parse(server.URL)
+	PrintError(err)
+	serverURL.Scheme = "ws"
+	serverURL.Path = "/events"
+
+	socket, _, err := websocket.DefaultDialer.Dial(serverURL.String(), nil)
 	PrintError(err)
 
 	var wg sync.WaitGroup
@@ -55,10 +58,13 @@ func Example_streamAllEvents() {
 	// When
 	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
 	defer done()
-	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+
+	streamNameA := "thing-52e247a7c0a54a65906e006dac9be108"
+	streamNameB := "another-a3d9faa7614a46b388c6dce9984b6620"
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx, streamNameA,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "52e247a7c0a54a65906e006dac9be108", Number: 100}},
 	)))
-	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx, streamNameB,
 		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a3d9faa7614a46b388c6dce9984b6620"}},
 	)))
 
@@ -66,6 +72,7 @@ func Example_streamAllEvents() {
 
 	// Output:
 	// {
+	//   "streamName": "thing-52e247a7c0a54a65906e006dac9be108",
 	//   "aggregateType": "thing",
 	//   "aggregateID": "52e247a7c0a54a65906e006dac9be108",
 	//   "globalSequenceNumber": 1,
@@ -80,6 +87,7 @@ func Example_streamAllEvents() {
 	//   "metadata": null
 	// }
 	// {
+	//   "streamName": "another-a3d9faa7614a46b388c6dce9984b6620",
 	//   "aggregateType": "another",
 	//   "aggregateID": "a3d9faa7614a46b388c6dce9984b6620",
 	//   "globalSequenceNumber": 2,

@@ -12,20 +12,18 @@ import (
 )
 
 type msgpackSerializer struct {
-	eventTypes map[string]reflect.Type
+	eventIdentifier rangedb.EventTypeIdentifier
 }
 
 // New constructs a msgpackSerializer.
 func New() *msgpackSerializer {
 	return &msgpackSerializer{
-		eventTypes: map[string]reflect.Type{},
+		eventIdentifier: rangedb.NewEventIdentifier(),
 	}
 }
 
 func (s *msgpackSerializer) Bind(events ...rangedb.Event) {
-	for _, e := range events {
-		s.eventTypes[e.EventType()] = getType(e)
-	}
+	s.eventIdentifier.Bind(events...)
 }
 
 func (s *msgpackSerializer) Serialize(record *rangedb.Record) ([]byte, error) {
@@ -36,12 +34,11 @@ func (s *msgpackSerializer) Deserialize(serializedData []byte) (*rangedb.Record,
 	decoder := msgpack.NewDecoder(bytes.NewBuffer(serializedData))
 	decoder.UseJSONTag(true)
 
-	return UnmarshalRecord(decoder, s.eventTypeLookup)
+	return UnmarshalRecord(decoder, s.eventIdentifier)
 }
 
-func (s *msgpackSerializer) eventTypeLookup(eventTypeName string) (r reflect.Type, b bool) {
-	eventType, ok := s.eventTypes[eventTypeName]
-	return eventType, ok
+func (s *msgpackSerializer) EventTypeLookup(eventTypeName string) (r reflect.Type, b bool) {
+	return s.eventIdentifier.EventTypeLookup(eventTypeName)
 }
 
 // MarshalRecord encodes a Record as msgpack.
@@ -74,7 +71,7 @@ func MarshalRecord(record *rangedb.Record) ([]byte, error) {
 //
 // The record, excluding data, is decoded first. Then, event data is decoded.
 // Event data will be parsed into a struct if supplied by getEventType.
-func UnmarshalRecord(decoder *msgpack.Decoder, getEventType func(eventTypeName string) (reflect.Type, bool)) (*rangedb.Record, error) {
+func UnmarshalRecord(decoder *msgpack.Decoder, eventTypeIdentifier rangedb.EventTypeIdentifier) (*rangedb.Record, error) {
 	record := rangedb.Record{}
 
 	decodeErr := decoder.Decode(&record)
@@ -89,7 +86,7 @@ func UnmarshalRecord(decoder *msgpack.Decoder, getEventType func(eventTypeName s
 		return nil, err
 	}
 
-	eventType, ok := getEventType(record.EventType)
+	eventType, ok := eventTypeIdentifier.EventTypeLookup(record.EventType)
 	if ok {
 		data := reflect.New(eventType).Interface()
 		err := decoder.Decode(data)
@@ -113,12 +110,3 @@ func UnmarshalRecord(decoder *msgpack.Decoder, getEventType func(eventTypeName s
 
 // ErrorEOF defines an end of file error.
 var ErrorEOF = errors.New("EOF")
-
-func getType(object interface{}) reflect.Type {
-	t := reflect.TypeOf(object)
-	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-
-	return t
-}

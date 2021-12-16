@@ -1,0 +1,96 @@
+{{- /*gotype: github.com/inklabs/rangedb/pkg/rangedbui.aggregateTypesTemplateVars*/ -}}
+
+{{template "base" .}}
+{{define "pageTitle" }}Aggregate Types{{end}}
+{{define "extraHead" }}
+<script src="/static/js/vue-3.2.20.global.prod.js"></script>
+{{end}}
+
+{{define "content"}}
+    <div class="grid-container">
+        <div class="grid-x grid-padding-x">
+            <div class="cell medium-6 medium-order-1" id="app">
+                <nav aria-label="You are here:" role="navigation">
+                    <ul class="breadcrumbs">
+                        <li>
+                            <a href="/aggregate-types">Aggregate</a>
+                        </li>
+                        <li>
+                            Realtime (${ Number(totalEvents).toLocaleString() })
+                        </li>
+                    </ul>
+                </nav>
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Type</th>
+                        <th>Total Events</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr v-for="aggregateType in aggregateTypes" :key="aggregateType.Name">
+                        <td><a :href="'/a/' + aggregateType.Name + '/live'">${aggregateType.Name}</a></td>
+                        <td>${ Number(aggregateType.TotalEvents).toLocaleString() }</td>
+                    </tr>
+                    </tbody>
+                </table>
+                <ul>
+                </ul>
+            </div>
+        </div>
+    </div>
+{{end}}
+
+{{define "extraEndBody"}}
+<script>
+    const maxRecords = 10;
+    const App = {
+        data() {
+            return {
+                aggregateTypes: [],
+                wasDisconnected: false,
+                totalEvents: {{.TotalEvents}}
+            }
+        },
+        mounted() {
+            this.connect();
+        },
+        methods: {
+            connect() {
+                let ws = new WebSocket('ws://{{.UIHost}}/live/aggregate-types');
+                ws.onmessage = (event) => {
+                    if (this.wasDisconnected) {
+                        this.aggregateTypes = [];
+                        this.wasDisconnected = false;
+                    }
+                    let envelope = JSON.parse(event.data);
+                    console.log(envelope)
+                    this.totalEvents = envelope.TotalEvents;
+                    this.aggregateTypes = envelope.AggregateTypes;
+                };
+
+                ws.onopen = () => {
+                    console.log("Socket connected.")
+                };
+
+                ws.onclose = (e) => {
+                    console.log("Socket is closed. Reconnect in 1 second", e.reason)
+                    this.wasDisconnected = true;
+                    setTimeout((scope) => {
+                        scope.connect();
+                    }, 1000, this)
+                };
+
+                ws.onerror = function(err) {
+                    console.error('Socket encountered error: ', err.message, 'Closing socket');
+                    ws.close();
+                };
+            }
+        },
+        compilerOptions: {
+            delimiters: ["${", "}"]
+        }
+    }
+    Vue.createApp(App).mount("#app")
+</script>
+{{end}}

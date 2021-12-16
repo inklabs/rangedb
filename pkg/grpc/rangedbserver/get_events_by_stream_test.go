@@ -30,11 +30,13 @@ func ExampleRangeDBServer_EventsByStream() {
 	rangedbtest.BindEvents(inMemoryStore)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+	streamNameA := "thing-605f20348fb940e386c171d51c877bf1"
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx, streamNameA,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "605f20348fb940e386c171d51c877bf1", Number: 100}},
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "605f20348fb940e386c171d51c877bf1", Number: 200}},
 	)))
-	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+	streamNameB := "another-a095086e52bc4617a1763a62398cd645"
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx, streamNameB,
 		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a095086e52bc4617a1763a62398cd645"}},
 	)))
 
@@ -61,7 +63,7 @@ func ExampleRangeDBServer_EventsByStream() {
 	// Setup gRPC client
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
 	request := &rangedbpb.EventsByStreamRequest{
-		StreamName:           "thing!605f20348fb940e386c171d51c877bf1",
+		StreamName:           streamNameA,
 		StreamSequenceNumber: 0,
 	}
 
@@ -84,6 +86,7 @@ func ExampleRangeDBServer_EventsByStream() {
 
 	// Output:
 	// {
+	//   "StreamName": "thing-605f20348fb940e386c171d51c877bf1",
 	//   "AggregateType": "thing",
 	//   "AggregateID": "605f20348fb940e386c171d51c877bf1",
 	//   "GlobalSequenceNumber": 1,
@@ -94,6 +97,7 @@ func ExampleRangeDBServer_EventsByStream() {
 	//   "Metadata": "null"
 	// }
 	// {
+	//   "StreamName": "thing-605f20348fb940e386c171d51c877bf1",
 	//   "AggregateType": "thing",
 	//   "AggregateID": "605f20348fb940e386c171d51c877bf1",
 	//   "GlobalSequenceNumber": 2,

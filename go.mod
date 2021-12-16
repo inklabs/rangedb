@@ -5,6 +5,7 @@ go 1.16
 require (
 	github.com/EventStore/EventStore-Client-Go v0.0.0-20211014103649-f2245b0f9636
 	github.com/aws/aws-sdk-go v1.38.22
+	github.com/dustin/go-humanize v1.0.0
 	github.com/fatih/structtag v1.2.0
 	github.com/gofrs/uuid v4.0.0+incompatible
 	github.com/golang/protobuf v1.5.0

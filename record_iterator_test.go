@@ -14,6 +14,7 @@ import (
 func TestRecordIterator(t *testing.T) {
 	event := &rangedbtest.ThingWasDone{ID: "A", Number: 1}
 	record := &rangedb.Record{
+		StreamName:           "thing-" + event.AggregateID(),
 		AggregateType:        event.AggregateType(),
 		AggregateID:          event.AggregateID(),
 		GlobalSequenceNumber: 1,

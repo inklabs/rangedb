@@ -3,14 +3,15 @@ package encryptedstore_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/crypto/aes"
 	"github.com/inklabs/rangedb/pkg/crypto/cryptotest"
 	"github.com/inklabs/rangedb/pkg/crypto/eventencryptor"
 	"github.com/inklabs/rangedb/pkg/crypto/provider/inmemorykeystore"
 	"github.com/inklabs/rangedb/provider/encryptedstore"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestNewDecryptingRecordSubscriber(t *testing.T) {
@@ -28,6 +29,7 @@ func TestNewDecryptingRecordSubscriber(t *testing.T) {
 		eventEncryptor := eventencryptor.New(keyStore, aesEncryptor)
 		require.NoError(t, eventEncryptor.Encrypt(encryptedEvent))
 		encryptedRecord := &rangedb.Record{
+			StreamName:           "customer-fa14d796bab84c9f9c2026a5324d6a34",
 			AggregateType:        encryptedEvent.AggregateType(),
 			AggregateID:          encryptedEvent.AggregateID(),
 			GlobalSequenceNumber: 1,
@@ -68,6 +70,7 @@ func TestNewDecryptingRecordSubscriber(t *testing.T) {
 
 		failingEventEncryptor := cryptotest.NewFailingEventEncryptor()
 		encryptedRecord := &rangedb.Record{
+			StreamName:           "customer-fa14d796bab84c9f9c2026a5324d6a34",
 			AggregateType:        encryptedEvent.AggregateType(),
 			AggregateID:          encryptedEvent.AggregateID(),
 			GlobalSequenceNumber: 1,
@@ -111,6 +114,7 @@ func TestNewDecryptingRecordSubscriber(t *testing.T) {
 		}
 		require.NoError(t, eventEncryptor.Encrypt(event))
 		record := &rangedb.Record{
+			StreamName:           "customer-fa14d796bab84c9f9c2026a5324d6a34",
 			AggregateType:        event.AggregateType(),
 			AggregateID:          event.AggregateID(),
 			GlobalSequenceNumber: 1,

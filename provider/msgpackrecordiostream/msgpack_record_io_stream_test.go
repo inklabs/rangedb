@@ -31,6 +31,7 @@ func Test_WriteAndRead_Valid(t *testing.T) {
 		Number: 100,
 	}
 	record := &rangedb.Record{
+		StreamName:           "thing-3006a61d5bca41ee86ba992626db7df7",
 		AggregateType:        event.AggregateType(),
 		AggregateID:          event.AggregateID(),
 		GlobalSequenceNumber: 11,

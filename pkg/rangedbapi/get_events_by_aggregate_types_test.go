@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"time"
 
 	"github.com/inklabs/rangedb"
@@ -29,18 +30,24 @@ func Example_getEventsByAggregateTypes() {
 	server := httptest.NewServer(api)
 	defer server.Close()
 
+	serverURL, err := url.Parse(server.URL)
+	PrintError(err)
+	serverURL.Path = "/events-by-aggregate-type/thing,another.json"
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+
+	streamNameA := "thing-605f20348fb940e386c171d51c877bf1"
+	streamNameB := "another-a095086e52bc4617a1763a62398cd645"
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx, streamNameA,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "605f20348fb940e386c171d51c877bf1", Number: 100}},
 	)))
-	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx, streamNameB,
 		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "a095086e52bc4617a1763a62398cd645"}},
 	)))
-	url := fmt.Sprintf("%s/events/thing,another.json", server.URL)
 
 	// When
-	response, err := http.Get(url)
+	response, err := http.Get(serverURL.String())
 	PrintError(err)
 	defer Close(response.Body)
 
@@ -52,6 +59,7 @@ func Example_getEventsByAggregateTypes() {
 	// Output:
 	// [
 	//   {
+	//     "streamName": "thing-605f20348fb940e386c171d51c877bf1",
 	//     "aggregateType": "thing",
 	//     "aggregateID": "605f20348fb940e386c171d51c877bf1",
 	//     "globalSequenceNumber": 1,
@@ -66,6 +74,7 @@ func Example_getEventsByAggregateTypes() {
 	//     "metadata": null
 	//   },
 	//   {
+	//     "streamName": "another-a095086e52bc4617a1763a62398cd645",
 	//     "aggregateType": "another",
 	//     "aggregateID": "a095086e52bc4617a1763a62398cd645",
 	//     "globalSequenceNumber": 2,

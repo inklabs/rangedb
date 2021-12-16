@@ -21,6 +21,7 @@ func VerifyRecordSerializer(t *testing.T, newSerializer func() rangedb.RecordSer
 		serializer.Bind(&ThingWasDone{})
 		event := &ThingWasDone{ID: "A", Number: 1}
 		record := &rangedb.Record{
+			StreamName:           "thing-60f01cc527844cde9953c998a2c077a7",
 			AggregateType:        "thing",
 			AggregateID:          "60f01cc527844cde9953c998a2c077a7",
 			GlobalSequenceNumber: math.MaxUint64,
@@ -46,6 +47,7 @@ func VerifyRecordSerializer(t *testing.T, newSerializer func() rangedb.RecordSer
 		serializer := newSerializer()
 		event := &ThingWasDone{ID: "A", Number: 1}
 		record := &rangedb.Record{
+			StreamName:           "thing-7e488a8af27148cb98920f11902d930c",
 			AggregateType:        "thing",
 			AggregateID:          "7e488a8af27148cb98920f11902d930c",
 			GlobalSequenceNumber: math.MaxUint64,
@@ -77,6 +79,7 @@ func VerifyRecordSerializer(t *testing.T, newSerializer func() rangedb.RecordSer
 		boundSerializer.Bind(&ThingWasDone{})
 		event := &ThingWasDone{ID: "A", Number: 1}
 		record := &rangedb.Record{
+			StreamName:           "thing-7e488a8af27148cb98920f11902d930c",
 			AggregateType:        "thing",
 			AggregateID:          "7e488a8af27148cb98920f11902d930c",
 			GlobalSequenceNumber: math.MaxUint64,
@@ -108,6 +111,7 @@ func VerifyRecordSerializer(t *testing.T, newSerializer func() rangedb.RecordSer
 		unBoundSerializer := newSerializer()
 		event := &ThingWasDone{ID: "A", Number: 1}
 		record := &rangedb.Record{
+			StreamName:           "thing-7e488a8af27148cb98920f11902d930c",
 			AggregateType:        "thing",
 			AggregateID:          "7e488a8af27148cb98920f11902d930c",
 			GlobalSequenceNumber: math.MaxUint64,

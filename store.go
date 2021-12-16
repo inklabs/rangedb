@@ -8,10 +8,11 @@ import (
 )
 
 // Version for RangeDB.
-const Version = "0.12.1-dev"
+const Version = "0.13.0-dev"
 
 // Record contains event data and metadata.
 type Record struct {
+	StreamName           string      `msgpack:"n" json:"streamName"`
 	AggregateType        string      `msgpack:"a" json:"aggregateType"`
 	AggregateID          string      `msgpack:"i" json:"aggregateID"`
 	GlobalSequenceNumber uint64      `msgpack:"g" json:"globalSequenceNumber"`
@@ -55,10 +56,10 @@ type Store interface {
 	// OptimisticSave persists events to a single stream returning the new StreamSequenceNumber or an error. If
 	// the expectedStreamSequenceNumber does not match the current stream sequence number,
 	// an rangedberror.UnexpectedSequenceNumber error is returned.
-	OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*EventRecord) (uint64, error)
+	OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, streamName string, eventRecords ...*EventRecord) (uint64, error)
 
 	// Save persists events to a single stream returning the new StreamSequenceNumber or an error.
-	Save(ctx context.Context, eventRecords ...*EventRecord) (uint64, error)
+	Save(ctx context.Context, streamName string, eventRecords ...*EventRecord) (uint64, error)
 
 	AllEventsSubscription(ctx context.Context, bufferSize int, subscriber RecordSubscriber) RecordSubscription
 	AggregateTypesSubscription(ctx context.Context, bufferSize int, subscriber RecordSubscriber, aggregateTypes ...string) RecordSubscription

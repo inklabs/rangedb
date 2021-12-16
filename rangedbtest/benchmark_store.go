@@ -22,7 +22,8 @@ func StoreBenchmark(b *testing.B, newStore func(b *testing.B) rangedb.Store) {
 			store := newStore(b)
 			ctx := TimeoutContext(b)
 			for i := 0; i < b.N; i++ {
-				_, err := store.Save(ctx, eventRecords...)
+				streamName := rangedb.GetEventStream(eventRecords[0].Event)
+				_, err := store.Save(ctx, streamName, eventRecords...)
 				if err != nil {
 					require.NoError(b, err)
 				}
@@ -33,7 +34,8 @@ func StoreBenchmark(b *testing.B, newStore func(b *testing.B) rangedb.Store) {
 			store := newStore(b)
 			ctx := TimeoutContext(b)
 			for i := 0; i < b.N; i++ {
-				_, err := store.OptimisticSave(ctx, uint64(i*totalEvents), eventRecords...)
+				streamName := rangedb.GetEventStream(eventRecords[0].Event)
+				_, err := store.OptimisticSave(ctx, uint64(i*totalEvents), streamName, eventRecords...)
 				if err != nil {
 					require.NoError(b, err)
 				}
@@ -56,7 +58,8 @@ func StoreBenchmark(b *testing.B, newStore func(b *testing.B) rangedb.Store) {
 		for i := 0; i < (totalEvents / eventsPerStream); i++ {
 			aggregateID = uuid.New().String()
 			eventRecords := getNEvents(eventsPerStream, aggregateID)
-			_, err := store.Save(saveCtx, eventRecords...)
+			streamName := rangedb.GetEventStream(eventRecords[0].Event)
+			_, err := store.Save(saveCtx, streamName, eventRecords...)
 			require.NoError(b, err)
 		}
 

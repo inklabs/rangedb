@@ -5,9 +5,10 @@ import (
 	"net"
 	"time"
 
-	"github.com/inklabs/rangedb/pkg/grpc/rangedbserver"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
+
+	"github.com/inklabs/rangedb/pkg/grpc/rangedbserver"
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock/provider/sequentialclock"
@@ -27,7 +28,8 @@ func ExampleRangeDBServer_OptimisticDeleteStream_failure() {
 	const aggregateID = "c129a8fa3d8945928c3e300beb0b6d58"
 	event1 := rangedbtest.ThingWasDone{ID: aggregateID, Number: 100}
 	event2 := rangedbtest.ThingWasDone{ID: aggregateID, Number: 200}
-	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+	streamName := "thing-c129a8fa3d8945928c3e300beb0b6d58"
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx, streamName,
 		&rangedb.EventRecord{Event: event1},
 		&rangedb.EventRecord{Event: event2},
 	)))
@@ -56,7 +58,7 @@ func ExampleRangeDBServer_OptimisticDeleteStream_failure() {
 	rangeDBClient := rangedbpb.NewRangeDBClient(conn)
 	optimisticDeleteStream := &rangedbpb.OptimisticDeleteStreamRequest{
 		ExpectedStreamSequenceNumber: 5,
-		StreamName:                   rangedb.GetEventStream(event1),
+		StreamName:                   streamName,
 	}
 
 	// When

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http/httptest"
-	"strings"
+	"net/url"
 	"sync"
 	"time"
 
@@ -32,9 +32,12 @@ func Example_streamAggregateTypeEvents() {
 	server := httptest.NewServer(api)
 	defer server.Close()
 
-	serverAddress := strings.TrimPrefix(server.URL, "http://")
-	websocketUrl := fmt.Sprintf("ws://%s/events/thing,that", serverAddress)
-	socket, _, err := websocket.DefaultDialer.Dial(websocketUrl, nil)
+	serverURL, err := url.Parse(server.URL)
+	PrintError(err)
+	serverURL.Scheme = "ws"
+	serverURL.Path = "/events/thing,that"
+
+	socket, _, err := websocket.DefaultDialer.Dial(serverURL.String(), nil)
 	PrintError(err)
 
 	var wg sync.WaitGroup
@@ -55,13 +58,17 @@ func Example_streamAggregateTypeEvents() {
 	// When
 	ctx, done := context.WithTimeout(context.Background(), 5*time.Second)
 	defer done()
-	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+
+	streamNameA := "thing-dce275e43137467b92c9f4eb6c9c77a3"
+	streamNameB := "another-594c68cfa7944f9b94afc83505ff99e9"
+	streamNameC := "that-075d37ae85894093aa818b391442df9b"
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx, streamNameA,
 		&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{ID: "dce275e43137467b92c9f4eb6c9c77a3", Number: 100}},
 	)))
-	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx, streamNameB,
 		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{ID: "594c68cfa7944f9b94afc83505ff99e9"}},
 	)))
-	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx,
+	PrintError(IgnoreFirstNumber(inMemoryStore.Save(ctx, streamNameC,
 		&rangedb.EventRecord{Event: rangedbtest.ThatWasDone{ID: "075d37ae85894093aa818b391442df9b"}},
 	)))
 
@@ -69,6 +76,7 @@ func Example_streamAggregateTypeEvents() {
 
 	// Output:
 	// {
+	//   "streamName": "thing-dce275e43137467b92c9f4eb6c9c77a3",
 	//   "aggregateType": "thing",
 	//   "aggregateID": "dce275e43137467b92c9f4eb6c9c77a3",
 	//   "globalSequenceNumber": 1,
@@ -83,6 +91,7 @@ func Example_streamAggregateTypeEvents() {
 	//   "metadata": null
 	// }
 	// {
+	//   "streamName": "that-075d37ae85894093aa818b391442df9b",
 	//   "aggregateType": "that",
 	//   "aggregateID": "075d37ae85894093aa818b391442df9b",
 	//   "globalSequenceNumber": 3,

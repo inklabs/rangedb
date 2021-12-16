@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/google/uuid"
+
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 )
 

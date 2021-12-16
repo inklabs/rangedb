@@ -5,9 +5,10 @@ import (
 	"math"
 	"testing"
 
-	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/inklabs/rangedb/pkg/shortuuid"
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
@@ -104,9 +105,12 @@ func Test_Failures(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, store.InitDB())
 			ctx := rangedbtest.TimeoutContext(t)
+			const streamName = "float-1"
 
 			// When
-			lastStreamSequenceNumber, err := store.Save(ctx, &rangedb.EventRecord{Event: rangedbtest.FloatWasDone{Number: math.Inf(1)}})
+			lastStreamSequenceNumber, err := store.Save(ctx, streamName,
+				&rangedb.EventRecord{Event: rangedbtest.FloatWasDone{Number: math.Inf(1)}},
+			)
 
 			// Then
 			assert.EqualError(t, err, "json: unsupported value: +Inf")
@@ -119,9 +123,12 @@ func Test_Failures(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, store.InitDB())
 			ctx := rangedbtest.TimeoutContext(t)
+			const streamName = "thing-1"
 
 			// When
-			lastStreamSequenceNumber, err := store.Save(ctx, &rangedb.EventRecord{Event: rangedbtest.ThingWasDone{}, Metadata: math.Inf(-1)})
+			lastStreamSequenceNumber, err := store.Save(ctx, streamName,
+				&rangedb.EventRecord{Event: rangedbtest.ThingWasDone{}, Metadata: math.Inf(-1)},
+			)
 
 			// Then
 			assert.EqualError(t, err, "json: unsupported value: -Inf")
@@ -207,7 +214,7 @@ func Test_Failures(t *testing.T) {
 			// Then
 			require.False(t, iter.Next())
 			require.Nil(t, iter.Record())
-			require.EqualError(t, iter.Err(), `sql: Scan error on column index 3, name "streamsequencenumber": converting NULL to uint64 is unsupported`)
+			require.EqualError(t, iter.Err(), `sql: Scan error on column index 4, name "streamsequencenumber": converting NULL to uint64 is unsupported`)
 		})
 	})
 
@@ -228,6 +235,7 @@ func Test_Failures(t *testing.T) {
 func insertEventWithBadMetadata(t *testing.T, config *postgresstore.Config) {
 	event := rangedbtest.ThingWasDone{}
 	values := []interface{}{
+		"thing-1",
 		event.AggregateType(),
 		event.AggregateID(),
 		0,
@@ -243,6 +251,7 @@ func insertEventWithBadMetadata(t *testing.T, config *postgresstore.Config) {
 func insertEventWithBadData(t *testing.T, config *postgresstore.Config) {
 	event := rangedbtest.ThingWasDone{}
 	values := []interface{}{
+		"thing-1",
 		event.AggregateType(),
 		event.AggregateID(),
 		0,
@@ -258,6 +267,7 @@ func insertEventWithBadData(t *testing.T, config *postgresstore.Config) {
 func insertEventWithBadStreamSequenceNumber(t *testing.T, config *postgresstore.Config) {
 	event := rangedbtest.ThingWasDone{}
 	values := []interface{}{
+		"thing-1",
 		event.AggregateType(),
 		event.AggregateID(),
 		nil,
@@ -271,7 +281,18 @@ func insertEventWithBadStreamSequenceNumber(t *testing.T, config *postgresstore.
 }
 
 func insertRecordValues(t *testing.T, config *postgresstore.Config, values []interface{}) {
-	sqlStatement := "INSERT INTO record (AggregateType,AggregateID,StreamSequenceNumber,InsertTimestamp,EventID,EventType,Data,Metadata) VALUES ($1,$2,$3,$4,$5,$6,$7,$8);"
+	sqlStatement := `INSERT INTO record 
+    (
+		StreamName,
+		AggregateType,
+		AggregateID,
+		StreamSequenceNumber,
+		InsertTimestamp,
+		EventID,
+		EventType,
+		Data,
+		Metadata
+	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9);`
 	db, err := sql.Open("postgres", config.DataSourceName())
 	require.NoError(t, err)
 	_, err = db.Exec(sqlStatement, values...)

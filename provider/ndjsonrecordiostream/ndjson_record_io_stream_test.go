@@ -31,7 +31,7 @@ func Test_LoadAndSave_ValidJson(t *testing.T) {
 		// Given
 		var writer bytes.Buffer
 		stream := ndjsonrecordiostream.New()
-		expectedNdJson := `{"aggregateType":"scalar","aggregateID":"1","globalSequenceNumber":10,"streamSequenceNumber":2,"insertTimestamp":123,"eventID":"1ccd9eeb3a8e42dfb12cee36b908c212","eventType":"Thing","data":{"ID":"xyz"},"metadata":null}`
+		expectedNdJson := `{"streamName":"scalar-1","aggregateType":"scalar","aggregateID":"1","globalSequenceNumber":10,"streamSequenceNumber":2,"insertTimestamp":123,"eventID":"1ccd9eeb3a8e42dfb12cee36b908c212","eventType":"Thing","data":{"ID":"xyz"},"metadata":null}`
 		reader := strings.NewReader(expectedNdJson)
 		recordIterator := stream.Read(reader)
 
@@ -47,8 +47,8 @@ func Test_LoadAndSave_ValidJson(t *testing.T) {
 		// Given
 		var writer bytes.Buffer
 		stream := ndjsonrecordiostream.New()
-		expectedNdJson := `{"aggregateType":"scalar","aggregateID":"1","globalSequenceNumber":10,"streamSequenceNumber":2,"insertTimestamp":123,"eventID":"1ccd9eeb3a8e42dfb12cee36b908c212","eventType":"Thing","data":{"ID":"abc"},"metadata":null}
-{"aggregateType":"scalar","aggregateID":"1","globalSequenceNumber":11,"streamSequenceNumber":3,"insertTimestamp":124,"eventID":"9a4f747335594a68a316b8c7fc2a75bf","eventType":"Thing","data":{"ID":"xyz"},"metadata":null}`
+		expectedNdJson := `{"streamName":"scalar-1","aggregateType":"scalar","aggregateID":"1","globalSequenceNumber":10,"streamSequenceNumber":2,"insertTimestamp":123,"eventID":"1ccd9eeb3a8e42dfb12cee36b908c212","eventType":"Thing","data":{"ID":"abc"},"metadata":null}
+{"streamName":"scalar-1","aggregateType":"scalar","aggregateID":"1","globalSequenceNumber":11,"streamSequenceNumber":3,"insertTimestamp":124,"eventID":"9a4f747335594a68a316b8c7fc2a75bf","eventType":"Thing","data":{"ID":"xyz"},"metadata":null}`
 		reader := strings.NewReader(expectedNdJson)
 		recordIterator := stream.Read(reader)
 
@@ -64,7 +64,7 @@ func Test_LoadAndSave_ValidJson(t *testing.T) {
 		// Given
 		var writer bytes.Buffer
 		stream := ndjsonrecordiostream.New()
-		inputNdJson := `{"aggregateType":"scalar","aggregateID":"1","globalSequenceNumber":10,"streamSequenceNumber":2,"insertTimestamp":123,"eventID":"1ccd9eeb3a8e42dfb12cee36b908c212","eventType":"Thing","data":{"ID":"abc"},"metadata":null}
+		inputNdJson := `{"streamName":"scalar-1","aggregateType":"scalar","aggregateID":"1","globalSequenceNumber":10,"streamSequenceNumber":2,"insertTimestamp":123,"eventID":"1ccd9eeb3a8e42dfb12cee36b908c212","eventType":"Thing","data":{"ID":"abc"},"metadata":null}
 `
 		reader := strings.NewReader(inputNdJson)
 		recordIterator := stream.Read(reader)

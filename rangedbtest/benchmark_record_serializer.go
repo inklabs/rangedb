@@ -15,6 +15,7 @@ func RecordSerializerBenchmark(b *testing.B, newSerializer func() rangedb.Record
 	serializer := newSerializer()
 	BindEvents(serializer)
 	record := &rangedb.Record{
+		StreamName:           "thing-c2077176843a49189ae0d746eb131e05",
 		AggregateType:        "thing",
 		AggregateID:          "c2077176843a49189ae0d746eb131e05",
 		GlobalSequenceNumber: 1,

@@ -9,9 +9,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/inklabs/rangedb/pkg/shortuuid"
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
@@ -81,10 +82,11 @@ func Test_Failures(t *testing.T) {
 			require.NoError(t, store.Stop())
 			require.NoError(t, os.RemoveAll(dbPath))
 		})
+		const streamName = "thing-1"
 		ctx := rangedbtest.TimeoutContext(t)
 
 		// When
-		lastStreamSequenceNumber, err := store.Save(ctx, &rangedb.EventRecord{Event: rangedbtest.ThingWasDone{}})
+		lastStreamSequenceNumber, err := store.Save(ctx, streamName, &rangedb.EventRecord{Event: rangedbtest.ThingWasDone{}})
 
 		// Then
 		assert.EqualError(t, err, "failingSerializer.Serialize")
@@ -106,11 +108,12 @@ func Test_Failures(t *testing.T) {
 			require.NoError(t, os.RemoveAll(dbPath))
 		})
 		event := rangedbtest.ThingWasDone{}
+		const streamName = "thing-1"
 		ctx := rangedbtest.TimeoutContext(t)
-		rangedbtest.SaveEvents(t, store, &rangedb.EventRecord{Event: event})
+		rangedbtest.SaveEvents(t, store, streamName, &rangedb.EventRecord{Event: event})
 
 		// When
-		recordIterator := store.EventsByStream(ctx, 0, rangedb.GetEventStream(event))
+		recordIterator := store.EventsByStream(ctx, 0, streamName)
 
 		// Then
 		assert.False(t, recordIterator.Next())

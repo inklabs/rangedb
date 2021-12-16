@@ -93,15 +93,15 @@ func New(options ...Option) (*api, error) {
 }
 
 func (a *api) initRoutes() {
-	const stream = "{aggregateType:[a-zA-Z-]+}/{aggregateID:[0-9a-f]{32}}"
+	const streamName = "{streamName}"
 	const extension = ".{extension:json|ndjson|msgpack}"
 	router := mux.NewRouter().StrictSlash(true)
 	router.HandleFunc("/health-check", a.healthCheck)
-	router.HandleFunc("/delete-stream/"+stream, a.deleteStream)
-	router.HandleFunc("/save-events/"+stream, a.saveEvents)
-	router.HandleFunc("/events"+extension, a.allEvents)
-	router.HandleFunc("/events/"+stream+extension, a.eventsByStream)
-	router.HandleFunc("/events/{aggregateType:[a-zA-Z-,]+}"+extension, a.eventsByAggregateType)
+	router.HandleFunc("/delete-stream/"+streamName, a.deleteStream)
+	router.HandleFunc("/save-events/"+streamName, a.saveEvents)
+	router.HandleFunc("/all-events"+extension, a.allEvents)
+	router.HandleFunc("/events-by-stream/"+streamName+extension, a.eventsByStream)
+	router.HandleFunc("/events-by-aggregate-type/{aggregateType:[a-zA-Z-,]+}"+extension, a.eventsByAggregateType)
 	router.HandleFunc("/list-aggregate-types", a.listAggregateTypes)
 	a.handler = handlers.CompressHandler(router)
 }
@@ -156,11 +156,9 @@ func (a *api) allEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *api) eventsByStream(w http.ResponseWriter, r *http.Request) {
-	aggregateType := mux.Vars(r)["aggregateType"]
-	aggregateID := mux.Vars(r)["aggregateID"]
+	streamName := mux.Vars(r)["streamName"]
 	extension := mux.Vars(r)["extension"]
 
-	streamName := rangedb.GetStream(aggregateType, aggregateID)
 	events := a.store.EventsByStream(r.Context(), 0, streamName)
 	a.writeEvents(w, events, extension)
 }
@@ -178,9 +176,7 @@ func (a *api) eventsByAggregateType(w http.ResponseWriter, r *http.Request) {
 func (a *api) deleteStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
-	aggregateType := mux.Vars(r)["aggregateType"]
-	aggregateID := mux.Vars(r)["aggregateID"]
-	streamName := rangedb.GetStream(aggregateType, aggregateID)
+	streamName := mux.Vars(r)["streamName"]
 
 	expectedStreamSequenceNumber, err := expectedStreamSequenceNumberFromRequest(r)
 	if err != nil {
@@ -225,6 +221,8 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	streamName := mux.Vars(r)["streamName"]
+
 	var lastStreamSequenceNumber uint64
 	var saveErr error
 	expectedStreamSequenceNumberInput := r.Header.Get("ExpectedStreamSequenceNumber")
@@ -234,9 +232,9 @@ func (a *api) saveEvents(w http.ResponseWriter, r *http.Request) {
 			writeFailedResponse(w, "invalid ExpectedStreamSequenceNumber", http.StatusBadRequest)
 			return
 		}
-		lastStreamSequenceNumber, saveErr = a.store.OptimisticSave(r.Context(), expectedStreamSequenceNumber, eventRecords...)
+		lastStreamSequenceNumber, saveErr = a.store.OptimisticSave(r.Context(), expectedStreamSequenceNumber, streamName, eventRecords...)
 	} else {
-		lastStreamSequenceNumber, saveErr = a.store.Save(r.Context(), eventRecords...)
+		lastStreamSequenceNumber, saveErr = a.store.Save(r.Context(), streamName, eventRecords...)
 	}
 
 	if saveErr != nil {
@@ -260,13 +258,12 @@ func writeFailedResponse(w http.ResponseWriter, message string, statusCode int) 
 }
 
 func getEventRecords(r *http.Request) ([]*rangedb.EventRecord, error) {
-	aggregateType := mux.Vars(r)["aggregateType"]
-	aggregateID := mux.Vars(r)["aggregateID"]
-
 	var events []struct {
-		EventType string      `json:"eventType"`
-		Data      interface{} `json:"data"`
-		Metadata  interface{} `json:"metadata"`
+		AggregateType string      `json:"aggregateType"`
+		AggregateID   string      `json:"aggregateID"`
+		EventType     string      `json:"eventType"`
+		Data          interface{} `json:"data"`
+		Metadata      interface{} `json:"metadata"`
 	}
 	err := json.NewDecoder(r.Body).Decode(&events)
 	if err != nil {
@@ -276,7 +273,7 @@ func getEventRecords(r *http.Request) ([]*rangedb.EventRecord, error) {
 	var eventRecords []*rangedb.EventRecord
 	for _, event := range events {
 		eventRecords = append(eventRecords, &rangedb.EventRecord{
-			Event:    rangedb.NewRawEvent(aggregateType, aggregateID, event.EventType, event.Data),
+			Event:    rangedb.NewRawEvent(event.AggregateType, event.AggregateID, event.EventType, event.Data),
 			Metadata: event.Metadata,
 		})
 	}
@@ -295,7 +292,7 @@ func (a *api) listAggregateTypes(w http.ResponseWriter, _ *http.Request) {
 			"name":        aggregateType,
 			"totalEvents": a.projections.aggregateTypeStats.TotalEventsByAggregateType(aggregateType),
 			"links": map[string]interface{}{
-				"self": fmt.Sprintf("%s/events/%s.json", a.baseUri, aggregateType),
+				"self": fmt.Sprintf("%s/events-by-aggregate-type/%s.json", a.baseUri, aggregateType),
 			},
 		})
 	}
@@ -308,7 +305,7 @@ func (a *api) listAggregateTypes(w http.ResponseWriter, _ *http.Request) {
 		Data:        data,
 		TotalEvents: a.projections.aggregateTypeStats.TotalEvents(),
 		Links: map[string]string{
-			"allEvents": fmt.Sprintf("%s/events.json", a.baseUri),
+			"allEvents": fmt.Sprintf("%s/all-events.json", a.baseUri),
 			"self":      fmt.Sprintf("%s/list-aggregate-types", a.baseUri),
 		},
 	}

@@ -1,18 +1,14 @@
 package chat
 
-//go:generate go run ../../gen/aggregategenerator/main.go -name room -commands room_commands.go
+//go:generate go run ../../gen/aggregategenerator/main.go -name room
 
 import (
-	"sync"
-
 	"github.com/inklabs/rangedb"
 )
 
 type room struct {
+	state         roomState
 	pendingEvents []rangedb.Event
-
-	sync  sync.RWMutex
-	state roomState
 }
 
 type roomState struct {
@@ -30,22 +26,16 @@ func NewRoom() *room {
 	}
 }
 
-func (a *room) apply(event rangedb.Event) {
-	switch e := event.(type) {
-
-	case *RoomWasOnBoarded:
-		a.state.IsOnBoarded = true
-		a.state.RoomName = e.RoomName
-
-	case *UserWasBannedFromRoom:
-		a.sync.Lock()
-		a.state.BannedUsers[e.UserID] = struct{}{}
-		a.sync.Unlock()
-
-	}
+func (a *room) roomWasOnBoarded(e RoomWasOnBoarded) {
+	a.state.IsOnBoarded = true
+	a.state.RoomName = e.RoomName
 }
 
-func (a *room) OnBoardRoom(c OnBoardRoom) {
+func (a *room) userWasBannedFromRoom(e UserWasBannedFromRoom) {
+	a.state.BannedUsers[e.UserID] = struct{}{}
+}
+
+func (a *room) onBoardRoom(c OnBoardRoom) {
 	a.raise(RoomWasOnBoarded{
 		RoomID:   c.RoomID,
 		UserID:   c.UserID,
@@ -53,7 +43,7 @@ func (a *room) OnBoardRoom(c OnBoardRoom) {
 	})
 }
 
-func (a *room) JoinRoom(c JoinRoom) {
+func (a *room) joinRoom(c JoinRoom) {
 	if !a.state.IsOnBoarded {
 		return
 	}
@@ -68,7 +58,7 @@ func (a *room) JoinRoom(c JoinRoom) {
 	})
 }
 
-func (a *room) SendMessageToRoom(c SendMessageToRoom) {
+func (a *room) sendMessageToRoom(c SendMessageToRoom) {
 	if !a.state.IsOnBoarded {
 		return
 	}
@@ -80,7 +70,7 @@ func (a *room) SendMessageToRoom(c SendMessageToRoom) {
 	})
 }
 
-func (a *room) SendPrivateMessageToRoom(c SendPrivateMessageToRoom) {
+func (a *room) sendPrivateMessageToRoom(c SendPrivateMessageToRoom) {
 	if !a.state.IsOnBoarded {
 		return
 	}
@@ -92,7 +82,7 @@ func (a *room) SendPrivateMessageToRoom(c SendPrivateMessageToRoom) {
 	})
 }
 
-func (a *room) BanUserFromRoom(c BanUserFromRoom) {
+func (a *room) banUserFromRoom(c BanUserFromRoom) {
 	a.raise(UserWasBannedFromRoom{
 		RoomID:  c.RoomID,
 		UserID:  c.UserID,
@@ -101,7 +91,7 @@ func (a *room) BanUserFromRoom(c BanUserFromRoom) {
 	})
 }
 
-func (a *room) RemoveUserFromRoom(c RemoveUserFromRoom) {
+func (a *room) removeUserFromRoom(c RemoveUserFromRoom) {
 	a.raise(UserWasRemovedFromRoom{
 		RoomID: c.RoomID,
 		UserID: c.UserID,
@@ -110,8 +100,11 @@ func (a *room) RemoveUserFromRoom(c RemoveUserFromRoom) {
 }
 
 func (a *room) userIsBanned(userID string) bool {
-	a.sync.RLock()
 	_, ok := a.state.BannedUsers[userID]
-	a.sync.RUnlock()
 	return ok
 }
+
+func (a *room) roomWasJoined(_ RoomWasJoined)                             {}
+func (a *room) messageWasSentToRoom(_ MessageWasSentToRoom)               {}
+func (a *room) privateMessageWasSentToRoom(_ PrivateMessageWasSentToRoom) {}
+func (a *room) userWasRemovedFromRoom(_ UserWasRemovedFromRoom)           {}

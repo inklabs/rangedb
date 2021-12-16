@@ -11,13 +11,13 @@ import (
 )
 
 type jsonRecordIoStream struct {
-	eventTypes map[string]reflect.Type
+	eventIdentifier rangedb.EventTypeIdentifier
 }
 
 // New constructs a jsonRecordIoStream.
 func New() *jsonRecordIoStream {
 	return &jsonRecordIoStream{
-		eventTypes: map[string]reflect.Type{},
+		eventIdentifier: rangedb.NewEventIdentifier(),
 	}
 }
 
@@ -99,21 +99,9 @@ func (s *jsonRecordIoStream) Read(reader io.Reader) rangedb.RecordIterator {
 }
 
 func (s *jsonRecordIoStream) Bind(events ...rangedb.Event) {
-	for _, e := range events {
-		s.eventTypes[e.EventType()] = getType(e)
-	}
+	s.eventIdentifier.Bind(events...)
 }
 
 func (s *jsonRecordIoStream) EventTypeLookup(eventTypeName string) (r reflect.Type, b bool) {
-	eventType, ok := s.eventTypes[eventTypeName]
-	return eventType, ok
-}
-
-func getType(object interface{}) reflect.Type {
-	t := reflect.TypeOf(object)
-	if t.Kind() == reflect.Ptr {
-		t = t.Elem()
-	}
-
-	return t
+	return s.eventIdentifier.EventTypeLookup(eventTypeName)
 }

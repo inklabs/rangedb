@@ -119,15 +119,15 @@ func compareByGlobalSequenceNumber(globalSequenceNumber uint64) func(record *ran
 	}
 }
 
-func (s *inMemoryStore) EventsByStream(ctx context.Context, streamSequenceNumber uint64, stream string) rangedb.RecordIterator {
+func (s *inMemoryStore) EventsByStream(ctx context.Context, streamSequenceNumber uint64, streamName string) rangedb.RecordIterator {
 	s.mux.RLock()
 
-	if _, ok := s.streams[stream]; !ok || len(s.streams[stream]) == 0 {
+	if _, ok := s.streams[streamName]; !ok || len(s.streams[streamName]) == 0 {
 		s.mux.RUnlock()
 		return rangedb.NewRecordIteratorWithError(rangedb.ErrStreamNotFound)
 	}
 
-	return s.recordsByIDs(ctx, s.streams[stream], func(record *rangedb.Record) bool {
+	return s.recordsByIDs(ctx, s.streams[streamName], func(record *rangedb.Record) bool {
 		return record.StreamSequenceNumber >= streamSequenceNumber
 	})
 }
@@ -214,16 +214,16 @@ func RemoveIndex(s []uint64, index int) []uint64 {
 	return append(s[:index], s[index+1:]...)
 }
 
-func (s *inMemoryStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
-	return s.saveEvents(ctx, &expectedStreamSequenceNumber, eventRecords...)
+func (s *inMemoryStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, streamName string, eventRecords ...*rangedb.EventRecord) (uint64, error) {
+	return s.saveEvents(ctx, &expectedStreamSequenceNumber, streamName, eventRecords...)
 }
 
-func (s *inMemoryStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRecord) (uint64, error) {
-	return s.saveEvents(ctx, nil, eventRecords...)
+func (s *inMemoryStore) Save(ctx context.Context, streamName string, eventRecords ...*rangedb.EventRecord) (uint64, error) {
+	return s.saveEvents(ctx, nil, streamName, eventRecords...)
 }
 
 // saveEvents persists one or more events inside a locked mutex, and notifies subscribers.
-func (s *inMemoryStore) saveEvents(ctx context.Context, expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
+func (s *inMemoryStore) saveEvents(ctx context.Context, expectedStreamSequenceNumber *uint64, streamName string, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	if len(eventRecords) < 1 {
 		return 0, fmt.Errorf("missing events")
 	}
@@ -258,6 +258,7 @@ func (s *inMemoryStore) saveEvents(ctx context.Context, expectedStreamSequenceNu
 		}
 
 		data, record, err := s.saveEvent(
+			streamName,
 			aggregateType,
 			aggregateID,
 			eventRecord.Event.EventType(),
@@ -298,12 +299,11 @@ func (s *inMemoryStore) saveEvents(ctx context.Context, expectedStreamSequenceNu
 
 // saveEvent persists a single event without locking the mutex, or notifying subscribers.
 func (s *inMemoryStore) saveEvent(
-	aggregateType, aggregateID, eventType, eventID string,
+	streamName, aggregateType, aggregateID, eventType, eventID string,
 	expectedStreamSequenceNumber *uint64,
 	event interface{}, metadata interface{}) ([]byte, *rangedb.Record, error) {
 
-	stream := rangedb.GetStream(aggregateType, aggregateID)
-	streamSequenceNumber := s.getStreamSequenceNumber(stream)
+	streamSequenceNumber := s.getStreamSequenceNumber(streamName)
 
 	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber != streamSequenceNumber {
 		return nil, nil, &rangedberror.UnexpectedSequenceNumber{
@@ -316,6 +316,7 @@ func (s *inMemoryStore) saveEvent(
 	globalSequenceNumber := s.globalSequenceNumber
 
 	record := &rangedb.Record{
+		StreamName:           streamName,
 		AggregateType:        aggregateType,
 		AggregateID:          aggregateID,
 		GlobalSequenceNumber: globalSequenceNumber,
@@ -334,7 +335,7 @@ func (s *inMemoryStore) saveEvent(
 
 	s.records = append(s.records, globalSequenceNumber)
 	s.recordData[globalSequenceNumber] = data
-	s.streams[stream] = append(s.streams[stream], globalSequenceNumber)
+	s.streams[streamName] = append(s.streams[streamName], globalSequenceNumber)
 	s.aggregateTypes[aggregateType] = append(s.aggregateTypes[aggregateType], globalSequenceNumber)
 
 	return data, record, nil

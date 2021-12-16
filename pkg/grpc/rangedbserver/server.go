@@ -187,12 +187,16 @@ func (s *rangeDBServer) OptimisticSave(ctx context.Context, req *rangedbpb.Optim
 		}
 
 		eventRecords = append(eventRecords, &rangedb.EventRecord{
-			Event:    rangedb.NewRawEvent(req.AggregateType, req.AggregateID, event.Type, data),
+			Event:    rangedb.NewRawEvent(event.AggregateType, event.AggregateID, event.EventType, data),
 			Metadata: metadata,
 		})
 	}
 
-	lastStreamSequenceNumber, saveErr := s.store.OptimisticSave(ctx, req.ExpectedStreamSequenceNumber, eventRecords...)
+	lastStreamSequenceNumber, saveErr := s.store.OptimisticSave(ctx,
+		req.ExpectedStreamSequenceNumber,
+		req.StreamName,
+		eventRecords...,
+	)
 
 	if saveErr != nil {
 		message := fmt.Sprintf("unable to save to store: %v", saveErr)
@@ -238,12 +242,15 @@ func (s *rangeDBServer) Save(ctx context.Context, req *rangedbpb.SaveRequest) (*
 		}
 
 		eventRecords = append(eventRecords, &rangedb.EventRecord{
-			Event:    rangedb.NewRawEvent(req.AggregateType, req.AggregateID, event.Type, data),
+			Event:    rangedb.NewRawEvent(event.AggregateType, event.AggregateID, event.EventType, data),
 			Metadata: metadata,
 		})
 	}
 
-	lastStreamSequenceNumber, saveErr := s.store.Save(ctx, eventRecords...)
+	lastStreamSequenceNumber, saveErr := s.store.Save(ctx,
+		req.StreamName,
+		eventRecords...,
+	)
 
 	if saveErr != nil {
 		message := fmt.Sprintf("unable to save to store: %v", saveErr)
