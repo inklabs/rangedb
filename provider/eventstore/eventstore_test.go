@@ -27,7 +27,7 @@ func Test_EventStore_VerifyStoreInterface(t *testing.T) {
 	require.NoError(t, err)
 	err = esStore.Ping()
 	if err != nil {
-		t.Skip("EventStoreDB not found. Run: docker run -it -p 2113:2113 -p 1113:1113 eventstore/eventstore --insecure --mem-db")
+		t.Skip("EventStoreDB not found. Run: docker run -it -p 2113:2113 -p 1113:1113 eventstore/eventstore --insecure --run-projections=All --enable-atom-pub-over-http=true")
 	}
 
 	createLogDataProjection(t)

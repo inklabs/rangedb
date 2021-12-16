@@ -31,6 +31,7 @@ const (
 )
 
 type RangeDBMetadata struct {
+	StreamName           string `json:"streamName"`
 	AggregateType        string `json:"aggregateType"`
 	AggregateID          string `json:"aggregateID"`
 	StreamSequenceNumber uint64 `json:"streamSequenceNumber"`
@@ -338,8 +339,6 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 	go func() {
 		defer close(resultRecords)
 
-		aggregateType, aggregateID := rangedb.ParseStream(streamName)
-
 		readStreamOptions := esdb.ReadStreamOptions{
 			ResolveLinkTos: true,
 		}
@@ -412,7 +411,7 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 				return
 			}
 
-			if record.AggregateType != aggregateType || record.AggregateID != aggregateID {
+			if record.StreamName != streamName {
 				continue
 			}
 
@@ -477,12 +476,12 @@ func (s *eventStore) OptimisticDeleteStream(ctx context.Context, expectedStreamS
 	return nil
 }
 
-func (s *eventStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
-	return s.saveEvents(ctx, &expectedStreamSequenceNumber, eventRecords...)
+func (s *eventStore) OptimisticSave(ctx context.Context, expectedStreamSequenceNumber uint64, streamName string, eventRecords ...*rangedb.EventRecord) (uint64, error) {
+	return s.saveEvents(ctx, &expectedStreamSequenceNumber, streamName, eventRecords...)
 }
 
-func (s *eventStore) Save(ctx context.Context, eventRecords ...*rangedb.EventRecord) (uint64, error) {
-	return s.saveEvents(ctx, nil, eventRecords...)
+func (s *eventStore) Save(ctx context.Context, streamName string, eventRecords ...*rangedb.EventRecord) (uint64, error) {
+	return s.saveEvents(ctx, nil, streamName, eventRecords...)
 }
 
 func (s *eventStore) AllEventsSubscription(ctx context.Context, bufferSize int, subscriber rangedb.RecordSubscriber) rangedb.RecordSubscription {
@@ -525,7 +524,7 @@ func (s *eventStore) TotalEventsInStream(ctx context.Context, streamName string)
 	return total, nil
 }
 
-func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumber *uint64, eventRecords ...*rangedb.EventRecord) (uint64, error) {
+func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumber *uint64, streamName string, eventRecords ...*rangedb.EventRecord) (uint64, error) {
 	if len(eventRecords) < 1 {
 		return 0, fmt.Errorf("missing events")
 	}
@@ -533,8 +532,7 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 	aggregateType := eventRecords[0].Event.AggregateType()
 	aggregateID := eventRecords[0].Event.AggregateID()
 
-	stream := rangedb.GetStream(aggregateType, aggregateID)
-	streamSequenceNumber, _ := s.getStreamSequenceNumber(ctx, stream)
+	streamSequenceNumber, _ := s.getStreamSequenceNumber(ctx, streamName)
 
 	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber != streamSequenceNumber {
 		return 0, &rangedberror.UnexpectedSequenceNumber{
@@ -562,6 +560,7 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 		eventID := s.uuidGenerator.New()
 		esDBMetadata := ESDBMetadata{
 			RangeDBMetadata: RangeDBMetadata{
+				StreamName:           streamName,
 				AggregateType:        aggregateType,
 				AggregateID:          aggregateID,
 				StreamSequenceNumber: streamSequenceNumber,
@@ -600,11 +599,10 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 		streamRevision = esdb.Revision(*expectedStreamSequenceNumber - 1)
 	}
 
-	streamName := s.streamName(stream)
 	appendToStreamRevisionOptions := esdb.AppendToStreamOptions{
 		ExpectedRevision: streamRevision,
 	}
-	_, err := s.client.AppendToStream(ctx, streamName, appendToStreamRevisionOptions, proposedEvents...)
+	_, err := s.client.AppendToStream(ctx, s.streamName(streamName), appendToStreamRevisionOptions, proposedEvents...)
 	if err != nil {
 		if errors.Is(err, esdb.ErrWrongExpectedStreamRevision) {
 			return 0, &rangedberror.UnexpectedSequenceNumber{
@@ -689,6 +687,7 @@ func (s *eventStore) recordFromLinkedEvent(resolvedEvent *esdb.ResolvedEvent) (*
 	}
 
 	record := &rangedb.Record{
+		StreamName:           eventStoreDBMetadata.RangeDBMetadata.StreamName,
 		AggregateType:        eventStoreDBMetadata.RangeDBMetadata.AggregateType,
 		AggregateID:          eventStoreDBMetadata.RangeDBMetadata.AggregateID,
 		GlobalSequenceNumber: globalSequenceNumber,
