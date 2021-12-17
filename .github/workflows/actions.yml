@@ -9,13 +9,11 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:14
+        image: postgres:14.1
         env:
           PG_HOST: 127.0.0.1
           PG_USER: postgres
           PG_DBNAME: github_actions_ci_test
-          VAULT_ADDRESS: http://127.0.0.1:8200
-          VAULT_TOKEN: testroot
         ports:
         - 5432:5432
     steps:
@@ -23,6 +21,16 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: "1.16.2"
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Import Secrets
+        uses: hashicorp/vault-action@v2
+        with:
+          url: http://127.0.0.1:8200
+          token: testroot
       - name: Execute install
       - run: | 
           go mod download
@@ -30,16 +38,14 @@ jobs:
           go vet ./...
       - name: Execute before_script
       - run: |
-          echo "$DOCKER_ACCESS_TOKEN" | docker login -u "$DOCKER_USERNAME" --password-stdin
           docker run -d -p 8200:8200 -e 'VAULT_DEV_ROOT_TOKEN_ID=testroot' vault
           psql -c 'create database github_actions_ci_test;' -U postgres
-          curl -L https://codeclimate.com/downloads/test-reporter/test-reporter-0.8.0-linux-amd64 > ./cc-test-reporter
-          chmod +x ./cc-test-reporter
-          ./cc-test-reporter before-build
+      - name: Test & publish code coverage
+        uses: paambaati/codeclimate-action@v3
+        env:
+          CC_TEST_REPORTER_ID: ${{secrets.CC_TEST_REPORTER_ID}}
       - name: Execute scripts
       - run: | 
           go test -v -race -coverprofile c.out.tmp ./...
           cat c.out.tmp | grep -v "_vfsdata.go" | grep -v "_gen.go" | grep -v ".pb.go" | grep -v "/rangedbtest/" | grep -v "/cryptotest/" > c.out
           go tool cover -func c.out
-      - name: Execute after_scripts
-      - run: ./cc-test-reporter after-build --exit-code $TRAVIS_TEST_RESULT
