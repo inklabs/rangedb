@@ -34,6 +34,7 @@ func Test_EventStore_VerifyStoreInterface(t *testing.T) {
 			eventstore.WithClock(clock),
 			eventstore.WithUUIDGenerator(uuidGenerator),
 			eventstore.WithStreamPrefix(streamPrefixer),
+			eventstore.RecordDeletedStreams(),
 		)
 
 		require.NoError(t, err)

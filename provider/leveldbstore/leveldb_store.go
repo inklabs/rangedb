@@ -100,6 +100,8 @@ func New(dbFilePath string, options ...Option) (*levelDbStore, error) {
 }
 
 func (s *levelDbStore) Stop() error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
 	return s.db.Close()
 }
 

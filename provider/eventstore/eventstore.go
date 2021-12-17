@@ -69,9 +69,9 @@ type eventStore struct {
 	eventTypeIdentifier rangedb.EventTypeIdentifier
 	config              Config
 
-	password       string
-	mu             sync.RWMutex
-	deletedStreams map[string]struct{}
+	recordDeletedStreams bool
+	mu                   sync.RWMutex
+	deletedStreams       map[string]struct{}
 }
 
 // Option defines functional option parameters for eventStore.
@@ -95,6 +95,14 @@ func WithUUIDGenerator(uuidGenerator shortuuid.Generator) Option {
 func WithStreamPrefix(streamPrefixer StreamPrefixer) Option {
 	return func(store *eventStore) {
 		store.streamPrefixer = streamPrefixer
+	}
+}
+
+// RecordDeletedStreams is a functional option to keep track of deleted streams used by OptimisticDeleteStream.
+//  Warning: when using this option, clients must connect via a central RangeDB server and not directly to ESDB.
+func RecordDeletedStreams() Option {
+	return func(store *eventStore) {
+		store.recordDeletedStreams = true
 	}
 }
 
@@ -515,10 +523,12 @@ func (s *eventStore) OptimisticDeleteStream(ctx context.Context, expectedStreamS
 		return err
 	}
 
-	s.mu.Lock()
-	s.deletedStreams[s.streamName(streamName)] = struct{}{}
-	s.mu.Unlock()
-	// s.waitForScavenge(ctx)
+	if s.recordDeletedStreams {
+		s.mu.Lock()
+		s.deletedStreams[s.streamName(streamName)] = struct{}{}
+		s.mu.Unlock()
+		// s.waitForScavenge(ctx)
+	}
 
 	return nil
 }
@@ -873,6 +883,10 @@ func (s *eventStore) waitForScavenge(ctx context.Context) {
 }
 
 func (s *eventStore) inDeletedStreams(event *esdb.ResolvedEvent) bool {
+	if !s.recordDeletedStreams {
+		return false
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
