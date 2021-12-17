@@ -17,6 +17,10 @@ func TestDynamoDBKeyStore_VerifyKeyStoreInterface(t *testing.T) {
 		keyStore, err := dynamodbkeystore.New(config)
 		require.NoError(t, err)
 
+		if config.EndpointURL != "" {
+			_ = keyStore.CreateTable(config.TableName)
+		}
+
 		return keyStore
 	})
 }

@@ -1,0 +1,22 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Integration - DynamoDB" type="GoTestRunConfiguration" factoryName="Go Test">
+    <module name="rangedb" />
+    <working_directory value="$PROJECT_DIR$/pkg/crypto/provider/dynamodbkeystore" />
+    <envs>
+      <env name="DYDB_ENDPOINT_URL" value="http://127.0.0.1:8900" />
+      <env name="DYDB_AWS_REGION" value="us-east-1" />
+      <env name="DYDB_TABLE_NAME" value="dummy" />
+      <env name="AWS_ACCESS_KEY_ID" value="dummy" />
+      <env name="AWS_SECRET_ACCESS_KEY" value="dummy" />
+    </envs>
+    <root_directory value="$PROJECT_DIR$" />
+    <kind value="PACKAGE" />
+    <package value="github.com/inklabs/rangedb/pkg/crypto/provider/dynamodbkeystore" />
+    <directory value="$PROJECT_DIR$" />
+    <filePath value="$PROJECT_DIR$" />
+    <framework value="gotest" />
+    <method v="2">
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="DynamoDBLocal" run_configuration_type="docker-deploy" />
+    </method>
+  </configuration>
+</component>

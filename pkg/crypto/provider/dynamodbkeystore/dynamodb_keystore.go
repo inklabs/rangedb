@@ -146,6 +146,27 @@ func (d *dynamoDBKeyStore) Delete(subjectID string) error {
 	return nil
 }
 
+func (d *dynamoDBKeyStore) CreateTable(tableName string) error {
+	_, err := d.dynamoDB.CreateTable(&dynamodb.CreateTableInput{
+		TableName:   aws.String(tableName),
+		BillingMode: aws.String("PAY_PER_REQUEST"),
+		AttributeDefinitions: []*dynamodb.AttributeDefinition{
+			{
+				AttributeName: aws.String("SubjectID"),
+				AttributeType: aws.String("S"),
+			},
+		},
+		KeySchema: []*dynamodb.KeySchemaElement{
+			{
+				AttributeName: aws.String("SubjectID"),
+				KeyType:       aws.String("HASH"),
+			},
+		},
+	})
+
+	return err
+}
+
 func awsSessionFromConfig(config *Config) *session.Session {
 	awsCredentials := credentials.NewStaticCredentialsFromCreds(
 		credentials.Value{
@@ -157,6 +178,11 @@ func awsSessionFromConfig(config *Config) *session.Session {
 		Credentials: awsCredentials,
 		Region:      aws.String(config.AWSRegion),
 	}
+
+	if config.EndpointURL != "" {
+		awsConfig.Endpoint = aws.String(config.EndpointURL)
+	}
+
 	sess := session.Must(session.NewSession(awsConfig))
 	return sess
 }

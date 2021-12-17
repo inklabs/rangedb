@@ -21,6 +21,10 @@ jobs:
           - 8200:8200
         env:
           VAULT_DEV_ROOT_TOKEN_ID: testroot
+      dynamodb-local:
+        image: amazon/dynamodb-local:1.17.1
+        ports:
+          - 8900:8000
     steps:
 
       - name: Set up Go
@@ -51,7 +55,11 @@ jobs:
           PG_DBNAME: postgres
           VAULT_ADDRESS: http://127.0.0.1:8200
           VAULT_TOKEN: testroot
-
+          DYDB_ENDPOINT_URL: http://127.0.0.1:8900
+          DYDB_AWS_REGION: us-east-1
+          DYDB_TABLE_NAME: dummy
+          AWS_ACCESS_KEY_ID: dummy
+          AWS_SECRET_ACCESS_KEY: dummy
       - name: Publish Code Coverage
         env:
           CC_TEST_REPORTER_ID: ${{secrets.CC_TEST_REPORTER_ID}}
