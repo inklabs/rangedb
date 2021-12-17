@@ -60,3 +60,4 @@ jobs:
         with:
           coverageCommand: go tool cover -func c.out
           coverageLocations: ${{github.workspace}}/c.out:gocov
+          prefix: ${{ github.event.repository.name }}
