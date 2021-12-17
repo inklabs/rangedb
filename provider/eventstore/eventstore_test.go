@@ -25,10 +25,11 @@ func Test_EventStore_VerifyStoreInterface(t *testing.T) {
 	require.NoError(t, err)
 	err = esStore.Ping()
 	if err != nil {
-		t.Skip("EventStoreDB not found. Run: docker run -it -p 2113:2113 -p 1113:1113 eventstore/eventstore --insecure --run-projections=All --enable-atom-pub-over-http=true")
+		t.Skip("EventStoreDB not found. Run: docker run -it -p 2113:2113 -p 1113:1113 eventstore/eventstore:21.10.0-bionic --insecure --run-projections=All --enable-atom-pub-over-http=true")
 	}
 
-	rangedbtest.VerifyStore(t, func(t *testing.T, clock clock.Clock, uuidGenerator shortuuid.Generator) rangedb.Store {
+	verifier := rangedbtest.NewStoreVerifier(rangedbtest.GSNStyleMonotonicSequence)
+	verifier.Verify(t, func(t *testing.T, clock clock.Clock, uuidGenerator shortuuid.Generator) rangedb.Store {
 		streamPrefixer := newIncrementingStreamPrefixer()
 		esStore, err := eventstore.New(
 			"127.0.0.1",

@@ -19,7 +19,8 @@ import (
 func Test_Postgres_VerifyStoreInterface(t *testing.T) {
 	config := configFromEnvironment(t)
 
-	rangedbtest.VerifyStore(t, func(t *testing.T, clock clock.Clock, uuidGenerator shortuuid.Generator) rangedb.Store {
+	verifier := rangedbtest.NewStoreVerifier(rangedbtest.GSNStyleExact)
+	verifier.Verify(t, func(t *testing.T, clock clock.Clock, uuidGenerator shortuuid.Generator) rangedb.Store {
 		store, err := postgresstore.New(
 			config,
 			postgresstore.WithClock(clock),
@@ -41,7 +42,8 @@ func Test_Postgres_VerifyStoreInterface(t *testing.T) {
 func Test_Postgres_WithPgNotify_VerifyStoreInterface(t *testing.T) {
 	config := configFromEnvironment(t)
 
-	rangedbtest.VerifyStore(t, func(t *testing.T, clock clock.Clock, uuidGenerator shortuuid.Generator) rangedb.Store {
+	verifier := rangedbtest.NewStoreVerifier(rangedbtest.GSNStyleExact)
+	verifier.Verify(t, func(t *testing.T, clock clock.Clock, uuidGenerator shortuuid.Generator) rangedb.Store {
 		store, err := postgresstore.New(
 			config,
 			postgresstore.WithClock(clock),
@@ -307,7 +309,7 @@ type testSkipper interface {
 func configFromEnvironment(t testSkipper) *postgresstore.Config {
 	config, err := postgresstore.NewConfigFromEnvironment()
 	if err != nil {
-		// docker run -e POSTGRES_HOST_AUTH_METHOD=trust -p5432:5432 postgre
+		// docker run -e POSTGRES_HOST_AUTH_METHOD=trust -p5432:5432 postgres:14.1
 		t.Skip("Postgres DB has not been configured via environment variables to run integration tests")
 	}
 

@@ -19,7 +19,8 @@ import (
 )
 
 func Test_EncryptedStore_VerifyStoreInterface(t *testing.T) {
-	rangedbtest.VerifyStore(t, func(t *testing.T, clock clock.Clock, uuidGenerator shortuuid.Generator) rangedb.Store {
+	verifier := rangedbtest.NewStoreVerifier(rangedbtest.GSNStyleExact)
+	verifier.Verify(t, func(t *testing.T, clock clock.Clock, uuidGenerator shortuuid.Generator) rangedb.Store {
 		inMemoryStore := inmemorystore.New(
 			inmemorystore.WithClock(clock),
 			inmemorystore.WithUUIDGenerator(uuidGenerator),

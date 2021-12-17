@@ -202,7 +202,7 @@ func getConfigFromEnvironment(t *testing.T) vaultkeystore.Config {
 	token := os.Getenv("VAULT_TOKEN")
 
 	if address == "" || token == "" {
-		// docker run -p 8200:8200 -e 'VAULT_DEV_ROOT_TOKEN_ID=testroot' vault
+		// docker run -p 8200:8200 -e 'VAULT_DEV_ROOT_TOKEN_ID=testroot' vault:1.9.1
 		t.Skip("VAULT_ADDRESS and VAULT_TOKEN are required")
 	}
 

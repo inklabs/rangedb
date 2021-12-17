@@ -1,18 +1,20 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="Postgres Integration Test" type="GoTestRunConfiguration" factoryName="Go Test">
+  <configuration default="false" name="Integration - Postgres" type="GoTestRunConfiguration" factoryName="Go Test">
     <module name="rangedb" />
     <working_directory value="$PROJECT_DIR$/provider/postgresstore" />
     <envs>
       <env name="PG_PASSWORD" value="postgres" />
-      <env name="PG_DBNAME" value="rangedb_test" />
       <env name="PG_USER" value="postgres" />
       <env name="PG_HOST" value="127.0.0.1" />
+      <env name="PG_DBNAME" value="postgres" />
     </envs>
-    <framework value="gotest" />
     <kind value="PACKAGE" />
     <package value="github.com/inklabs/rangedb/provider/postgresstore" />
     <directory value="$PROJECT_DIR$" />
     <filePath value="$PROJECT_DIR$" />
-    <method v="2" />
+    <framework value="gotest" />
+    <method v="2">
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="PostgreSQL" run_configuration_type="docker-deploy" />
+    </method>
   </configuration>
 </component>

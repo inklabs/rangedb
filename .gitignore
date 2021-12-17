@@ -1,3 +1,2 @@
-.idea/*
-!.idea/runConfigurations/
+.idea/
 .leveldb/

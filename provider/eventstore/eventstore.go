@@ -486,6 +486,8 @@ func (s *eventStore) OptimisticDeleteStream(ctx context.Context, expectedStreamS
 		if strings.Contains(err.Error(), rpcErrWrongExpectedStreamRevision) {
 			// We have to manually obtain the current stream sequence number
 			// err does not contain "Actual version" and must be a bug in the EventStoreDB gRPC API.
+			// re: https://github.com/EventStore/EventStore/issues/3226
+			// log.Printf("### Actual version missing: %#v", err)
 			return &rangedberror.UnexpectedSequenceNumber{
 				Expected:             expectedStreamSequenceNumber,
 				ActualSequenceNumber: actualSequenceNumber,
