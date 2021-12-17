@@ -34,7 +34,7 @@ jobs:
         ports:
           - 2113:2113
           - 1113:1113
-        options:
+        options: >-
           --entrypoint "/opt/eventstore/eventstored --insecure --mem-db"
     steps:
 
