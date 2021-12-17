@@ -71,6 +71,10 @@ jobs:
           DYDB_TABLE_NAME: dummy
           AWS_ACCESS_KEY_ID: dummy
           AWS_SECRET_ACCESS_KEY: dummy
+          ESDB_IP_ADDR: 127.0.0.1
+          ESDB_USERNAME: admin
+          ESDB_PASSWORD: changeit
+
       - name: Publish Code Coverage
         if: github.ref == 'refs/heads/master'
         env:
