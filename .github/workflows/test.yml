@@ -3,12 +3,6 @@ on: [push, pull_request]
 jobs:
   test:
     runs-on: ubuntu-latest
-    env:
-      PG_HOST: 127.0.0.1
-      PG_USER: postgres
-      PG_DBNAME: postgres
-      VAULT_ADDRESS: http://127.0.0.1:8200
-      VAULT_TOKEN: testroot
     services:
       postgres:
         image: postgres:14.1
@@ -50,6 +44,13 @@ jobs:
           go generate ./...
           go vet ./...
           go test -v -race -coverprofile c.out.tmp ./...
+        env:
+          PG_HOST: 127.0.0.1
+          PG_USER: postgres
+          PG_PASSWORD: postgres
+          PG_DBNAME: postgres
+          VAULT_ADDRESS: http://127.0.0.1:8200
+          VAULT_TOKEN: testroot
 
       - name: Publish Code Coverage
         uses: paambaati/codeclimate-action@v3.0.0
