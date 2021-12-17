@@ -29,6 +29,13 @@ jobs:
         image: amazon/dynamodb-local:1.17.1
         ports:
           - 8900:8000
+      eventstoredb:
+        image: eventstore/eventstore:21.10.0-bionic
+        ports:
+          - 2113:2113
+          - 1113:1113
+        options:
+          --entrypoint "/opt/eventstore/EventStore.ClusterNode --insecure --mem-db"
     steps:
 
       - name: Set up Go
