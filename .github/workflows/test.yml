@@ -43,8 +43,6 @@ jobs:
           go mod download
           go generate ./...
           go vet ./...
-          go test -v -race -coverprofile c.out.tmp -failfast ./...
-          cat c.out.tmp | grep -v "_vfsdata.go" | grep -v "_gen.go" | grep -v ".pb.go" | grep -v "/rangedbtest/" | grep -v "/cryptotest/" > c.out
         env:
           PG_HOST: 127.0.0.1
           PG_USER: postgres
@@ -58,6 +56,9 @@ jobs:
         env:
           CC_TEST_REPORTER_ID: ${{secrets.CC_TEST_REPORTER_ID}}
         with:
-          coverageCommand: go tool cover -func c.out
+          coverageCommand: |
+            go test -v -race -coverprofile c.out -failfast ./...
+#            cat c.out.tmp | grep -v "_gen.go" | grep -v ".pb.go" | grep -v "/rangedbtest/" | grep -v "/cryptotest/" > c.out
+            go tool cover -func c.out
           coverageLocations: ${{github.workspace}}/c.out:gocov
           prefix: ${{ github.event.repository.name }}
