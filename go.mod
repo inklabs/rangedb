@@ -14,6 +14,7 @@ require (
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/websocket v1.4.2
 	github.com/lib/pq v1.8.0
+	github.com/opencontainers/runc v1.0.3 // indirect
 	github.com/stretchr/testify v1.7.0
 	github.com/syndtr/goleveldb v1.0.0
 	github.com/vmihailenco/msgpack/v4 v4.3.11
