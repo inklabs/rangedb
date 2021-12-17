@@ -58,7 +58,6 @@ jobs:
         with:
           coverageCommand: |
             go test -v -race -coverprofile c.out -failfast ./...
-#            cat c.out.tmp | grep -v "_gen.go" | grep -v ".pb.go" | grep -v "/rangedbtest/" | grep -v "/cryptotest/" > c.out
             go tool cover -func c.out
           coverageLocations: ${{github.workspace}}/c.out:gocov
           prefix: ${{ github.event.repository.name }}
