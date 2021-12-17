@@ -16,7 +16,8 @@ import (
 )
 
 func Test_InMemory_VerifyStoreInterface(t *testing.T) {
-	rangedbtest.VerifyStore(t, func(t *testing.T, clock clock.Clock, uuidGenerator shortuuid.Generator) rangedb.Store {
+	verifier := rangedbtest.NewStoreVerifier(rangedbtest.GSNStyleExact)
+	verifier.Verify(t, func(t *testing.T, clock clock.Clock, uuidGenerator shortuuid.Generator) rangedb.Store {
 		store := inmemorystore.New(
 			inmemorystore.WithClock(clock),
 			inmemorystore.WithUUIDGenerator(uuidGenerator),

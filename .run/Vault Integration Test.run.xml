@@ -1,0 +1,19 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Integration - Vault" type="GoTestRunConfiguration" factoryName="Go Test">
+    <module name="rangedb" />
+    <working_directory value="$PROJECT_DIR$/pkg/crypto/provider/vaultkeystore" />
+    <envs>
+      <env name="VAULT_ADDRESS" value="http://127.0.0.1:8200" />
+      <env name="VAULT_TOKEN" value="testroot" />
+    </envs>
+    <root_directory value="$PROJECT_DIR$" />
+    <kind value="PACKAGE" />
+    <package value="github.com/inklabs/rangedb/pkg/crypto/provider/vaultkeystore" />
+    <directory value="$PROJECT_DIR$" />
+    <filePath value="$PROJECT_DIR$" />
+    <framework value="gotest" />
+    <method v="2">
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="Vault" run_configuration_type="docker-deploy" />
+    </method>
+  </configuration>
+</component>

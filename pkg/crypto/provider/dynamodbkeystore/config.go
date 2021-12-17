@@ -10,12 +10,14 @@ type Config struct {
 	AWSRegion       string
 	AccessKeyID     string
 	SecretAccessKey string
+	EndpointURL     string
 }
 
 // NewConfigFromEnvironment loads a DynamoDB config from environment variables.
 func NewConfigFromEnvironment() (*Config, error) {
 	awsRegion := os.Getenv("DYDB_AWS_REGION")
 	tableName := os.Getenv("DYDB_TABLE_NAME")
+	endpointURL := os.Getenv("DYDB_ENDPOINT_URL")
 	accessKeyID := os.Getenv("AWS_ACCESS_KEY_ID")
 	secretAccessKey := os.Getenv("AWS_SECRET_ACCESS_KEY")
 
@@ -28,5 +30,6 @@ func NewConfigFromEnvironment() (*Config, error) {
 		AWSRegion:       awsRegion,
 		AccessKeyID:     accessKeyID,
 		SecretAccessKey: secretAccessKey,
+		EndpointURL:     endpointURL,
 	}, nil
 }

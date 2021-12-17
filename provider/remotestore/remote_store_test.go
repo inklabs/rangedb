@@ -6,10 +6,11 @@ import (
 	"net"
 	"testing"
 
-	"github.com/inklabs/rangedb/pkg/shortuuid"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
+
+	"github.com/inklabs/rangedb/pkg/shortuuid"
 
 	"github.com/inklabs/rangedb"
 	"github.com/inklabs/rangedb/pkg/clock"
@@ -21,7 +22,8 @@ import (
 )
 
 func Test_RemoteStore_VerifyStoreInterface(t *testing.T) {
-	rangedbtest.VerifyStore(t, func(t *testing.T, clock clock.Clock, uuidGenerator shortuuid.Generator) rangedb.Store {
+	verifier := rangedbtest.NewStoreVerifier(rangedbtest.GSNStyleExact)
+	verifier.Verify(t, func(t *testing.T, clock clock.Clock, uuidGenerator shortuuid.Generator) rangedb.Store {
 		inMemoryStore := inmemorystore.New(
 			inmemorystore.WithClock(clock),
 			inmemorystore.WithUUIDGenerator(uuidGenerator),

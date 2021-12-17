@@ -21,7 +21,8 @@ import (
 )
 
 func Test_LevelDB_VerifyStoreInterface(t *testing.T) {
-	rangedbtest.VerifyStore(t, func(t *testing.T, clk clock.Clock, uuidGenerator shortuuid.Generator) rangedb.Store {
+	verifier := rangedbtest.NewStoreVerifier(rangedbtest.GSNStyleExact)
+	verifier.Verify(t, func(t *testing.T, clk clock.Clock, uuidGenerator shortuuid.Generator) rangedb.Store {
 		dbPath, err := ioutil.TempDir("", "test-events-")
 		require.NoError(t, err)
 

@@ -17,8 +17,30 @@ import (
 	"github.com/inklabs/rangedb/pkg/shortuuid"
 )
 
-// VerifyStore verifies the rangedb.Store interface.
-func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.Generator) rangedb.Store) {
+// GlobalSequenceNumberStyle defines how Global Sequence Numbers are verified.
+type GlobalSequenceNumberStyle uint8
+
+const (
+	// GSNStyleExact tests for exact matching Global Sequence Numbers
+	GSNStyleExact GlobalSequenceNumberStyle = iota
+
+	// GSNStyleMonotoneIncreasing tests for a monotone increasing sequence a(n+1) > a(n)
+	GSNStyleMonotoneIncreasing
+
+	// GSNStyleMonotonicSequence tests for a monotonic sequence a(n+1) >= a(n)
+	GSNStyleMonotonicSequence
+)
+
+type storeVerifier struct {
+	gsnStyle GlobalSequenceNumberStyle
+}
+
+func NewStoreVerifier(gsnStyle GlobalSequenceNumberStyle) *storeVerifier {
+	return &storeVerifier{gsnStyle: gsnStyle}
+}
+
+// Verify verifies the rangedb.Store interface.
+func (v storeVerifier) Verify(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.Generator) rangedb.Store) {
 	t.Helper()
 
 	t.Run("EventsByStream", func(t *testing.T) {
@@ -48,7 +70,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			recordIterator := store.EventsByStream(ctx, 0, streamNameA)
 
 			// Then
-			AssertRecordsInIterator(t, recordIterator,
+			v.AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
 					StreamName:           streamNameA,
 					AggregateType:        eventA1.AggregateType(),
@@ -102,7 +124,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			recordIterator := store.EventsByStream(ctx, 2, streamNameA)
 
 			// Then
-			AssertRecordsInIterator(t, recordIterator,
+			v.AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
 					StreamName:           streamNameA,
 					AggregateType:        eventA2.AggregateType(),
@@ -185,7 +207,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			recordIterator := store.EventsByStream(ctx, 2, streamNameA)
 
 			// Then
-			AssertRecordsInIterator(t, recordIterator,
+			v.AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
 					StreamName:           streamNameA,
 					AggregateType:        eventA2.AggregateType(),
@@ -201,7 +223,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			)
 		})
 
-		t.Run("starting with second entry, stops from context.Done", func(t *testing.T) {
+		t.Run("starting with second entry, reads one record, then stops from context.Done", func(t *testing.T) {
 			// Given
 			uuid := NewSeededUUIDGenerator()
 			const aggregateIDA = "1e0d21ef42b640f3b83043d6c46d3130"
@@ -236,7 +258,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 				Data:                 eventA2,
 				Metadata:             nil,
 			}
-			assert.Equal(t, expectedRecord, recordIterator.Record())
+			v.AssertRecordsEqual(t, expectedRecord, recordIterator.Record())
 			assertCanceledIterator(t, recordIterator)
 		})
 
@@ -299,7 +321,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			recordIterator := store.Events(ctx, 0)
 
 			// Then
-			AssertRecordsInIterator(t, recordIterator,
+			v.AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
 					StreamName:           streamNameA,
 					AggregateType:        thingWasDoneA0.AggregateType(),
@@ -364,12 +386,13 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 				&rangedb.EventRecord{Event: event1},
 				&rangedb.EventRecord{Event: event2},
 			)
+			secondRecord := getNthRecord(t, store, 2)
 
 			// When
-			recordIterator := store.Events(ctx, 2)
+			recordIterator := store.Events(ctx, secondRecord.GlobalSequenceNumber)
 
 			// Then
-			AssertRecordsInIterator(t, recordIterator,
+			v.AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
 					StreamName:           streamName,
 					AggregateType:        event2.AggregateType(),
@@ -406,12 +429,13 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 				&rangedb.EventRecord{Event: eventB1},
 				&rangedb.EventRecord{Event: eventB2},
 			)
+			thirdRecord := getNthRecord(t, store, 3)
 
 			// When
-			recordIterator := store.Events(ctx, 3)
+			recordIterator := store.Events(ctx, thirdRecord.GlobalSequenceNumber)
 
 			// Then
-			AssertRecordsInIterator(t, recordIterator,
+			v.AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
 					StreamName:           streamNameB,
 					AggregateType:        eventB1.AggregateType(),
@@ -474,7 +498,8 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 				&rangedb.EventRecord{Event: event3},
 				&rangedb.EventRecord{Event: event4},
 			)
-			recordIterator := store.Events(ctx, 2)
+			secondRecord := getNthRecord(t, store, 2)
+			recordIterator := store.Events(ctx, secondRecord.GlobalSequenceNumber)
 
 			// When
 			require.True(t, recordIterator.Next(), recordIterator.Err())
@@ -493,7 +518,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 				Data:                 event2,
 				Metadata:             nil,
 			}
-			assert.Equal(t, expectedRecord, recordIterator.Record())
+			v.AssertRecordsEqual(t, expectedRecord, recordIterator.Record())
 			assertCanceledIterator(t, recordIterator)
 		})
 
@@ -510,14 +535,16 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			streamNameA := rangedb.GetEventStream(thingWasDoneA0)
 			streamNameB := rangedb.GetEventStream(thingWasDoneB0)
 			streamNameX := rangedb.GetEventStream(AnotherWasCompleteX0)
-			ctx := TimeoutContext(t)
 			SaveEvents(t, store, streamNameA, &rangedb.EventRecord{Event: thingWasDoneA0})
 			SaveEvents(t, store, streamNameB, &rangedb.EventRecord{Event: thingWasDoneB0})
 			SaveEvents(t, store, streamNameA, &rangedb.EventRecord{Event: thingWasDoneA1})
 			SaveEvents(t, store, streamNameX, &rangedb.EventRecord{Event: AnotherWasCompleteX0})
+			lastRecord := getLastRecord(t, store)
+			outOfRangeGlobalSequenceNumber := lastRecord.GlobalSequenceNumber + 1
+			ctx := TimeoutContext(t)
 
 			// When
-			recordIterator := store.Events(ctx, 5)
+			recordIterator := store.Events(ctx, outOfRangeGlobalSequenceNumber)
 
 			// Then
 			AssertNoMoreResultsInIterator(t, recordIterator)
@@ -549,7 +576,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			recordIterator := store.EventsByAggregateTypes(ctx, 0, eventA1.AggregateType())
 
 			// Then
-			AssertRecordsInIterator(t, recordIterator,
+			v.AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
 					StreamName:           streamNameA,
 					AggregateType:        eventA1.AggregateType(),
@@ -608,17 +635,18 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			SaveEvents(t, store, streamNameB,
 				&rangedb.EventRecord{Event: eventB1},
 			)
+			secondRecord := getNthRecord(t, store, 2)
 
 			// When
 			recordIterator := store.EventsByAggregateTypes(
 				ctx,
-				2,
+				secondRecord.GlobalSequenceNumber,
 				eventA1.AggregateType(),
 				eventB1.AggregateType(),
 			)
 
 			// Then
-			AssertRecordsInIterator(t, recordIterator,
+			v.AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
 					StreamName:           streamNameA,
 					AggregateType:        eventA2.AggregateType(),
@@ -669,7 +697,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 		t.Run("deletes a stream with 2 events", func(t *testing.T) {
 			// Given
 			uuid := NewSeededUUIDGenerator()
-			const aggregateIDA = "17852dae2f9448acb0174419c7634fdf"
+			const aggregateIDA = "5ef577726a7d4afe943542bdc31bfa14"
 			store := newStore(t, sequentialclock.New(), uuid)
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
@@ -685,6 +713,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 
 			// Then
 			require.NoError(t, err)
+
 			t.Run("does not exist in stream", func(t *testing.T) {
 				recordIterator := store.EventsByStream(ctx, 0, streamName)
 				require.False(t, recordIterator.Next())
@@ -701,6 +730,16 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 				recordIterator := store.Events(ctx, 0)
 				require.False(t, recordIterator.Next())
 				assert.Nil(t, recordIterator.Err())
+			})
+
+			t.Run("errors when stream was previously deleted", func(t *testing.T) {
+				// Given
+
+				// When
+				err = store.OptimisticDeleteStream(ctx, 0, streamName)
+
+				// Then
+				assert.Equal(t, rangedb.ErrStreamNotFound, err)
 			})
 		})
 
@@ -763,7 +802,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			err := store.OptimisticDeleteStream(ctx, 2, streamName)
 
 			// Then
-			assert.Equal(t, context.Canceled, err)
+			assert.ErrorIs(t, err, context.Canceled)
 		})
 
 		t.Run("maintains correct global sequence number when deleting the last event", func(t *testing.T) {
@@ -793,7 +832,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			SaveEvents(t, store, streamNameC, &rangedb.EventRecord{Event: eventC1})
 			t.Run("can retrieve from all events", func(t *testing.T) {
 				recordIterator := store.Events(ctx, 0)
-				AssertRecordsInIterator(t, recordIterator,
+				v.AssertRecordsInIterator(t, recordIterator,
 					&rangedb.Record{
 						StreamName:           streamNameA,
 						AggregateType:        eventA1.AggregateType(),
@@ -827,7 +866,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 					eventB1.AggregateType(),
 					eventC1.AggregateType(),
 				)
-				AssertRecordsInIterator(t, recordIterator,
+				v.AssertRecordsInIterator(t, recordIterator,
 					&rangedb.Record{
 						StreamName:           streamNameA,
 						AggregateType:        eventA1.AggregateType(),
@@ -885,7 +924,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			require.NoError(t, err)
 			assert.Equal(t, 1, int(newStreamSequenceNumber))
 			recordIterator := store.EventsByStream(ctx, 0, streamName)
-			AssertRecordsInIterator(t, recordIterator,
+			v.AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
 					StreamName:           streamName,
 					AggregateType:        event.AggregateType(),
@@ -924,7 +963,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			require.NoError(t, err)
 			assert.Equal(t, 2, int(newStreamSequenceNumber))
 			recordIterator := store.EventsByStream(ctx, 0, streamName)
-			AssertRecordsInIterator(t, recordIterator,
+			v.AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
 					StreamName:           streamName,
 					AggregateType:        event1.AggregateType(),
@@ -981,7 +1020,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			require.NoError(t, err)
 			assert.Equal(t, 2, int(newStreamSequenceNumber))
 			recordIterator := store.EventsByStream(ctx, 0, streamName)
-			AssertRecordsInIterator(t, recordIterator,
+			v.AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
 					StreamName:           streamName,
 					AggregateType:        event1.AggregateType(),
@@ -1116,11 +1155,11 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 				Metadata:             nil,
 			}
 			allEventsIter := store.Events(ctx, 0)
-			AssertRecordsInIterator(t, allEventsIter, expectedRecord)
+			v.AssertRecordsInIterator(t, allEventsIter, expectedRecord)
 			streamEventsIter := store.EventsByStream(ctx, 0, streamName)
-			AssertRecordsInIterator(t, streamEventsIter, expectedRecord)
+			v.AssertRecordsInIterator(t, streamEventsIter, expectedRecord)
 			aggregateTypeEventsIter := store.EventsByAggregateTypes(ctx, 0, event1.AggregateType())
-			AssertRecordsInIterator(t, aggregateTypeEventsIter, expectedRecord)
+			v.AssertRecordsInIterator(t, aggregateTypeEventsIter, expectedRecord)
 		})
 
 		t.Run("does not allow saving multiple events from different aggregate types", func(t *testing.T) {
@@ -1191,7 +1230,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			)
 
 			// Then
-			assert.Equal(t, context.Canceled, err)
+			assert.ErrorIs(t, err, context.Canceled)
 			assert.Equal(t, uint64(0), lastStreamSequenceNumber)
 		})
 
@@ -1227,7 +1266,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			// Then
 			require.NoError(t, err)
 			recordIterator := store.EventsByStream(ctx, 0, streamName)
-			AssertRecordsInIterator(t, recordIterator,
+			v.AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
 					StreamName:           streamName,
 					AggregateType:        event.AggregateType(),
@@ -1260,7 +1299,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			// Then
 			require.NoError(t, err)
 			recordIterator := store.EventsByStream(ctx, 0, streamName)
-			AssertRecordsInIterator(t, recordIterator,
+			v.AssertRecordsInIterator(t, recordIterator,
 				&rangedb.Record{
 					StreamName:           streamName,
 					AggregateType:        event.AggregateType(),
@@ -1331,7 +1370,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			_, err := store.Save(ctx, streamName, &rangedb.EventRecord{Event: event})
 
 			// Then
-			assert.Equal(t, context.Canceled, err)
+			assert.ErrorIs(t, err, context.Canceled)
 		})
 
 		t.Run("errors from missing events", func(t *testing.T) {
@@ -1386,7 +1425,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 				Metadata:             nil,
 			}
 			require.Equal(t, 1, len(countSubscriber.AcceptedRecords))
-			assert.Equal(t, expectedRecord, countSubscriber.AcceptedRecords[0])
+			v.AssertRecordsEqual(t, expectedRecord, countSubscriber.AcceptedRecords[0])
 		})
 
 		t.Run("stops before subscribing with context.Done", func(t *testing.T) {
@@ -1402,7 +1441,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			err := subscription.Start()
 
 			// Then
-			assert.Equal(t, context.Canceled, err)
+			assert.ErrorIs(t, err, context.Canceled)
 		})
 
 		t.Run("returns no events when global sequence number out of range", func(t *testing.T) {
@@ -1421,9 +1460,11 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			)
 			countSubscriber := NewCountSubscriber()
 			subscription := store.AllEventsSubscription(ctx, 10, countSubscriber)
+			lastRecord := getLastRecord(t, store)
+			outOfRangeGlobalSequenceNumber := lastRecord.GlobalSequenceNumber + 1
 
 			// When
-			err := subscription.StartFrom(3)
+			err := subscription.StartFrom(outOfRangeGlobalSequenceNumber)
 
 			// Then
 			require.NoError(t, err)
@@ -1474,7 +1515,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 				Metadata:             nil,
 			}
 			require.Equal(t, 1, len(countSubscriber.AcceptedRecords))
-			assert.Equal(t, expectedRecord, countSubscriber.AcceptedRecords[0])
+			v.AssertRecordsEqual(t, expectedRecord, countSubscriber.AcceptedRecords[0])
 		})
 
 		t.Run("stops before subscribing with context.Done", func(t *testing.T) {
@@ -1490,7 +1531,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 			err := subscription.Start()
 
 			// Then
-			assert.Equal(t, context.Canceled, err)
+			assert.ErrorIs(t, err, context.Canceled)
 		})
 	})
 
@@ -1516,7 +1557,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 		expectedTriggeredEvent := AnotherWasComplete{
 			ID: "2",
 		}
-		AssertRecordsInIterator(t, recordIterator,
+		v.AssertRecordsInIterator(t, recordIterator,
 			&rangedb.Record{
 				StreamName:           streamNameA,
 				AggregateType:        event.AggregateType(),
@@ -1558,7 +1599,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 		recordIterator := store.Events(ctx, 0)
 
 		// Then
-		AssertRecordsInIterator(t, recordIterator,
+		v.AssertRecordsInIterator(t, recordIterator,
 			&rangedb.Record{
 				StreamName:           streamName,
 				AggregateType:        event.AggregateType(),
@@ -1617,16 +1658,84 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 
 			// Then
 			assert.Equal(t, 0, int(totalEvents))
-			assert.Equal(t, context.Canceled, err)
+			assert.ErrorIs(t, err, context.Canceled)
 		})
 
 	})
 }
 
+// AssertRecordsInIterator asserts all expected rangedb.Record exist in the rangedb.RecordIterator.
+func (v storeVerifier) AssertRecordsInIterator(t *testing.T, recordIterator rangedb.RecordIterator, expectedRecords ...*rangedb.Record) {
+	if v.gsnStyle == GSNStyleExact {
+		AssertRecordsInIterator(t, recordIterator, expectedRecords...)
+		return
+	}
+
+	var lastGlobalSequenceNumber uint64
+	for i, expectedRecord := range expectedRecords {
+		require.True(t, recordIterator.Next(), fmt.Sprintf("#%d err: %v\nrecord: %#v\nexpected: %#v", i, recordIterator.Err(), recordIterator.Record(), expectedRecord))
+		assert.Nil(t, recordIterator.Err(), i)
+		errMsg := fmt.Sprintf("actual record %d: %#v", i, recordIterator.Record())
+
+		if v.gsnStyle == GSNStyleMonotonicSequence {
+			require.GreaterOrEqual(t, recordIterator.Record().GlobalSequenceNumber, lastGlobalSequenceNumber, errMsg)
+		} else if v.gsnStyle == GSNStyleMonotoneIncreasing {
+			require.Greater(t, recordIterator.Record().GlobalSequenceNumber, lastGlobalSequenceNumber, errMsg)
+		}
+
+		lastGlobalSequenceNumber = recordIterator.Record().GlobalSequenceNumber
+		v.AssertRecordsEqual(t, expectedRecord, recordIterator.Record(), errMsg)
+	}
+	AssertNoMoreResultsInIterator(t, recordIterator)
+}
+
+// AssertRecordsEqual compares records while ignoring Global Sequence Number differences
+func (v storeVerifier) AssertRecordsEqual(t *testing.T, expected, actual *rangedb.Record, msgAndArgs ...interface{}) {
+	if v.gsnStyle != GSNStyleExact {
+		expected.GlobalSequenceNumber = actual.GlobalSequenceNumber
+	}
+
+	require.Equal(t, expected, actual, msgAndArgs...)
+}
+
+// AssertRecordsInIterator asserts all expected rangedb.Record exist in the rangedb.RecordIterator.
+func AssertRecordsInIterator(t *testing.T, recordIterator rangedb.RecordIterator, expectedRecords ...*rangedb.Record) {
+	for i, expectedRecord := range expectedRecords {
+		assert.True(t, recordIterator.Next(), recordIterator.Err())
+		assert.Nil(t, recordIterator.Err())
+		require.Equal(t, expectedRecord, recordIterator.Record(), i)
+	}
+	AssertNoMoreResultsInIterator(t, recordIterator)
+}
+
+func getNthRecord(t *testing.T, store rangedb.Store, recordNumber int) *rangedb.Record {
+	ctx, done := context.WithCancel(TimeoutContext(t))
+	defer done()
+	iterator := store.Events(ctx, 0)
+	for i := 0; i < recordNumber; i++ {
+		require.True(t, iterator.Next())
+		require.NoError(t, iterator.Err())
+	}
+
+	return iterator.Record()
+}
+
+func getLastRecord(t *testing.T, store rangedb.Store) *rangedb.Record {
+	ctx := TimeoutContext(t)
+	iterator := store.Events(ctx, 0)
+	var lastRecord *rangedb.Record
+	for iterator.Next() {
+		require.NoError(t, iterator.Err())
+		lastRecord = iterator.Record()
+	}
+
+	return lastRecord
+}
+
 // ReadRecord helper to read a record or timeout.
 func ReadRecord(t *testing.T, recordChan chan *rangedb.Record) *rangedb.Record {
 	select {
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(250 * time.Millisecond):
 		require.Fail(t, "timout reading record")
 
 	case record := <-recordChan:
@@ -1643,17 +1752,7 @@ func assertCanceledIterator(t *testing.T, iter rangedb.RecordIterator) {
 
 	assert.False(t, iter.Next())
 	assert.Nil(t, iter.Record())
-	assert.Equal(t, context.Canceled, iter.Err())
-}
-
-// AssertRecordsInIterator asserts all expected rangedb.Record exist in the rangedb.RecordIterator.
-func AssertRecordsInIterator(t *testing.T, recordIterator rangedb.RecordIterator, expectedRecords ...*rangedb.Record) {
-	for i, expectedRecord := range expectedRecords {
-		assert.True(t, recordIterator.Next(), recordIterator.Err())
-		assert.Nil(t, recordIterator.Err())
-		require.Equal(t, expectedRecord, recordIterator.Record(), i)
-	}
-	AssertNoMoreResultsInIterator(t, recordIterator)
+	assert.ErrorIs(t, iter.Err(), context.Canceled)
 }
 
 // AssertNoMoreResultsInIterator asserts no more rangedb.Record exist in the rangedb.RecordIterator.

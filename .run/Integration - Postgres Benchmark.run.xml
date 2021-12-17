@@ -1,0 +1,19 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Benchmark - Postgres" type="GoTestRunConfiguration" factoryName="Go Test">
+    <module name="rangedb" />
+    <working_directory value="$PROJECT_DIR$/provider/postgresstore" />
+    <envs>
+      <env name="PG_PASSWORD" value="postgres" />
+      <env name="PG_DBNAME" value="rangedb_test" />
+      <env name="PG_USER" value="postgres" />
+      <env name="PG_HOST" value="127.0.0.1" />
+    </envs>
+    <kind value="PACKAGE" />
+    <package value="github.com/inklabs/rangedb/provider/postgresstore" />
+    <directory value="$PROJECT_DIR$" />
+    <filePath value="$PROJECT_DIR$" />
+    <framework value="gobench" />
+    <pattern value="^\QBenchmarkPostgresStore\E$" />
+    <method v="2" />
+  </configuration>
+</component>

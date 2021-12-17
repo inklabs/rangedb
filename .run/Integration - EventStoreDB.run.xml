@@ -1,0 +1,15 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Integration - EventStoreDB" type="GoTestRunConfiguration" factoryName="Go Test">
+    <module name="rangedb" />
+    <working_directory value="$PROJECT_DIR$/provider/eventstore" />
+    <root_directory value="$PROJECT_DIR$" />
+    <kind value="PACKAGE" />
+    <package value="github.com/inklabs/rangedb/provider/eventstore" />
+    <directory value="$PROJECT_DIR$" />
+    <filePath value="$PROJECT_DIR$" />
+    <framework value="gotest" />
+    <method v="2">
+      <option name="RunConfigurationTask" enabled="true" run_configuration_name="EventStoreDB" run_configuration_type="docker-deploy" />
+    </method>
+  </configuration>
+</component>

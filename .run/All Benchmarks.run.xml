@@ -1,0 +1,12 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Benchmarks - All" type="GoTestRunConfiguration" factoryName="Go Test">
+    <module name="rangedb" />
+    <working_directory value="$PROJECT_DIR$/" />
+    <kind value="DIRECTORY" />
+    <package value="github.com/inklabs/rangedb" />
+    <directory value="$PROJECT_DIR$" />
+    <filePath value="$PROJECT_DIR$" />
+    <framework value="gobench" />
+    <method v="2" />
+  </configuration>
+</component>

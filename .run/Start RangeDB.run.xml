@@ -4,9 +4,9 @@
     <working_directory value="$PROJECT_DIR$" />
     <parameters value="-templates pkg/rangedbui/templates" />
     <kind value="PACKAGE" />
-    <filePath value="$PROJECT_DIR$/cmd/rangedb-api/main.go" />
     <package value="github.com/inklabs/rangedb/cmd/rangedb" />
     <directory value="$PROJECT_DIR$/" />
+    <filePath value="$PROJECT_DIR$/cmd/rangedb-api/main.go" />
     <method v="2" />
   </configuration>
 </component>
