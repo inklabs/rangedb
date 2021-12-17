@@ -1,0 +1,66 @@
+name: Test
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:14.1
+        ports:
+        - 5432:5432
+        env:
+          POSTGRES_PASSWORD: postgres
+          options: >-
+            --health-cmd pg_isready
+            --health-interval 10s
+            --health-timeout 5s
+            --health-retries 5
+      vault:
+        image: vault:1.9.1
+        ports:
+          - 8200:8200
+        env:
+          VAULT_DEV_ROOT_TOKEN_ID: testroot
+    steps:
+
+      - name: Set up Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.16
+        id: go
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@v2
+
+#      - name: Login to Docker Hub
+#        uses: docker/login-action@v1
+#        with:
+#          username: ${{ secrets.DOCKERHUB_USERNAME }}
+#          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Test
+        run: | 
+          go mod download
+          go generate ./...
+          go vet ./...
+          go test -v -race -coverprofile c.out.tmp -failfast ./...
+        env:
+          PG_HOST: 127.0.0.1
+          PG_USER: postgres
+          PG_PASSWORD: postgres
+          PG_DBNAME: postgres
+          VAULT_ADDRESS: http://127.0.0.1:8200
+          VAULT_TOKEN: testroot
+
+      - name: Publish Code Coverage
+        env:
+          CC_TEST_REPORTER_ID: ${{secrets.CC_TEST_REPORTER_ID}}
+        run: |
+          curl -s -L https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64 > ./cc-reporter
+          chmod +x ./cc-reporter
+          ./cc-reporter before-build
+          cat c.out.tmp | grep -v "_gen.go" | grep -v ".pb.go" | grep -v "/rangedbtest/" | grep -v "/cryptotest/" > c.out     
+          go tool cover -func c.out
+          sed -i "s%github.com/inklabs/%%" c.out
+          ./cc-reporter format-coverage c.out -t gocov -p $(basename $PWD)
+          ./cc-reporter after-build -t gocov -p $(basename $PWD)
