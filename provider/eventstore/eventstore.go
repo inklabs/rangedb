@@ -27,9 +27,8 @@ import (
 )
 
 const (
-	rpcErrContextCanceled             = "Canceled desc = context canceled"
-	rpcErrWrongExpectedStreamRevision = "WrongExpectedStreamRevision"
-	broadcastRecordBuffSize           = 100
+	rpcErrContextCanceled   = "Canceled desc = context canceled"
+	broadcastRecordBuffSize = 100
 )
 
 type RangeDBMetadata struct {
@@ -179,7 +178,7 @@ func (s *eventStore) Events(ctx context.Context, globalSequenceNumber uint64) ra
 
 			resultRecords <- rangedb.ResultRecord{
 				Record: nil,
-				Err:    fmt.Errorf("unexpected failure ReadStreamEvents: %v", err),
+				Err:    fmt.Errorf("unexpected failure ReadStreamEvents: %w", err),
 			}
 			return
 		}
@@ -205,7 +204,7 @@ func (s *eventStore) Events(ctx context.Context, globalSequenceNumber uint64) ra
 
 				resultRecords <- rangedb.ResultRecord{
 					Record: nil,
-					Err:    fmt.Errorf("unable to receive event: %v", err),
+					Err:    fmt.Errorf("unable to receive event: %w", err),
 				}
 				return
 			}
@@ -218,7 +217,7 @@ func (s *eventStore) Events(ctx context.Context, globalSequenceNumber uint64) ra
 				continue
 			}
 
-			if s.inDeletedStream(resolvedEvent) {
+			if s.inDeletedStreams(resolvedEvent) {
 				continue
 			}
 
@@ -226,7 +225,7 @@ func (s *eventStore) Events(ctx context.Context, globalSequenceNumber uint64) ra
 			if err != nil {
 				resultRecords <- rangedb.ResultRecord{
 					Record: nil,
-					Err:    fmt.Errorf("unable to deserialize resolved event: %v", err),
+					Err:    fmt.Errorf("unable to deserialize resolved event: %w", err),
 				}
 				return
 			}
@@ -277,7 +276,7 @@ func (s *eventStore) EventsByAggregateTypes(ctx context.Context, globalSequenceN
 
 			resultRecords <- rangedb.ResultRecord{
 				Record: nil,
-				Err:    fmt.Errorf("unexpected failure ReadStreamEvents: %v", err),
+				Err:    fmt.Errorf("unexpected failure ReadStreamEvents: %w", err),
 			}
 			return
 		}
@@ -294,7 +293,7 @@ func (s *eventStore) EventsByAggregateTypes(ctx context.Context, globalSequenceN
 
 				resultRecords <- rangedb.ResultRecord{
 					Record: nil,
-					Err:    fmt.Errorf("unable to receive event: %v", err),
+					Err:    fmt.Errorf("unable to receive event: %w", err),
 				}
 				return
 			}
@@ -303,7 +302,7 @@ func (s *eventStore) EventsByAggregateTypes(ctx context.Context, globalSequenceN
 				continue
 			}
 
-			if s.inDeletedStream(resolvedEvent) {
+			if s.inDeletedStreams(resolvedEvent) {
 				continue
 			}
 
@@ -311,7 +310,7 @@ func (s *eventStore) EventsByAggregateTypes(ctx context.Context, globalSequenceN
 			if err != nil {
 				resultRecords <- rangedb.ResultRecord{
 					Record: nil,
-					Err:    fmt.Errorf("unable to deserialize resolved event: %v", err),
+					Err:    fmt.Errorf("unable to deserialize resolved event: %w", err),
 				}
 				return
 			}
@@ -375,7 +374,7 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 
 			resultRecords <- rangedb.ResultRecord{
 				Record: nil,
-				Err:    fmt.Errorf("unexpected failure ReadStream: %v", err),
+				Err:    fmt.Errorf("unexpected failure ReadStream: %w", err),
 			}
 			return
 		}
@@ -396,6 +395,14 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 					return
 				}
 
+				if strings.HasSuffix(err.Error(), rpcErrContextCanceled) {
+					resultRecords <- rangedb.ResultRecord{
+						Record: nil,
+						Err:    context.Canceled,
+					}
+					return
+				}
+
 				if errors.Is(err, esdb.ErrStreamNotFound) {
 					resultRecords <- rangedb.ResultRecord{
 						Record: nil,
@@ -406,7 +413,7 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 
 				resultRecords <- rangedb.ResultRecord{
 					Record: nil,
-					Err:    fmt.Errorf("unable to receive event: %v", err),
+					Err:    fmt.Errorf("unable to receive event: %w", err),
 				}
 				return
 			}
@@ -419,7 +426,7 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 			if err != nil {
 				resultRecords <- rangedb.ResultRecord{
 					Record: nil,
-					Err:    fmt.Errorf("unable to deserialize resolved event: %v", err),
+					Err:    fmt.Errorf("unable to deserialize resolved event: %w", err),
 				}
 				return
 			}
@@ -465,33 +472,37 @@ func oneBasedSequenceNumber(sequenceNumber uint64) uint64 {
 }
 
 func (s *eventStore) OptimisticDeleteStream(ctx context.Context, expectedStreamSequenceNumber uint64, streamName string) error {
-	// We have to manually obtain the current stream sequence number
-	// client.DeleteStream does not return an error for stream not found
-	actualSequenceNumber, err := s.getStreamSequenceNumber(ctx, streamName)
-	if err != nil {
-		return err
-	}
-	if actualSequenceNumber == 0 {
-		return rangedb.ErrStreamNotFound
-	}
-
 	versionedStreamName := s.streamName(streamName)
 	tombstoneStreamOptions := esdb.TombstoneStreamOptions{
-		ExpectedRevision: esdb.Revision(expectedStreamSequenceNumber - 1),
+		ExpectedRevision: esdb.Revision(zeroBasedSequenceNumber(expectedStreamSequenceNumber)),
 		Authenticated:    nil,
 	}
 
-	_, err = s.client.TombstoneStream(ctx, versionedStreamName, tombstoneStreamOptions)
+	_, err := s.client.TombstoneStream(ctx, versionedStreamName, tombstoneStreamOptions)
 	if err != nil {
-		if strings.Contains(err.Error(), rpcErrWrongExpectedStreamRevision) {
+		var streamDeletedError *esdb.StreamDeletedError
+		if errors.Is(err, esdb.ErrStreamNotFound) || errors.As(err, &streamDeletedError) {
+			return rangedb.ErrStreamNotFound
+		}
+
+		if errors.Is(err, esdb.ErrWrongExpectedStreamRevision) {
 			// We have to manually obtain the current stream sequence number
 			// err does not contain "Actual version" and must be a bug in the EventStoreDB gRPC API.
 			// re: https://github.com/EventStore/EventStore/issues/3226
-			// log.Printf("### Actual version missing: %#v", err)
+			log.Printf("### Actual version missing: %#v", err)
+			actualSequenceNumber, err := s.getStreamSequenceNumber(ctx, streamName)
+			if err != nil {
+				return err
+			}
+
 			return &rangedberror.UnexpectedSequenceNumber{
 				Expected:             expectedStreamSequenceNumber,
 				ActualSequenceNumber: actualSequenceNumber,
 			}
+		}
+
+		if strings.HasSuffix(err.Error(), rpcErrContextCanceled) {
+			return context.Canceled
 		}
 
 		return err
@@ -623,7 +634,7 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 
 	var streamRevision esdb.ExpectedRevision
 	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber > 0 {
-		streamRevision = esdb.Revision(*expectedStreamSequenceNumber - 1)
+		streamRevision = esdb.Revision(zeroBasedSequenceNumber(*expectedStreamSequenceNumber))
 	}
 
 	appendToStreamRevisionOptions := esdb.AppendToStreamOptions{
@@ -854,12 +865,10 @@ func (s *eventStore) waitForScavenge(ctx context.Context) {
 	}
 }
 
-func (s *eventStore) inDeletedStream(event *esdb.ResolvedEvent) bool {
+func (s *eventStore) inDeletedStreams(event *esdb.ResolvedEvent) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	log.Printf("%#v", event.Event.StreamID)
-	log.Printf("%#v", s.deletedStreams)
 	if _, ok := s.deletedStreams[event.Event.StreamID]; ok {
 		return true
 	}

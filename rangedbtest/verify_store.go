@@ -731,6 +731,16 @@ func (v storeVerifier) Verify(t *testing.T, newStore func(*testing.T, clock.Cloc
 				require.False(t, recordIterator.Next())
 				assert.Nil(t, recordIterator.Err())
 			})
+
+			t.Run("errors when stream was previously deleted", func(t *testing.T) {
+				// Given
+
+				// When
+				err = store.OptimisticDeleteStream(ctx, 0, streamName)
+
+				// Then
+				assert.Equal(t, rangedb.ErrStreamNotFound, err)
+			})
 		})
 
 		t.Run("errors from wrong expected stream sequence number", func(t *testing.T) {
@@ -792,7 +802,7 @@ func (v storeVerifier) Verify(t *testing.T, newStore func(*testing.T, clock.Cloc
 			err := store.OptimisticDeleteStream(ctx, 2, streamName)
 
 			// Then
-			assert.Equal(t, context.Canceled, err)
+			assert.ErrorIs(t, err, context.Canceled)
 		})
 
 		t.Run("maintains correct global sequence number when deleting the last event", func(t *testing.T) {
@@ -1220,7 +1230,7 @@ func (v storeVerifier) Verify(t *testing.T, newStore func(*testing.T, clock.Cloc
 			)
 
 			// Then
-			assert.Equal(t, context.Canceled, err)
+			assert.ErrorIs(t, err, context.Canceled)
 			assert.Equal(t, uint64(0), lastStreamSequenceNumber)
 		})
 
@@ -1360,7 +1370,7 @@ func (v storeVerifier) Verify(t *testing.T, newStore func(*testing.T, clock.Cloc
 			_, err := store.Save(ctx, streamName, &rangedb.EventRecord{Event: event})
 
 			// Then
-			assert.Equal(t, context.Canceled, err)
+			assert.ErrorIs(t, err, context.Canceled)
 		})
 
 		t.Run("errors from missing events", func(t *testing.T) {
@@ -1431,7 +1441,7 @@ func (v storeVerifier) Verify(t *testing.T, newStore func(*testing.T, clock.Cloc
 			err := subscription.Start()
 
 			// Then
-			assert.Equal(t, context.Canceled, err)
+			assert.ErrorIs(t, err, context.Canceled)
 		})
 
 		t.Run("returns no events when global sequence number out of range", func(t *testing.T) {
@@ -1521,7 +1531,7 @@ func (v storeVerifier) Verify(t *testing.T, newStore func(*testing.T, clock.Cloc
 			err := subscription.Start()
 
 			// Then
-			assert.Equal(t, context.Canceled, err)
+			assert.ErrorIs(t, err, context.Canceled)
 		})
 	})
 
@@ -1648,7 +1658,7 @@ func (v storeVerifier) Verify(t *testing.T, newStore func(*testing.T, clock.Cloc
 
 			// Then
 			assert.Equal(t, 0, int(totalEvents))
-			assert.Equal(t, context.Canceled, err)
+			assert.ErrorIs(t, err, context.Canceled)
 		})
 
 	})
@@ -1742,7 +1752,7 @@ func assertCanceledIterator(t *testing.T, iter rangedb.RecordIterator) {
 
 	assert.False(t, iter.Next())
 	assert.Nil(t, iter.Record())
-	assert.Equal(t, context.Canceled, iter.Err())
+	assert.ErrorIs(t, iter.Err(), context.Canceled)
 }
 
 // AssertNoMoreResultsInIterator asserts no more rangedb.Record exist in the rangedb.RecordIterator.
