@@ -2,8 +2,6 @@ package eventstore_test
 
 import (
 	"fmt"
-	"net/http"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -30,8 +28,6 @@ func Test_EventStore_VerifyStoreInterface(t *testing.T) {
 		t.Skip("EventStoreDB not found. Run: docker run -it -p 2113:2113 -p 1113:1113 eventstore/eventstore --insecure --run-projections=All --enable-atom-pub-over-http=true")
 	}
 
-	createLogDataProjection(t)
-
 	rangedbtest.VerifyStore(t, func(t *testing.T, clock clock.Clock, uuidGenerator shortuuid.Generator) rangedb.Store {
 		streamPrefixer := newIncrementingStreamPrefixer()
 		esStore, err := eventstore.New(
@@ -52,41 +48,8 @@ func Test_EventStore_VerifyStoreInterface(t *testing.T) {
 			require.NoError(t, esStore.Close())
 		})
 
-		deleteLogDataStream(t)
 		return esStore
 	})
-}
-
-func deleteLogDataStream(t *testing.T) {
-	uri := "http://0.0.0.0:2113/streams/LogData"
-	req, err := http.NewRequest(http.MethodDelete, uri, nil)
-	require.NoError(t, err)
-	response, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	require.Equal(t, http.StatusNoContent, response.StatusCode)
-}
-
-func createLogDataProjection(t *testing.T) {
-	uri := "http://0.0.0.0:2113/projections/continuous?name=Data&emit=yes&checkpoints=yes&enabled=yes&trackemittedstreams=no"
-	body := `
-fromAll().when({
-   $any:function(s,e){
-	   if(e.eventType.startsWith("$")|| e.streamId.startsWith("$")){
-		   return;
-	   }
-   linkTo("LogData",e);
-   }
-})`
-	req, err := http.NewRequest(http.MethodPost, uri, strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	require.NoError(t, err)
-	response, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	if response.StatusCode == http.StatusConflict {
-		return
-	}
-
-	require.Equal(t, http.StatusCreated, response.StatusCode, response.Body)
 }
 
 type incrementingStreamPrefixer struct {
@@ -103,10 +66,14 @@ func newIncrementingStreamPrefixer() *incrementingStreamPrefixer {
 func (p *incrementingStreamPrefixer) WithPrefix(name string) string {
 	p.mux.RLock()
 	defer p.mux.RUnlock()
+
 	return fmt.Sprintf("%d-%s", p.version, name)
 }
 
 func (p *incrementingStreamPrefixer) GetPrefix() string {
+	p.mux.RLock()
+	defer p.mux.RUnlock()
+
 	return fmt.Sprintf("%d-", p.version)
 }
 

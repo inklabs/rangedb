@@ -675,7 +675,7 @@ func VerifyStore(t *testing.T, newStore func(*testing.T, clock.Clock, shortuuid.
 		t.Run("deletes a stream with 2 events", func(t *testing.T) {
 			// Given
 			uuid := NewSeededUUIDGenerator()
-			const aggregateIDA = "17852dae2f9448acb0174419c7634fdf"
+			const aggregateIDA = "5ef577726a7d4afe943542bdc31bfa14"
 			store := newStore(t, sequentialclock.New(), uuid)
 			eventA1 := &ThingWasDone{ID: aggregateIDA, Number: 1}
 			eventA2 := &ThingWasDone{ID: aggregateIDA, Number: 2}
@@ -1659,7 +1659,7 @@ func getLastRecord(t *testing.T, store rangedb.Store) *rangedb.Record {
 // ReadRecord helper to read a record or timeout.
 func ReadRecord(t *testing.T, recordChan chan *rangedb.Record) *rangedb.Record {
 	select {
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(250 * time.Millisecond):
 		require.Fail(t, "timout reading record")
 
 	case record := <-recordChan:
@@ -1683,10 +1683,13 @@ func assertCanceledIterator(t *testing.T, iter rangedb.RecordIterator) {
 func AssertRecordsInIterator(t *testing.T, recordIterator rangedb.RecordIterator, expectedRecords ...*rangedb.Record) {
 	var lastGlobalSequenceNumber uint64
 	for i, expectedRecord := range expectedRecords {
-		require.True(t, recordIterator.Next(), fmt.Sprintf("#%d err: %v record: %#v expected: %#v", i, recordIterator.Err(), recordIterator.Record(), expectedRecord))
+		require.True(t, recordIterator.Next(), fmt.Sprintf("#%d err: %v\nrecord: %#v\nexpected: %#v", i, recordIterator.Err(), recordIterator.Record(), expectedRecord))
 		assert.Nil(t, recordIterator.Err(), i)
 		errMsg := fmt.Sprintf("actual record %d: %#v", i, recordIterator.Record())
-		require.Greater(t, recordIterator.Record().GlobalSequenceNumber, lastGlobalSequenceNumber, errMsg)
+
+		// GreaterOrEqual tests for a monotonic sequence a(n+1) >= a(n)
+		// Greater test for a monotone sequence a(n+1) > a(n)
+		require.GreaterOrEqual(t, recordIterator.Record().GlobalSequenceNumber, lastGlobalSequenceNumber, errMsg)
 		lastGlobalSequenceNumber = recordIterator.Record().GlobalSequenceNumber
 		AssertRecordsEqual(t, expectedRecord, recordIterator.Record(), errMsg)
 	}

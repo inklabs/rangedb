@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/EventStore/EventStore-Client-Go/esdb"
@@ -31,13 +33,12 @@ const (
 )
 
 type RangeDBMetadata struct {
-	StreamName           string `json:"streamName"`
-	AggregateType        string `json:"aggregateType"`
-	AggregateID          string `json:"aggregateID"`
-	StreamSequenceNumber uint64 `json:"streamSequenceNumber"`
-	InsertTimestamp      uint64 `json:"insertTimestamp"`
-	EventType            string `json:"eventType"`
-	EventID              string `json:"eventID"`
+	StreamName      string `json:"streamName"`
+	AggregateType   string `json:"aggregateType"`
+	AggregateID     string `json:"aggregateID"`
+	InsertTimestamp uint64 `json:"insertTimestamp"`
+	EventType       string `json:"eventType"`
+	EventID         string `json:"eventID"`
 }
 
 type ESDBMetadata struct {
@@ -60,6 +61,9 @@ type eventStore struct {
 	ipAddr              string
 	username            string
 	password            string
+
+	mu             sync.RWMutex
+	deletedStreams map[string]struct{}
 }
 
 // Option defines functional option parameters for eventStore.
@@ -95,6 +99,7 @@ func New(ipAddr, username, password string, options ...Option) (*eventStore, err
 		ipAddr:              ipAddr,
 		username:            username,
 		password:            password,
+		deletedStreams:      make(map[string]struct{}),
 	}
 
 	for _, option := range options {
@@ -151,11 +156,10 @@ func (s *eventStore) Events(ctx context.Context, globalSequenceNumber uint64) ra
 	go func() {
 		defer close(resultRecords)
 
-		readStreamOptions := esdb.ReadStreamOptions{
-			From:           esdb.Revision(globalSequenceNumber),
-			ResolveLinkTos: true,
+		readAllOptions := esdb.ReadAllOptions{
+			From: esdb.Position{Commit: globalSequenceNumber},
 		}
-		readStream, err := s.client.ReadStream(ctx, "LogData", readStreamOptions, ^uint64(0))
+		readStream, err := s.client.ReadAll(ctx, readAllOptions, ^uint64(0))
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return
@@ -210,6 +214,14 @@ func (s *eventStore) Events(ctx context.Context, globalSequenceNumber uint64) ra
 				continue
 			}
 
+			if !s.inCurrentVersion(resolvedEvent) {
+				continue
+			}
+
+			if s.inDeletedStream(resolvedEvent) {
+				continue
+			}
+
 			record, err := s.recordFromLinkedEvent(resolvedEvent)
 			if err != nil {
 				resultRecords <- rangedb.ResultRecord{
@@ -250,21 +262,16 @@ func (s *eventStore) EventsByAggregateTypes(ctx context.Context, globalSequenceN
 			aggregateTypesMap[aggregateType] = struct{}{}
 		}
 
-		readStreamOptions := esdb.ReadStreamOptions{
-			From:           esdb.Revision(globalSequenceNumber),
-			ResolveLinkTos: true,
+		readAllOptions := esdb.ReadAllOptions{
+			From: esdb.Position{Commit: globalSequenceNumber},
 		}
-		readStream, err := s.client.ReadStream(ctx, "LogData", readStreamOptions, ^uint64(0))
+		readStream, err := s.client.ReadAll(ctx, readAllOptions, ^uint64(0))
 		if err != nil {
 			if strings.HasSuffix(err.Error(), rpcErrContextCanceled) {
 				resultRecords <- rangedb.ResultRecord{
 					Record: nil,
 					Err:    context.Canceled,
 				}
-				return
-			}
-
-			if errors.Is(err, esdb.ErrStreamNotFound) {
 				return
 			}
 
@@ -293,6 +300,10 @@ func (s *eventStore) EventsByAggregateTypes(ctx context.Context, globalSequenceN
 			}
 
 			if !s.inCurrentVersion(resolvedEvent) {
+				continue
+			}
+
+			if s.inDeletedStream(resolvedEvent) {
 				continue
 			}
 
@@ -340,9 +351,10 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 		defer close(resultRecords)
 
 		readStreamOptions := esdb.ReadStreamOptions{
+			From:           esdb.Revision(zeroBasedSequenceNumber(streamSequenceNumber)),
 			ResolveLinkTos: true,
 		}
-		readStream, err := s.client.ReadStream(ctx, "LogData", readStreamOptions, ^uint64(0))
+		readStream, err := s.client.ReadStream(ctx, s.streamName(streamName), readStreamOptions, ^uint64(0))
 		if err != nil {
 			if strings.HasSuffix(err.Error(), rpcErrContextCanceled) {
 				resultRecords <- rangedb.ResultRecord{
@@ -352,7 +364,8 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 				return
 			}
 
-			if errors.Is(err, esdb.ErrStreamNotFound) {
+			var streamDeletedError *esdb.StreamDeletedError
+			if errors.Is(err, esdb.ErrStreamNotFound) || errors.As(err, &streamDeletedError) {
 				resultRecords <- rangedb.ResultRecord{
 					Record: nil,
 					Err:    rangedb.ErrStreamNotFound,
@@ -362,7 +375,7 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 
 			resultRecords <- rangedb.ResultRecord{
 				Record: nil,
-				Err:    fmt.Errorf("unexpected failure ReadStreamEvents: %v", err),
+				Err:    fmt.Errorf("unexpected failure ReadStream: %v", err),
 			}
 			return
 		}
@@ -439,6 +452,14 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 	return rangedb.NewRecordIterator(resultRecords)
 }
 
+func zeroBasedSequenceNumber(sequenceNumber uint64) uint64 {
+	if sequenceNumber < 1 {
+		return 0
+	}
+
+	return sequenceNumber - 1
+}
+
 func oneBasedSequenceNumber(sequenceNumber uint64) uint64 {
 	return sequenceNumber + 1
 }
@@ -459,6 +480,7 @@ func (s *eventStore) OptimisticDeleteStream(ctx context.Context, expectedStreamS
 		ExpectedRevision: esdb.Revision(expectedStreamSequenceNumber - 1),
 		Authenticated:    nil,
 	}
+
 	_, err = s.client.TombstoneStream(ctx, versionedStreamName, tombstoneStreamOptions)
 	if err != nil {
 		if strings.Contains(err.Error(), rpcErrWrongExpectedStreamRevision) {
@@ -472,6 +494,11 @@ func (s *eventStore) OptimisticDeleteStream(ctx context.Context, expectedStreamS
 
 		return err
 	}
+
+	s.mu.Lock()
+	s.deletedStreams[s.streamName(streamName)] = struct{}{}
+	s.mu.Unlock()
+	// s.waitForScavenge(ctx)
 
 	return nil
 }
@@ -532,12 +559,13 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 	aggregateType := eventRecords[0].Event.AggregateType()
 	aggregateID := eventRecords[0].Event.AggregateID()
 
-	streamSequenceNumber, _ := s.getStreamSequenceNumber(ctx, streamName)
-
-	if expectedStreamSequenceNumber != nil && *expectedStreamSequenceNumber != streamSequenceNumber {
-		return 0, &rangedberror.UnexpectedSequenceNumber{
-			Expected:             *expectedStreamSequenceNumber,
-			ActualSequenceNumber: streamSequenceNumber,
+	if expectedStreamSequenceNumber != nil {
+		streamSequenceNumber, _ := s.getStreamSequenceNumber(ctx, streamName)
+		if *expectedStreamSequenceNumber != streamSequenceNumber {
+			return 0, &rangedberror.UnexpectedSequenceNumber{
+				Expected:             *expectedStreamSequenceNumber,
+				ActualSequenceNumber: streamSequenceNumber,
+			}
 		}
 	}
 
@@ -555,18 +583,15 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 		aggregateType = eventRecord.Event.AggregateType()
 		aggregateID = eventRecord.Event.AggregateID()
 
-		streamSequenceNumber++
-
 		eventID := s.uuidGenerator.New()
 		esDBMetadata := ESDBMetadata{
 			RangeDBMetadata: RangeDBMetadata{
-				StreamName:           streamName,
-				AggregateType:        aggregateType,
-				AggregateID:          aggregateID,
-				StreamSequenceNumber: streamSequenceNumber,
-				InsertTimestamp:      uint64(s.clock.Now().Unix()),
-				EventType:            eventRecord.Event.EventType(),
-				EventID:              eventID,
+				StreamName:      streamName,
+				AggregateType:   aggregateType,
+				AggregateID:     aggregateID,
+				InsertTimestamp: uint64(s.clock.Now().Unix()),
+				EventType:       eventRecord.Event.EventType(),
+				EventID:         eventID,
 			},
 			EventMetadata: eventRecord.Metadata,
 		}
@@ -602,7 +627,7 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 	appendToStreamRevisionOptions := esdb.AppendToStreamOptions{
 		ExpectedRevision: streamRevision,
 	}
-	_, err := s.client.AppendToStream(ctx, s.streamName(streamName), appendToStreamRevisionOptions, proposedEvents...)
+	result, err := s.client.AppendToStream(ctx, s.streamName(streamName), appendToStreamRevisionOptions, proposedEvents...)
 	if err != nil {
 		if errors.Is(err, esdb.ErrWrongExpectedStreamRevision) {
 			return 0, &rangedberror.UnexpectedSequenceNumber{
@@ -618,13 +643,9 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 		return 0, err
 	}
 
-	s.waitForLogDataProjectionToCatchUp()
+	streamSequenceNumber := oneBasedSequenceNumber(result.NextExpectedVersion)
 
 	return streamSequenceNumber, nil
-}
-
-func (s *eventStore) waitForLogDataProjectionToCatchUp() {
-	time.Sleep(time.Millisecond * 100)
 }
 
 func (s *eventStore) inCurrentVersion(event *esdb.ResolvedEvent) bool {
@@ -678,12 +699,12 @@ func (s *eventStore) recordFromLinkedEvent(resolvedEvent *esdb.ResolvedEvent) (*
 	var eventStoreDBMetadata ESDBMetadata
 	err := json.Unmarshal(resolvedEvent.Event.UserMetadata, &eventStoreDBMetadata)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to unmarshal ESDBMetadata err: %w", err)
 	}
 
-	globalSequenceNumber := ^uint64(0)
-	if resolvedEvent.Link != nil {
-		globalSequenceNumber = resolvedEvent.Link.EventNumber
+	globalSequenceNumber := uint64(0)
+	if resolvedEvent.Commit != nil {
+		globalSequenceNumber = *resolvedEvent.Commit
 	}
 
 	record := &rangedb.Record{
@@ -710,14 +731,14 @@ func (s *eventStore) recordFromLinkedEvent(resolvedEvent *esdb.ResolvedEvent) (*
 
 func (s *eventStore) startSubscription() {
 	ctx := context.Background()
-	opts := esdb.SubscribeToStreamOptions{
-		From:           esdb.Start{},
-		ResolveLinkTos: true,
+	opts := esdb.SubscribeToAllOptions{
+		From: esdb.Start{},
 	}
-	subscription, err := s.client.SubscribeToStream(ctx, "LogData", opts)
+	subscription, err := s.client.SubscribeToAll(ctx, opts)
 	if err != nil {
 		return
 	}
+
 	defer func() {
 		err := subscription.Close()
 		if err != nil {
@@ -752,6 +773,10 @@ func (s *eventStore) startSubscription() {
 			continue
 		}
 
+		if !s.inCurrentVersion(subscriptionEvent.EventAppeared) {
+			continue
+		}
+
 		record, err := s.recordFromLinkedEvent(subscriptionEvent.EventAppeared)
 		if err != nil {
 			log.Printf("subscription: unable deserialize resolved event: %v", err)
@@ -767,4 +792,75 @@ func (s *eventStore) startSubscription() {
 			s.broadcaster.Accept(record)
 		}
 	}
+}
+
+func (s *eventStore) waitForScavenge(ctx context.Context) {
+	log.Print("starting scavenge")
+	uri := "http://0.0.0.0:2113/admin/scavenge"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, uri, nil)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	req.SetBasicAuth(s.username, s.password)
+	req.Header.Add("Accept", "application/json")
+
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+
+	if response.StatusCode != 200 {
+		log.Print(response)
+		return
+	}
+
+	log.Printf("response: %#v", response)
+	log.Printf("headers: %v", response.Header)
+
+	type ScavengeResponse struct {
+		ScavengeID string `json:"scavengeId"`
+	}
+
+	var scavengeResponse ScavengeResponse
+	err = json.NewDecoder(response.Body).Decode(&scavengeResponse)
+	if err != nil {
+		log.Print(err)
+		return
+	}
+
+	scavengeStream := fmt.Sprintf("$scavenges-%s", scavengeResponse.ScavengeID)
+
+	stream, err := s.client.SubscribeToStream(ctx, scavengeStream, esdb.SubscribeToStreamOptions{})
+	if err != nil {
+		log.Print(err)
+		return
+	}
+
+	log.Print("Waiting for scavenge")
+	for {
+		log.Print(".")
+		subscriptionEvent := stream.Recv()
+
+		log.Print(subscriptionEvent.EventAppeared.Event)
+
+		if subscriptionEvent.EventAppeared.Event.EventType == "$scavengeCompleted" {
+			log.Print("Scavenge complete!")
+			return
+		}
+	}
+}
+
+func (s *eventStore) inDeletedStream(event *esdb.ResolvedEvent) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	log.Printf("%#v", event.Event.StreamID)
+	log.Printf("%#v", s.deletedStreams)
+	if _, ok := s.deletedStreams[event.Event.StreamID]; ok {
+		return true
+	}
+
+	return false
 }
