@@ -55,11 +55,12 @@ jobs:
         env:
           CC_TEST_REPORTER_ID: ${{secrets.CC_TEST_REPORTER_ID}}
         run: |
-          wget -O cc-reporter https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64
+          wget -Oq cc-reporter https://codeclimate.com/downloads/test-reporter/test-reporter-latest-linux-amd64
           chmod +x cc-reporter
           ./cc-reporter before-build
           go test -v -race -coverprofile c.out.tmp -failfast ./...
-          cat c.out.tmp | grep -v "_gen.go" | grep -v ".pb.go" | grep -v "/rangedbtest/" | grep -v "/cryptotest/" > c.out
+          cat c.out.tmp | grep -v "_gen.go" | grep -v ".pb.go" | grep -v "/rangedbtest/" | grep -v "/cryptotest/" > c.out     
           go tool cover -func c.out
+          sed -i "s%github.com/inklabs/%%" c.out
           ./cc-reporter format-coverage c.out -t gocov -p $(basename $PWD)
           ./cc-reporter after-build -t gocov -p $(basename $PWD)
