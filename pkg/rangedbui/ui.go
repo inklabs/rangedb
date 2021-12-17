@@ -284,7 +284,7 @@ func (a *webUI) realtimeEventsByAggregateType(w http.ResponseWriter, r *http.Req
 	}
 	defer conn.Close()
 
-	keepAlive(conn, 1*time.Minute)
+	// keepAlive(conn, 1*time.Minute)
 
 	var startingGlobalSequenceNumber, runningTotalRecords uint64
 	totalRecords := a.aggregateTypeStats.TotalEventsByAggregateType(aggregateTypeName)
@@ -337,7 +337,7 @@ func (a *webUI) realtimeAggregateTypes(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.Close()
 
-	keepAlive(conn, 1*time.Minute)
+	// keepAlive(conn, 1*time.Minute)
 
 	latestGlobalSequenceNumber := uint64(0)
 
