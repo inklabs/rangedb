@@ -35,7 +35,7 @@ jobs:
           - 2113:2113
           - 1113:1113
         options:
-          --entrypoint "/opt/eventstore/EventStore.ClusterNode --insecure --mem-db"
+          --entrypoint "/opt/eventstore/eventstored --insecure --mem-db"
     steps:
 
       - name: Set up Go
