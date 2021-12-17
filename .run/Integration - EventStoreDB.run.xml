@@ -2,6 +2,11 @@
   <configuration default="false" name="Integration - EventStoreDB" type="GoTestRunConfiguration" factoryName="Go Test">
     <module name="rangedb" />
     <working_directory value="$PROJECT_DIR$/provider/eventstore" />
+    <envs>
+      <env name="ESDB_IP_ADDR" value="127.0.0.1" />
+      <env name="ESDB_USERNAME" value="admin" />
+      <env name="ESDB_PASSWORD" value="changeit" />
+    </envs>
     <root_directory value="$PROJECT_DIR$" />
     <kind value="PACKAGE" />
     <package value="github.com/inklabs/rangedb/provider/eventstore" />

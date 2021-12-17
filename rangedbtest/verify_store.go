@@ -1735,7 +1735,7 @@ func getLastRecord(t *testing.T, store rangedb.Store) *rangedb.Record {
 // ReadRecord helper to read a record or timeout.
 func ReadRecord(t *testing.T, recordChan chan *rangedb.Record) *rangedb.Record {
 	select {
-	case <-time.After(250 * time.Millisecond):
+	case <-time.After(1 * time.Second):
 		require.Fail(t, "timout reading record")
 
 	case record := <-recordChan:

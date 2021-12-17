@@ -14,6 +14,9 @@
       <env name="DYDB_TABLE_NAME" value="dummy" />
       <env name="AWS_ACCESS_KEY_ID" value="dummy" />
       <env name="AWS_SECRET_ACCESS_KEY" value="dummy" />
+      <env name="ESDB_IP_ADDR" value="127.0.0.1" />
+      <env name="ESDB_USERNAME" value="admin" />
+      <env name="ESDB_PASSWORD" value="changeit" />
     </envs>
     <kind value="DIRECTORY" />
     <directory value="$PROJECT_DIR$" />

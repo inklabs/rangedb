@@ -50,6 +50,16 @@ type StreamPrefixer interface {
 	GetPrefix() string
 }
 
+type Config struct {
+	IPAddr   string
+	Username string
+	Password string
+}
+
+func (c Config) ConnectionString() string {
+	return fmt.Sprintf("esdb://%s:%s@%s", c.Username, c.Password, c.IPAddr)
+}
+
 type eventStore struct {
 	client              *esdb.Client
 	clock               clock.Clock
@@ -57,10 +67,9 @@ type eventStore struct {
 	uuidGenerator       shortuuid.Generator
 	broadcaster         broadcast.Broadcaster
 	eventTypeIdentifier rangedb.EventTypeIdentifier
-	ipAddr              string
-	username            string
-	password            string
+	config              Config
 
+	password       string
 	mu             sync.RWMutex
 	deletedStreams map[string]struct{}
 }
@@ -90,14 +99,12 @@ func WithStreamPrefix(streamPrefixer StreamPrefixer) Option {
 }
 
 // New constructs an eventStore. Experimental: Use at your own risk!
-func New(ipAddr, username, password string, options ...Option) (*eventStore, error) {
+func New(config Config, options ...Option) (*eventStore, error) {
 	s := &eventStore{
 		clock:               systemclock.New(),
 		broadcaster:         broadcast.New(broadcastRecordBuffSize, broadcast.DefaultTimeout),
 		eventTypeIdentifier: rangedb.NewEventIdentifier(),
-		ipAddr:              ipAddr,
-		username:            username,
-		password:            password,
+		config:              config,
 		deletedStreams:      make(map[string]struct{}),
 	}
 
@@ -120,7 +127,7 @@ func (s *eventStore) Close() error {
 }
 
 func (s *eventStore) setupClient() error {
-	config, err := esdb.ParseConnectionString(fmt.Sprintf("esdb://%s:%s@%s", s.username, s.password, s.ipAddr))
+	config, err := esdb.ParseConnectionString(s.config.ConnectionString())
 	if err != nil {
 		return fmt.Errorf("unexpected configuration error: %s", err.Error())
 	}
@@ -815,7 +822,7 @@ func (s *eventStore) waitForScavenge(ctx context.Context) {
 		log.Print(err)
 		return
 	}
-	req.SetBasicAuth(s.username, s.password)
+	req.SetBasicAuth(s.config.Username, s.config.Password)
 	req.Header.Add("Accept", "application/json")
 
 	response, err := http.DefaultClient.Do(req)
