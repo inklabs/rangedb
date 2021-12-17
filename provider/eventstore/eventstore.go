@@ -89,7 +89,7 @@ func WithStreamPrefix(streamPrefixer StreamPrefixer) Option {
 	}
 }
 
-// New constructs an eventStore. Experimental: Use at your own risk.
+// New constructs an eventStore. Experimental: Use at your own risk!
 func New(ipAddr, username, password string, options ...Option) (*eventStore, error) {
 	s := &eventStore{
 		clock:               systemclock.New(),

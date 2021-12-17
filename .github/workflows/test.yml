@@ -61,6 +61,7 @@ jobs:
           AWS_ACCESS_KEY_ID: dummy
           AWS_SECRET_ACCESS_KEY: dummy
       - name: Publish Code Coverage
+        if: github.ref == 'refs/heads/master'
         env:
           CC_TEST_REPORTER_ID: ${{secrets.CC_TEST_REPORTER_ID}}
         run: |
