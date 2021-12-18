@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
@@ -51,14 +52,16 @@ func Test_WebsocketApi(t *testing.T) {
 			require.NoError(t, err)
 			serverURL.Scheme = "ws"
 			serverURL.Path = "/events"
+			ctx := rangedbtest.TimeoutContext(t)
 
 			// When
-			socket, response, err := websocket.DefaultDialer.Dial(serverURL.String(), nil)
+			socket, response, err := websocket.DefaultDialer.DialContext(ctx, serverURL.String(), nil)
 
 			// Then
 			require.NoError(t, err)
 			defer closeOrFail(t, socket)
 			defer closeOrFail(t, response.Body)
+			require.NoError(t, socket.SetReadDeadline(time.Now().Add(5*time.Second)))
 			_, actualBytes1, err := socket.ReadMessage()
 			require.NoError(t, err)
 			_, actualBytes2, err := socket.ReadMessage()
@@ -142,14 +145,16 @@ func Test_WebsocketApi(t *testing.T) {
 			query := url.Values{}
 			query.Add("global-sequence-number", strconv.Itoa(globalSequenceNumber))
 			serverURL.RawQuery = query.Encode()
+			ctx := rangedbtest.TimeoutContext(t)
 
 			// When
-			socket, response, err := websocket.DefaultDialer.Dial(serverURL.String(), nil)
+			socket, response, err := websocket.DefaultDialer.DialContext(ctx, serverURL.String(), nil)
 
 			// Then
 			require.NoError(t, err, serverURL.String())
 			defer closeOrFail(t, socket)
 			defer closeOrFail(t, response.Body)
+			require.NoError(t, socket.SetReadDeadline(time.Now().Add(5*time.Second)))
 			_, actualBytes1, err := socket.ReadMessage()
 			require.NoError(t, err)
 			_, actualBytes2, err := socket.ReadMessage()
@@ -214,9 +219,10 @@ func Test_WebsocketApi(t *testing.T) {
 			query := url.Values{}
 			query.Add("global-sequence-number", "invalid")
 			serverURL.RawQuery = query.Encode()
+			ctx := rangedbtest.TimeoutContext(t)
 
 			// When
-			socket, response, err := websocket.DefaultDialer.Dial(serverURL.String(), nil)
+			socket, response, err := websocket.DefaultDialer.DialContext(ctx, serverURL.String(), nil)
 
 			// Then
 			require.EqualError(t, err, "websocket: bad handshake")
@@ -304,14 +310,16 @@ func Test_WebsocketApi(t *testing.T) {
 			require.NoError(t, err)
 			serverURL.Scheme = "ws"
 			serverURL.Path = "/events/thing,that"
+			ctx := rangedbtest.TimeoutContext(t)
 
 			// When
-			socket, response, err := websocket.DefaultDialer.Dial(serverURL.String(), nil)
+			socket, response, err := websocket.DefaultDialer.DialContext(ctx, serverURL.String(), nil)
 
 			// Then
 			require.NoError(t, err)
 			defer closeOrFail(t, socket)
 			defer closeOrFail(t, response.Body)
+			require.NoError(t, socket.SetReadDeadline(time.Now().Add(5*time.Second)))
 			_, actualBytes1, err := socket.ReadMessage()
 			require.NoError(t, err)
 			_, actualBytes2, err := socket.ReadMessage()
@@ -375,9 +383,10 @@ func Test_WebsocketApi(t *testing.T) {
 			query := url.Values{}
 			query.Add("global-sequence-number", "invalid")
 			serverURL.RawQuery = query.Encode()
+			ctx := rangedbtest.TimeoutContext(t)
 
 			// When
-			socket, response, err := websocket.DefaultDialer.Dial(serverURL.String(), nil)
+			socket, response, err := websocket.DefaultDialer.DialContext(ctx, serverURL.String(), nil)
 
 			// Then
 			require.EqualError(t, err, "websocket: bad handshake")
@@ -440,8 +449,9 @@ func Test_WebsocketApi_Failures(t *testing.T) {
 		require.NoError(t, err)
 		serverURL.Scheme = "ws"
 		serverURL.Path = "/events"
+		ctx := rangedbtest.TimeoutContext(t)
 
-		socket, response, err := websocket.DefaultDialer.Dial(serverURL.String(), nil)
+		socket, response, err := websocket.DefaultDialer.DialContext(ctx, serverURL.String(), nil)
 		require.NoError(t, err)
 		defer closeOrFail(t, response.Body)
 

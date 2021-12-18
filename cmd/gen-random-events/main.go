@@ -2,9 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"os"
 	"os/signal"
@@ -22,12 +24,17 @@ import (
 func main() {
 	fmt.Println("Random Event Generator")
 
-	eventType := flag.String("eventType", "", "event type: ThingWasDone, ThatWasDone, AnotherWasComplete, etc.")
+	eventType := flag.String("eventType", "ThingWasDone", "event type: ThingWasDone, ThatWasDone, AnotherWasComplete, etc.")
 	maxEventsPerStream := flag.Int("maxPerStream", 10, "max events per stream")
 	host := flag.String("host", "127.0.0.1:8081", "RangeDB gRPC host address")
+	totalEvents := flag.Uint64("total", math.MaxUint64, "Total # of events to generate")
 	flag.Parse()
 
 	fmt.Println("Generating events until stopped")
+	fmt.Printf("maxEventsPerStream: %d\n", *maxEventsPerStream)
+	if *totalEvents != math.MaxUint64 {
+		fmt.Printf("totalEvents: %d\n", *totalEvents)
+	}
 
 	dialCtx, connectDone := context.WithTimeout(context.Background(), time.Second*5)
 	conn, err := grpc.DialContext(dialCtx, *host, grpc.WithInsecure(), grpc.WithBlock())
@@ -50,28 +57,36 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	ctx, done := context.WithCancel(context.Background())
-	go generateRandomEvents(ctx, store, *maxEventsPerStream, *eventType)
+
+	go func() {
+		total := uint64(0)
+		ctx := context.Background()
+		for {
+			eventsPerStream := rand.Intn(*maxEventsPerStream) + 1
+			eventRecords := getNEvents(eventsPerStream, shortuuid.New().String(), *eventType)
+			streamName := rangedb.GetEventStream(eventRecords[0].Event)
+			_, err := store.Save(ctx, streamName, eventRecords...)
+			if err != nil {
+				if errors.Is(err, context.Canceled) {
+					fmt.Printf("\nSaved %d events\n", total)
+					return
+				}
+
+				log.Fatal(err)
+			}
+			total += uint64(eventsPerStream)
+			fmt.Printf("\rSaved %d events", total)
+
+			if total >= *totalEvents {
+				close(stop)
+				return
+			}
+		}
+	}()
 
 	<-stop
 
 	fmt.Printf("\nShutting down\n")
-	done()
-}
-
-func generateRandomEvents(ctx context.Context, store rangedb.Store, maxEventsPerStream int, eventType string) {
-	total := uint64(0)
-	for {
-		eventsPerStream := rand.Intn(maxEventsPerStream) + 1
-		eventRecords := getNEvents(eventsPerStream, shortuuid.New().String(), eventType)
-		streamName := rangedb.GetEventStream(eventRecords[0].Event)
-		_, err := store.Save(ctx, streamName, eventRecords...)
-		if err != nil {
-			log.Fatal(err)
-		}
-		total += uint64(eventsPerStream)
-		fmt.Printf("\rSaved %d events", total)
-	}
 }
 
 func getNEvents(n int, aggregateID, eventType string) []*rangedb.EventRecord {
@@ -91,12 +106,12 @@ func getNEvents(n int, aggregateID, eventType string) []*rangedb.EventRecord {
 			}
 
 		case "ThingWasDone":
-			fallthrough
-		default:
 			event = &rangedbtest.ThingWasDone{
 				ID:     aggregateID,
 				Number: rand.Intn(n),
 			}
+		default:
+			log.Fatal("Event type not supported")
 		}
 		eventRecords[i] = &rangedb.EventRecord{
 			Event:    event,

@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
@@ -223,7 +224,7 @@ func Test_RealtimeEventsByAggregateType(t *testing.T) {
 	rangedbtest.BlockingSaveEvents(t, store, streamName, &rangedb.EventRecord{Event: event})
 	ui := rangedbui.New(aggregateTypeStats, store)
 
-	t.Run("reads two events", func(t *testing.T) {
+	t.Run("reads the last event", func(t *testing.T) {
 		// Given
 		server := httptest.NewServer(ui)
 		t.Cleanup(server.Close)
@@ -232,41 +233,19 @@ func Test_RealtimeEventsByAggregateType(t *testing.T) {
 		require.NoError(t, err)
 		serverURL.Scheme = "ws"
 		serverURL.Path = "/live/a/" + event.AggregateType()
+		ctx := rangedbtest.TimeoutContext(t)
 
 		// When
-		socket, response, err := websocket.DefaultDialer.Dial(serverURL.String(), nil)
+		socket, response, err := websocket.DefaultDialer.DialContext(ctx, serverURL.String(), nil)
 
 		// Then
 		require.NoError(t, err)
 		errCleanup(t, socket)
 		errCleanup(t, response.Body)
-		_, actualBytes1, err := socket.ReadMessage()
+		require.NoError(t, socket.SetReadDeadline(time.Now().Add(5*time.Second)))
+		_, actualBytes, err := socket.ReadMessage()
 		require.NoError(t, err)
-		_, actualBytes2, err := socket.ReadMessage()
-		require.NoError(t, err)
-		expectedEvent1 := fmt.Sprintf(`{
-				"Record": {
-					"streamName": "thing-f6b6f8ed682c4b5180f625e53b3c4bac",
-					"aggregateType": "thing",
-					"aggregateID": "%s",
-					"globalSequenceNumber":1,
-					"streamSequenceNumber":1,
-					"insertTimestamp":0,
-					"eventID": "%s",
-					"eventType": "ThingWasDone",
-					"data":{
-						"id": "%s",
-						"number": 0
-					},
-					"metadata":null
-				},
-				"TotalEvents": 1
-			}`,
-			event.AggregateID(),
-			uuid.Get(1),
-			event.AggregateID(),
-		)
-		expectedEvent2 := fmt.Sprintf(`{
+		expectedEvent := fmt.Sprintf(`{
 				"Record": {
 					"streamName": "thing-f6b6f8ed682c4b5180f625e53b3c4bac",
 					"aggregateType": "thing",
@@ -282,15 +261,14 @@ func Test_RealtimeEventsByAggregateType(t *testing.T) {
 					},
 					"metadata":null
 				},
-				"TotalEvents": 2
+				"TotalEvents": 3
 			}`,
 			event.AggregateID(),
 			uuid.Get(3),
 			event.AggregateID(),
 		)
 		assert.Equal(t, http.StatusSwitchingProtocols, response.StatusCode)
-		assert.JSONEq(t, expectedEvent1, string(actualBytes1))
-		assert.JSONEq(t, expectedEvent2, string(actualBytes2))
+		assert.JSONEq(t, expectedEvent, string(actualBytes))
 	})
 }
 
@@ -317,14 +295,16 @@ func Test_RealtimeAggregateTypes(t *testing.T) {
 		require.NoError(t, err)
 		serverURL.Scheme = "ws"
 		serverURL.Path = "/live/aggregate-types"
+		ctx := rangedbtest.TimeoutContext(t)
 
 		// When
-		socket, response, err := websocket.DefaultDialer.Dial(serverURL.String(), nil)
+		socket, response, err := websocket.DefaultDialer.DialContext(ctx, serverURL.String(), nil)
 
 		// Then
 		require.NoError(t, err)
 		errCleanup(t, socket)
 		errCleanup(t, response.Body)
+		require.NoError(t, socket.SetReadDeadline(time.Now().Add(5*time.Second)))
 		_, actualBytes1, err := socket.ReadMessage()
 		require.NoError(t, err)
 		expectedEvent1 := `{

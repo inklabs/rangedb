@@ -302,23 +302,16 @@ func (a *webUI) realtimeEventsByAggregateType(w http.ResponseWriter, r *http.Req
 
 	// keepAlive(conn, 1*time.Minute)
 
-	var startingGlobalSequenceNumber, runningTotalRecords uint64
+	latestGlobalSequenceNumber := a.aggregateTypeStats.LatestGlobalSequenceNumber()
 	totalRecords := a.aggregateTypeStats.TotalEventsByAggregateType(aggregateTypeName)
-	if totalRecords > 10 {
-		// TODO: optimize: obtain last 10th aggregate type records GSN then rangedb.ReadNRecords using
-		//  store.EventsByAggregateTypes from that position.
-		startingGlobalSequenceNumber = totalRecords - 10
-		runningTotalRecords = startingGlobalSequenceNumber - 1
-	}
-
 	ctx, cancel := context.WithCancel(r.Context())
 
 	recordSubscriber := rangedb.RecordSubscriberFunc(func(record *rangedb.Record) {
-		runningTotalRecords++
+		totalRecords++
 
 		envelope := RecordEnvelope{
 			Record:      *record,
-			TotalEvents: runningTotalRecords,
+			TotalEvents: totalRecords,
 		}
 
 		message, err := json.Marshal(envelope)
@@ -336,7 +329,7 @@ func (a *webUI) realtimeEventsByAggregateType(w http.ResponseWriter, r *http.Req
 
 	subscription := a.store.AggregateTypesSubscription(ctx, subscriberRecordBuffSize, recordSubscriber, aggregateTypeName)
 	defer subscription.Stop()
-	err = subscription.StartFrom(startingGlobalSequenceNumber)
+	err = subscription.StartFrom(latestGlobalSequenceNumber)
 	if err != nil {
 		log.Printf("unable to start subscription: %v", err)
 		return
