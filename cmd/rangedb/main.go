@@ -23,6 +23,7 @@ import (
 	"github.com/inklabs/rangedb/pkg/rangedbui"
 	"github.com/inklabs/rangedb/pkg/rangedbws"
 	"github.com/inklabs/rangedb/pkg/shortuuid"
+	"github.com/inklabs/rangedb/provider/eventstore"
 	"github.com/inklabs/rangedb/provider/inmemorystore"
 	"github.com/inklabs/rangedb/provider/leveldbstore"
 	"github.com/inklabs/rangedb/provider/postgresstore"
@@ -170,6 +171,17 @@ func getStore(levelDBPath string, logger *log.Logger) (rangedb.Store, string, fu
 
 		fmt.Println("Using PostgreSQL Store")
 		return postgresStore, postgreSQLConfig.DataSourceName(), nilFunc, nil
+	}
+
+	esdbConfig, err := eventstore.NewConfigFromEnvironment()
+	if err == nil {
+		esdbStore, err := eventstore.New(esdbConfig)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Println("Using EventStoreDB Store")
+		return esdbStore, esdbConfig.ConnectionString(), esdbStore.Close, nil
 	}
 
 	if levelDBPath != "" {

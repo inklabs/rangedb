@@ -2,7 +2,6 @@ package eventstore_test
 
 import (
 	"fmt"
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -82,18 +81,11 @@ func (p *incrementingStreamPrefixer) TickVersion() {
 }
 
 func getConfigFromEnvironment(t *testing.T) eventstore.Config {
-	ipAddr := os.Getenv("ESDB_IP_ADDR")
-	username := os.Getenv("ESDB_USERNAME")
-	password := os.Getenv("ESDB_PASSWORD")
-
-	if ipAddr == "" || username == "" || password == "" {
+	config, err := eventstore.NewConfigFromEnvironment()
+	if err != nil {
 		// docker run -p 8200:8200 -e 'VAULT_DEV_ROOT_TOKEN_ID=testroot' vault:1.9.1
-		t.Skip("ESDB_IP_ADDR, ESDB_USERNAME, and ESDB_PASSWORD are required")
+		t.Skip(err.Error(), "ESDB_IP_ADDR, ESDB_USERNAME, and ESDB_PASSWORD are required")
 	}
 
-	return eventstore.Config{
-		IPAddr:   ipAddr,
-		Username: username,
-		Password: password,
-	}
+	return config
 }

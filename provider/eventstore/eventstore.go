@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -54,6 +55,22 @@ type Config struct {
 	IPAddr   string
 	Username string
 	Password string
+}
+
+func NewConfigFromEnvironment() (Config, error) {
+	ipAddr := os.Getenv("ESDB_IP_ADDR")
+	username := os.Getenv("ESDB_USERNAME")
+	password := os.Getenv("ESDB_PASSWORD")
+
+	if ipAddr == "" || username == "" || password == "" {
+		return Config{}, fmt.Errorf("EventStoreDB has not been configured via environment variables")
+	}
+
+	return Config{
+		IPAddr:   ipAddr,
+		Username: username,
+		Password: password,
+	}, nil
 }
 
 func (c Config) ConnectionString() string {
@@ -110,6 +127,7 @@ func RecordDeletedStreams() Option {
 func New(config Config, options ...Option) (*eventStore, error) {
 	s := &eventStore{
 		clock:               systemclock.New(),
+		uuidGenerator:       shortuuid.NewUUIDGenerator(),
 		broadcaster:         broadcast.New(broadcastRecordBuffSize, broadcast.DefaultTimeout),
 		eventTypeIdentifier: rangedb.NewEventIdentifier(),
 		config:              config,
@@ -228,6 +246,10 @@ func (s *eventStore) Events(ctx context.Context, globalSequenceNumber uint64) ra
 				continue
 			}
 
+			if s.isInternalESDBEvent(resolvedEvent) {
+				continue
+			}
+
 			if !s.inCurrentVersion(resolvedEvent) {
 				continue
 			}
@@ -311,6 +333,10 @@ func (s *eventStore) EventsByAggregateTypes(ctx context.Context, globalSequenceN
 					Err:    fmt.Errorf("unable to receive event: %w", err),
 				}
 				return
+			}
+
+			if s.isInternalESDBEvent(resolvedEvent) {
+				continue
 			}
 
 			if !s.inCurrentVersion(resolvedEvent) {
@@ -431,6 +457,10 @@ func (s *eventStore) EventsByStream(ctx context.Context, streamSequenceNumber ui
 					Err:    fmt.Errorf("unable to receive event: %w", err),
 				}
 				return
+			}
+
+			if s.isInternalESDBEvent(resolvedEvent) {
+				continue
 			}
 
 			if !s.inCurrentVersion(resolvedEvent) {
@@ -678,6 +708,10 @@ func (s *eventStore) saveEvents(ctx context.Context, expectedStreamSequenceNumbe
 	return streamSequenceNumber, nil
 }
 
+func (s *eventStore) isInternalESDBEvent(event *esdb.ResolvedEvent) bool {
+	return strings.HasPrefix(event.Event.EventType, "$")
+}
+
 func (s *eventStore) inCurrentVersion(event *esdb.ResolvedEvent) bool {
 	if event.Event == nil {
 		return false
@@ -803,13 +837,17 @@ func (s *eventStore) startSubscription() {
 			continue
 		}
 
+		if s.isInternalESDBEvent(subscriptionEvent.EventAppeared) {
+			continue
+		}
+
 		if !s.inCurrentVersion(subscriptionEvent.EventAppeared) {
 			continue
 		}
 
 		record, err := s.recordFromLinkedEvent(subscriptionEvent.EventAppeared)
 		if err != nil {
-			log.Printf("subscription: unable deserialize resolved event: %v", err)
+			log.Printf("subscription: unable to deserialize resolved event: %v", err)
 			return
 		}
 

@@ -1,7 +1,6 @@
 package paging_test
 
 import (
-	"fmt"
 	"net/url"
 	"testing"
 
@@ -11,111 +10,99 @@ import (
 )
 
 const (
-	defaultItemsPerPage = 10
-	defaultPage         = 1
-	maxItemsPerPage     = 1000
+	defaultItemsPerPage = uint64(10)
+	defaultIndex        = uint64(0)
+	maxItemsPerPage     = uint64(1000)
 )
 
-func TestPaginationScenarios(t *testing.T) {
-	// Given
-	paginationTests := []struct {
-		itemsPerPage         string
-		page                 string
-		expectedItemsPerPage int
-		expectedPage         int
-	}{
-		{"", "", defaultItemsPerPage, defaultPage},
-		{"x", "z", defaultItemsPerPage, defaultPage},
-		{"-1", "-2", defaultItemsPerPage, defaultPage},
-		{"0", "0", defaultItemsPerPage, defaultPage},
-		{"1", "1", 1, 1},
-		{"10", "1", 10, 1},
-		{"500", "20", 500, 20},
-		{"99999", "20", maxItemsPerPage, 20},
-	}
+func TestPagination_Links(t *testing.T) {
+	t.Run("first page with a next page", func(t *testing.T) {
+		// Given
+		pagination := paging.NewPagination(1, 1, nil)
 
-	for _, tt := range paginationTests {
-		name := fmt.Sprintf("items:%s,page:%s->items:%d,page:%d",
-			tt.itemsPerPage, tt.page, tt.expectedItemsPerPage, tt.expectedPage)
-		t.Run(name, func(t *testing.T) {
-			// When
-			pagination := paging.NewPaginationFromString(tt.itemsPerPage, tt.page)
+		// When
+		links := pagination.Links("/foo/bar", 2)
 
-			// Then
-			assert.Equal(t, tt.expectedItemsPerPage, pagination.ItemsPerPage)
-			assert.Equal(t, tt.expectedPage, pagination.Page)
-		})
-	}
+		// Then
+		assert.Equal(t, "", links.Previous)
+		assert.Equal(t, "/foo/bar?current=2&itemsPerPage=1&previous=1", links.Next)
+	})
+
+	t.Run("second page with previous and next page", func(t *testing.T) {
+		// Given
+		pagination := paging.NewPagination(1, 2, []uint64{1})
+
+		// When
+		links := pagination.Links("/foo/bar", 3)
+
+		// Then
+		assert.Equal(t, "/foo/bar?current=1&itemsPerPage=1", links.Previous)
+		assert.Equal(t, "/foo/bar?current=3&itemsPerPage=1&previous=1%2C2", links.Next)
+	})
+
+	t.Run("third page with previous and next page", func(t *testing.T) {
+		// Given
+		pagination := paging.NewPagination(1, 3, []uint64{1, 2})
+
+		// When
+		links := pagination.Links("/foo/bar", 4)
+
+		// Then
+		assert.Equal(t, "/foo/bar?current=2&itemsPerPage=1&previous=1", links.Previous)
+		assert.Equal(t, "/foo/bar?current=4&itemsPerPage=1&previous=1%2C2%2C3", links.Next)
+	})
+
+	t.Run("fourth page with previous", func(t *testing.T) {
+		// Given
+		pagination := paging.NewPagination(1, 4, []uint64{1, 2, 3})
+
+		// When
+		links := pagination.Links("/foo/bar", 4)
+
+		// Then
+		assert.Equal(t, "/foo/bar?current=3&itemsPerPage=1&previous=1%2C2", links.Previous)
+		assert.Equal(t, "", links.Next)
+	})
 }
 
-func TestNewLinks_HasNextPage(t *testing.T) {
-	// Given
-	totalRecords := uint64(16)
-	pagination := paging.NewPagination(10, 1)
+func TestNewPagination(t *testing.T) {
+	t.Run("returns default value for itemsPerPage", func(t *testing.T) {
+		// Given
 
-	// When
-	links := pagination.Links("/foo/bar", totalRecords)
+		// When
+		pagination := paging.NewPagination(0, 0, nil)
 
-	// Then
-	assert.Equal(t, "", links.Previous)
-	assert.Equal(t, "/foo/bar?itemsPerPage=10&page=2", links.Next)
-}
+		// Then
+		assert.Equal(t, defaultItemsPerPage, pagination.ItemsPerPage)
+		assert.Equal(t, []uint64(nil), pagination.PreviousIndices)
+		assert.Equal(t, defaultIndex, pagination.CurrentIndex)
+	})
 
-func TestNewLinks_HasPreviousAndNextPage(t *testing.T) {
-	// Given
-	totalRecords := uint64(100)
-	pagination := paging.NewPagination(10, 2)
+	t.Run("returns max value for itemsPerPage", func(t *testing.T) {
+		// Given
 
-	// When
-	links := pagination.Links("/a/thing", totalRecords)
+		// When
+		pagination := paging.NewPagination(maxItemsPerPage+1, 1, []uint64{1})
 
-	// Then
-	assert.Equal(t, "/a/thing?itemsPerPage=10&page=1", links.Previous)
-	assert.Equal(t, "/a/thing?itemsPerPage=10&page=3", links.Next)
-}
-
-func TestNewLinks_HasPreviousAndNoNextPage(t *testing.T) {
-	// Given
-	totalRecords := uint64(20)
-	pagination := paging.NewPagination(10, 2)
-
-	// When
-	links := pagination.Links("/a/thing", totalRecords)
-
-	// Then
-	assert.Equal(t, "/a/thing?itemsPerPage=10&page=1", links.Previous)
-	assert.Equal(t, "", links.Next)
-}
-
-func TestNewPagination_ReturnsDefaultValueForItemsPerPage(t *testing.T) {
-	// When
-	pagination := paging.NewPagination(0, 0)
-
-	// Then
-	assert.Equal(t, defaultItemsPerPage, pagination.ItemsPerPage)
-	assert.Equal(t, defaultPage, pagination.Page)
-}
-
-func TestNewPagination_ReturnsMaxValueForItemsPerPage(t *testing.T) {
-	// When
-	pagination := paging.NewPagination(maxItemsPerPage+1, 1)
-
-	// Then
-	assert.Equal(t, maxItemsPerPage, pagination.ItemsPerPage)
+		// Then
+		assert.Equal(t, maxItemsPerPage, pagination.ItemsPerPage)
+	})
 }
 
 func TestNewPaginationFromQuery(t *testing.T) {
 	// Given
 	values := url.Values{}
-	values.Set("itemsPerPage", "2")
-	values.Set("page", "3")
+	values.Set("itemsPerPage", "1")
+	values.Set("previous", "1,2,3")
+	values.Set("current", "4")
 
 	// When
 	pagination := paging.NewPaginationFromQuery(values)
 
 	// Then
-	assert.Equal(t, 2, pagination.ItemsPerPage)
-	assert.Equal(t, 3, pagination.Page)
+	assert.Equal(t, uint64(1), pagination.ItemsPerPage)
+	assert.Equal(t, []uint64{1, 2, 3}, pagination.PreviousIndices)
+	assert.Equal(t, uint64(4), pagination.CurrentIndex)
 }
 
 func TestNewPaginationFromQuery_UsingDefaultValues(t *testing.T) {
@@ -127,5 +114,5 @@ func TestNewPaginationFromQuery_UsingDefaultValues(t *testing.T) {
 
 	// Then
 	assert.Equal(t, defaultItemsPerPage, pagination.ItemsPerPage)
-	assert.Equal(t, defaultPage, pagination.Page)
+	assert.Equal(t, defaultIndex, pagination.CurrentIndex)
 }

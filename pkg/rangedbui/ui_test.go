@@ -84,7 +84,7 @@ func Test_AggregateType(t *testing.T) {
 
 	t.Run("renders events by aggregate type, one record per page, 1st page", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest(http.MethodGet, "/a/thing?itemsPerPage=1&page=1", nil)
+		request := httptest.NewRequest(http.MethodGet, "/a/thing?current=1&itemsPerPage=1", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -96,13 +96,14 @@ func Test_AggregateType(t *testing.T) {
 		assert.Contains(t, response.Body.String(), "thing (2)")
 		assert.Contains(t, response.Body.String(), "/s/thing-f6b6f8ed682c4b5180f625e53b3c4bac")
 		assert.NotContains(t, response.Body.String(), "/s/thing-1ce1d596e54744b3b878d579ccc31d81")
-		assert.NotContains(t, response.Body.String(), "/a/thing?itemsPerPage=1&amp;page=1")
-		assert.Contains(t, response.Body.String(), "/a/thing?itemsPerPage=1&amp;page=2")
+		assert.NotContains(t, response.Body.String(), "/s/another-5e4a649230924041a7ccf18887ccc153")
+		assert.Contains(t, response.Body.String(), `pagination-previous disabled`)
+		assert.Contains(t, response.Body.String(), "/a/thing?current=3&amp;itemsPerPage=1&amp;previous=1")
 	})
 
 	t.Run("renders events by aggregate type, one record per page, 2nd page", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest(http.MethodGet, "/a/thing?itemsPerPage=1&page=2", nil)
+		request := httptest.NewRequest(http.MethodGet, "/a/thing?current=3&itemsPerPage=1&previous=1", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -114,9 +115,8 @@ func Test_AggregateType(t *testing.T) {
 		assert.Contains(t, response.Body.String(), "thing (2)")
 		assert.NotContains(t, response.Body.String(), "/s/thing-f6b6f8ed682c4b5180f625e53b3c4bac")
 		assert.Contains(t, response.Body.String(), "/s/thing-1ce1d596e54744b3b878d579ccc31d81")
-		assert.Contains(t, response.Body.String(), "/a/thing?itemsPerPage=1&amp;page=1")
-		assert.NotContains(t, response.Body.String(), "/a/thing?itemsPerPage=1&amp;page=2")
-		assert.NotContains(t, response.Body.String(), "/a/thing?itemsPerPage=1&amp;page=3")
+		assert.Contains(t, response.Body.String(), "/a/thing?current=1&amp;itemsPerPage=1")
+		assert.Contains(t, response.Body.String(), "pagination-next disabled")
 	})
 }
 
@@ -147,7 +147,7 @@ func Test_Stream(t *testing.T) {
 
 	t.Run("renders events by stream, one record per page, 1st page", func(t *testing.T) {
 		// Given
-		request := httptest.NewRequest(http.MethodGet, "/s/thing-f6b6f8ed682c4b5180f625e53b3c4bac?itemsPerPage=1&page=1", nil)
+		request := httptest.NewRequest(http.MethodGet, "/s/thing-f6b6f8ed682c4b5180f625e53b3c4bac?itemsPerPage=1&current=1", nil)
 		response := httptest.NewRecorder()
 
 		// When
@@ -159,8 +159,8 @@ func Test_Stream(t *testing.T) {
 		assert.Contains(t, response.Body.String(), "thing-f6b6f8ed682c4b5180f625e53b3c4bac (2)")
 		assert.Contains(t, response.Body.String(), "f6b6f8ed682c4b5180f625e53b3c4bac")
 		assert.NotContains(t, response.Body.String(), "01f96eb13c204a7699d2138e7d64639b")
-		assert.NotContains(t, response.Body.String(), "/s/thing-f6b6f8ed682c4b5180f625e53b3c4bac?itemsPerPage=1&amp;page=1")
-		assert.Contains(t, response.Body.String(), "/s/thing-f6b6f8ed682c4b5180f625e53b3c4bac?itemsPerPage=1&amp;page=2")
+		assert.Contains(t, response.Body.String(), "pagination-previous disabled")
+		assert.Contains(t, response.Body.String(), "/s/thing-f6b6f8ed682c4b5180f625e53b3c4bac?current=2&amp;itemsPerPage=1")
 	})
 }
 
@@ -360,7 +360,7 @@ func storeWithTwoEvents(t *testing.T, options ...inmemorystore.Option) (rangedb.
 			Number: 0,
 		}},
 	)
-	rangedbtest.SaveEvents(t, store, "thing-5e4a649230924041a7ccf18887ccc153",
+	rangedbtest.SaveEvents(t, store, "another-5e4a649230924041a7ccf18887ccc153",
 		&rangedb.EventRecord{Event: rangedbtest.AnotherWasComplete{
 			ID: "5e4a649230924041a7ccf18887ccc153",
 		}},

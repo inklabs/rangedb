@@ -172,14 +172,22 @@ func (a *webUI) aggregateType(w http.ResponseWriter, r *http.Request) {
 	aggregateTypeName := mux.Vars(r)["aggregateType"]
 	pagination := paging.NewPaginationFromQuery(r.URL.Query())
 
-	globalSequenceNumber := uint64(pagination.FirstRecordPosition())
+	globalSequenceNumber := pagination.CurrentIndex
 	records := rangedb.ReadNRecords(
-		uint64(pagination.ItemsPerPage),
+		pagination.ItemsPerPage+1,
 		func() (rangedb.RecordIterator, context.CancelFunc) {
 			ctx, done := context.WithCancel(r.Context())
 			return a.store.EventsByAggregateTypes(ctx, globalSequenceNumber, aggregateTypeName), done
 		},
 	)
+
+	nextIndex := pagination.CurrentIndex
+	if len(records) > int(pagination.ItemsPerPage) {
+		lastRecord := records[len(records)-1]
+		nextIndex = lastRecord.GlobalSequenceNumber
+
+		records = records[:len(records)-1]
+	}
 
 	baseURI := fmt.Sprintf("/a/%s", aggregateTypeName)
 	totalRecords := a.aggregateTypeStats.TotalEventsByAggregateType(aggregateTypeName)
@@ -189,7 +197,7 @@ func (a *webUI) aggregateType(w http.ResponseWriter, r *http.Request) {
 			Name:        aggregateTypeName,
 			TotalEvents: totalRecords,
 		},
-		PaginationLinks: pagination.Links(baseURI, totalRecords),
+		PaginationLinks: pagination.Links(baseURI, nextIndex),
 		Records:         records,
 	})
 }
@@ -204,14 +212,22 @@ func (a *webUI) stream(w http.ResponseWriter, r *http.Request) {
 	streamName := mux.Vars(r)["streamName"]
 	pagination := paging.NewPaginationFromQuery(r.URL.Query())
 
-	streamSequenceNumber := uint64(pagination.FirstRecordPosition())
+	streamSequenceNumber := pagination.CurrentIndex
 	records := rangedb.ReadNRecords(
-		uint64(pagination.ItemsPerPage),
+		pagination.ItemsPerPage+1,
 		func() (rangedb.RecordIterator, context.CancelFunc) {
 			ctx, done := context.WithCancel(r.Context())
 			return a.store.EventsByStream(ctx, streamSequenceNumber, streamName), done
 		},
 	)
+
+	nextIndex := pagination.CurrentIndex
+	if len(records) > int(pagination.ItemsPerPage) {
+		lastRecord := records[len(records)-1]
+		nextIndex = lastRecord.StreamSequenceNumber
+
+		records = records[:len(records)-1]
+	}
 
 	baseURI := fmt.Sprintf("/s/%s", streamName)
 	totalRecords, err := a.store.TotalEventsInStream(r.Context(), streamName)
@@ -226,7 +242,7 @@ func (a *webUI) stream(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.renderWithValues(w, "stream.gohtml", streamTemplateVars{
-		PaginationLinks: pagination.Links(baseURI, totalRecords),
+		PaginationLinks: pagination.Links(baseURI, nextIndex),
 		Records:         records,
 		StreamInfo: StreamInfo{
 			Name:        streamName,
