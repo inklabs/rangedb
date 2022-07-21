@@ -16,6 +16,8 @@ and web server along with a library for embedding event sourced applications.
 
 Examples are provided [here](examples).
 
+[Upcoming topics](https://github.com/inklabs/rangedb/wiki/Upcoming-Topics)
+
 ## Docker
 
 ```
