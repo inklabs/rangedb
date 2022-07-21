@@ -11,14 +11,27 @@
 [![Sourcegraph](https://sourcegraph.com/github.com/inklabs/rangedb/-/badge.svg)](https://sourcegraph.com/github.com/inklabs/rangedb?badge)
 [![License](https://img.shields.io/github/license/inklabs/rangedb.svg)](https://github.com/inklabs/rangedb/blob/master/LICENSE)
 
-An event store database in Go. This package includes a stand-alone database
+RangeDB is an event store database written in Go. This package includes a stand-alone database
 and web server along with a library for embedding event sourced applications.
 
 Examples are provided [here](examples).
 
-[Upcoming topics](https://github.com/inklabs/rangedb/wiki/Upcoming-Topics)
+## Backend Engines
 
-## Docker
+RangeDB supports various backend database engines.
+
+- [PostgreSQL](https://www.postgresql.org/)
+- [LevelDB](https://github.com/google/leveldb)
+- [EventStoreDB](https://www.eventstore.com/eventstoredb)
+- [In Memory](https://github.com/inklabs/rangedb/tree/master/provider/inmemorystore)
+
+### Coming Soon:
+
+- [Redis](https://redis.com/)
+- [Amazon DynamoDB](https://aws.amazon.com/dynamodb/)
+- [Axon Server](https://developer.axoniq.io/axon-server)
+
+## Docker Quickstart
 
 ```
 docker run -p 8080:8080 inklabs/rangedb
@@ -26,10 +39,9 @@ docker run -p 8080:8080 inklabs/rangedb
 
 ## Community
 
-### DDD-CQRS-ES slack group:
+- [DDD-CQRS-ES slack group](https://github.com/ddd-cqrs-es/slack-community) channel: #rangedb
+- [Upcoming topics](https://github.com/inklabs/rangedb/wiki/Upcoming-Topics) for monthly pairing sessions
 
-* https://github.com/ddd-cqrs-es/slack-community
-* channel: #rangedb
 
 ## Projects using RangeDB
 
